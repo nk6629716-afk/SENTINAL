@@ -442,149 +442,154 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* 4. Common Operational Picture (Tactical Map) & Real-time Operational Ledger */}
-      <div className="grid grid-cols-3" style={{ alignItems: 'start' }}>
-        {/* Left Column (2 spans): Map View */}
-        <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div className="neu-card" style={{ padding: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Layers size={18} color="var(--accent)" />
-                <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                  Common Operational Picture (COP)
-                </h3>
-              </div>
-
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <span className="badge-neu badge-neu-info">{tracks.length} Airspace Tracks</span>
-                <span className="badge-neu badge-neu-warn">{incidents.length} Ground Incidents</span>
-              </div>
+      {/* 4. Common Operational Picture (Full-Width High-Resolution Radar Scope) */}
+      <div className="neu-card" style={{ padding: '20px', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Layers size={20} color="var(--accent)" />
+            <div>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+                Common Operational Picture (COP)
+              </h3>
+              <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                Full-spectrum tactical airspace tracking, ground incident telemetry, and hazard-aware evacuation corridors
+              </p>
             </div>
+          </div>
 
-            <TacticalMap
-              incidents={incidents}
-              tracks={tracks}
-              zones={zones}
-              nodes={nodes}
-              edges={hazards}
-              height="480px"
-              onSelectEntity={(e) => setSelectedEntity(e)}
-            />
-
-            {/* Selected Map Entity Inspection Card */}
-            {selectedEntity && (
-              <div
-                className="neu-inset"
-                style={{
-                  marginTop: '12px',
-                  padding: '12px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
-                    Inspected {selectedEntity.type}: {selectedEntity.id}
-                  </div>
-                  <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                    {selectedEntity.raw?.title || selectedEntity.raw?.callsign || selectedEntity.raw?.name}
-                  </div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                    {selectedEntity.raw?.notes || selectedEntity.raw?.explanation || `Type: ${selectedEntity.raw?.type || 'Tactical Entity'}`}
-                  </div>
-                </div>
-
-                <button
-                  className="btn-neu btn-neu-sm"
-                  onClick={() => {
-                    if (selectedEntity.type === 'incident') onNavigate('fieldlink');
-                    if (selectedEntity.type === 'track') onNavigate('skywatch');
-                    if (selectedEntity.type === 'node') onNavigate('mediroute');
-                  }}
-                >
-                  <span>Open in Workspace</span>
-                  <ExternalLink size={12} />
-                </button>
-              </div>
-            )}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <span className="badge-neu badge-neu-info">{tracks.length} Airspace Tracks</span>
+            <span className="badge-neu badge-neu-warn">{incidents.length} Ground Incidents</span>
+            <span className="badge-neu badge-neu-ok">{nodes.length} Evacuation Facilities</span>
           </div>
         </div>
 
-        {/* Right Column (1 span): Operational Event Ledger */}
-        <div style={{ gridColumn: 'span 1' }}>
-          <div className="neu-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ fontWeight: 800, fontSize: '0.98rem', color: 'var(--text-primary)' }}>
-                Operational Activity Feed
+        <TacticalMap
+          incidents={incidents}
+          tracks={tracks}
+          zones={zones}
+          nodes={nodes}
+          edges={hazards}
+          height="680px"
+          onSelectEntity={(e) => setSelectedEntity(e)}
+        />
+
+        {/* Selected Map Entity Inspection Card */}
+        {selectedEntity && (
+          <div
+            className="neu-inset"
+            style={{
+              marginTop: '16px',
+              padding: '14px 18px',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+              border: '1px solid var(--accent)',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                INSPECTED {selectedEntity.type}: {selectedEntity.id}
               </div>
-              <span className="badge-neu badge-neu-neutral">REAL-TIME</span>
+              <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
+                {selectedEntity.raw?.title || selectedEntity.raw?.callsign || selectedEntity.raw?.name}
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                {selectedEntity.raw?.notes || selectedEntity.raw?.explanation || `Type: ${selectedEntity.raw?.type || 'Tactical Entity'}`}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, maxHeight: '480px', paddingRight: '4px' }}>
-              {[
-                ...alerts.map((a) => ({
-                  id: a.id,
-                  title: `Airspace Alert: ${a.ruleName}`,
-                  notes: a.explanation,
-                  source: 'SkyWatch',
-                  priority: a.severity,
-                  timestamp: a.timestamp,
-                })),
-                ...incidents.map((i) => ({
-                  id: i.id,
-                  title: i.title,
-                  notes: i.notes,
-                  source: `FieldLink (${i.sourceModule})`,
-                  priority: i.priority,
-                  timestamp: i.createdAt,
-                })),
-              ]
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className="neu-inset"
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: 'var(--radius-md)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span
-                        className={`badge-neu ${
-                          item.priority === 'critical'
-                            ? 'badge-neu-crit'
-                            : item.priority === 'high'
-                            ? 'badge-neu-warn'
-                            : 'badge-neu-info'
-                        }`}
-                        style={{ fontSize: '0.62rem', padding: '1px 5px' }}
-                      >
-                        {item.source}
-                      </span>
-                      <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                        {new Date(item.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
-
-                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>
-                      {item.title}
-                    </div>
-
-                    <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
-                      {item.notes}
-                    </div>
-                  </div>
-                ))}
-            </div>
+            <button
+              className="btn-neu btn-neu-sm btn-neu-primary"
+              onClick={() => {
+                if (selectedEntity.type === 'incident') onNavigate('fieldlink');
+                if (selectedEntity.type === 'track') onNavigate('skywatch');
+                if (selectedEntity.type === 'node') onNavigate('mediroute');
+              }}
+            >
+              <span>Open in Dedicated Module</span>
+              <ExternalLink size={13} />
+            </button>
           </div>
+        )}
+      </div>
+
+      {/* 5. Operational Activity Feed (Shifted Below Radar Map) */}
+      <div className="neu-card" style={{ padding: '20px', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              CROSS-DOMAIN CHRONOLOGY
+            </div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '2px 0 0 0', color: 'var(--text-primary)' }}>
+              Operational Activity Feed
+            </h3>
+          </div>
+          <span className="badge-neu badge-neu-neutral">REAL-TIME MULTI-SOURCE FEED</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
+          {[
+            ...alerts.map((a) => ({
+              id: a.id,
+              title: `Airspace Alert: ${a.ruleName}`,
+              notes: a.explanation,
+              source: 'SkyWatch',
+              priority: a.severity,
+              timestamp: a.timestamp,
+            })),
+            ...incidents.map((i) => ({
+              id: i.id,
+              title: i.title,
+              notes: i.notes,
+              source: `FieldLink (${i.sourceModule})`,
+              priority: i.priority,
+              timestamp: i.createdAt,
+            })),
+          ]
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+            .map((item) => (
+              <div
+                key={item.id}
+                className="neu-inset"
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span
+                    className={`badge-neu ${
+                      item.priority === 'critical'
+                        ? 'badge-neu-crit'
+                        : item.priority === 'high'
+                        ? 'badge-neu-warn'
+                        : 'badge-neu-info'
+                    }`}
+                    style={{ fontSize: '0.62rem', padding: '1px 6px' }}
+                  >
+                    {item.source}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                    {new Date(item.timestamp).toLocaleTimeString()} UTC
+                  </span>
+                </div>
+
+                <div style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)' }}>
+                  {item.title}
+                </div>
+
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  {item.notes}
+                </div>
+              </div>
+            ))}
         </div>
       </div>
     </div>
