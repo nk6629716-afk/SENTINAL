@@ -13,6 +13,8 @@ export interface ServerConfig {
   sseHeartbeatIntervalMs: number;
   telemetryTickIntervalMs: number;
   enableAutoTelemetry: boolean;
+  supabaseUrl?: string;
+  supabaseServiceRoleKey?: string;
 }
 
 export const config: ServerConfig = {
@@ -25,4 +27,6 @@ export const config: ServerConfig = {
   sseHeartbeatIntervalMs: parseInt(process.env.SSE_HEARTBEAT_INTERVAL_MS || '15000', 10),
   telemetryTickIntervalMs: parseInt(process.env.TELEMETRY_TICK_INTERVAL_MS || '3000', 10),
   enableAutoTelemetry: process.env.ENABLE_AUTO_TELEMETRY === 'true',
+  supabaseUrl: process.env.SUPABASE_URL || 'https://cajrbzfsfsimxweomrlt.supabase.co',
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '',
 };
