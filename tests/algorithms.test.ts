@@ -29,6 +29,11 @@ import {
   getKnownDifferenceMatrixFixture,
   validateImageMatrices
 } from '../src/algorithms/geointel/imageDiff';
+import type { CandidateRegion } from '../src/algorithms/geointel/imageDiff';
+import {
+  rasterizeSyntheticSvgTerrain,
+  mapRegionToCandidate
+} from '../src/modules/geointel/utils/canvasRaster';
 
 import {
   MediRouteTriageEngine
@@ -239,6 +244,127 @@ export function runAllAlgorithmTests(): { passed: number; total: number; logs: s
     assert(c.bbox.height === fixture.expectedBbox.height, `BBox Height must match ${fixture.expectedBbox.height}`);
     assert(c.areaPixels === 16, 'Area should be 16 pixels');
     assert(c.differenceScore > 0.4, 'Difference score should be significant');
+  });
+
+  test('GeoIntel: Noise and threshold behavior are deterministic', () => {
+    const diff = new GeoIntelImageDiff({ threshold: 40, minRegionPixels: 4 });
+    const width = 16;
+    const height = 16;
+    const before = { id: 'b', label: 'b', width, height, data: new Array(width * height).fill(100) };
+    const afterWithNoise = { id: 'a', label: 'a', width, height, data: new Array(width * height).fill(100) };
+
+    // Sub-threshold noise (delta = 25 < threshold 40)
+    for (let y = 4; y < 8; y++) {
+      for (let x = 4; x < 8; x++) {
+        afterWithNoise.data[y * width + x] = 125;
+      }
+    }
+    const noiseCandidates = diff.analyze(before, afterWithNoise);
+    assert(noiseCandidates.length === 0, 'Sub-threshold variations must be deterministically rejected as noise');
+
+    // Supra-threshold change (delta = 50 > threshold 40)
+    for (let y = 4; y < 8; y++) {
+      for (let x = 4; x < 8; x++) {
+        afterWithNoise.data[y * width + x] = 150;
+      }
+    }
+    const supraCandidates = diff.analyze(before, afterWithNoise);
+    assert(supraCandidates.length === 1, 'Supra-threshold difference must be detected');
+    assert(supraCandidates[0].areaPixels === 16, 'Detected cluster must have 16 pixels');
+  });
+
+  test('GeoIntel: Minimum region-size filtering works', () => {
+    const diff = new GeoIntelImageDiff({ threshold: 30, minRegionPixels: 5 });
+    const width = 10;
+    const height = 10;
+    const before = { id: 'b', label: 'b', width, height, data: new Array(100).fill(50) };
+    const after = { id: 'a', label: 'a', width, height, data: new Array(100).fill(50) };
+
+    // Inject a 3-pixel speckle (below minRegionPixels of 5)
+    after.data[0] = 200;
+    after.data[1] = 200;
+    after.data[2] = 200;
+
+    const speckleResult = diff.analyze(before, after);
+    assert(speckleResult.length === 0, 'Speckle of 3 pixels must be filtered out when minRegionPixels is 5');
+
+    // Expand speckle to 6 pixels (>= 5)
+    after.data[10] = 200;
+    after.data[11] = 200;
+    after.data[12] = 200;
+
+    const validResult = diff.analyze(before, after);
+    assert(validResult.length === 1, '6-pixel cluster must pass minRegionPixels filter');
+    assert(validResult[0].areaPixels === 6, 'Area should be exactly 6 pixels');
+  });
+
+  test('GeoIntel: Candidate coordinates are correctly transformed into displayed overlay coordinate system', () => {
+    const region: CandidateRegion = {
+      id: 'reg-1',
+      bbox: { x: 64, y: 36, width: 32, height: 18 },
+      areaPixels: 576,
+      differenceScore: 0.65,
+      centroid: { x: 80, y: 45 },
+      boundaryPoints: [],
+      algorithmSettings: { threshold: 30, minRegionPixels: 8, blurRadius: 0 },
+      explanation: 'Radiometric change cluster'
+    };
+
+    const candidate = mapRegionToCandidate(region, 0, 256, 144, { lat: 34.0522, lng: -118.2437 });
+
+    // Normalized bounds [0..100%]
+    // x: 64 / 256 * 100 = 25.0%
+    // y: 36 / 144 * 100 = 25.0%
+    // w: 32 / 256 * 100 = 12.5%
+    // h: 18 / 144 * 100 = 12.5%
+    assert(candidate.boundingBox.x === 25.0, `Normalized X should be 25.0, got ${candidate.boundingBox.x}`);
+    assert(candidate.boundingBox.y === 25.0, `Normalized Y should be 25.0, got ${candidate.boundingBox.y}`);
+    assert(candidate.boundingBox.width === 12.5, `Normalized W should be 12.5, got ${candidate.boundingBox.width}`);
+    assert(candidate.boundingBox.height === 12.5, `Normalized H should be 12.5, got ${candidate.boundingBox.height}`);
+
+    // Check SVG overlay coordinate translation (viewBox: 0 0 700 340)
+    const svgX = (candidate.boundingBox.x / 100) * 700;
+    const svgY = (candidate.boundingBox.y / 100) * 340;
+    const svgW = (candidate.boundingBox.width / 100) * 700;
+    const svgH = (candidate.boundingBox.height / 100) * 340;
+    assert(svgX === 175, `SVG X should be 175, got ${svgX}`);
+    assert(svgY === 85, `SVG Y should be 85, got ${svgY}`);
+    assert(svgW === 87.5, `SVG W should be 87.5, got ${svgW}`);
+    assert(svgH === 42.5, `SVG H should be 42.5, got ${svgH}`);
+
+    // Verify MGRS coordinate string generated
+    assert(typeof candidate.mgrsCoordinate === 'string' && candidate.mgrsCoordinate.length > 5, 'MGRS coordinate must be populated');
+
+    // Verify non-military objective terminology
+    const labelLower = candidate.label.toLowerCase();
+    assert(!labelLower.includes('hostile') && !labelLower.includes('military') && !labelLower.includes('target'), 'Must not classify as hostile/military target');
+  });
+
+  test('GeoIntel: Synthetic terrain rasterizer generates valid matrix pair and extracts detected change clusters', () => {
+    const before = rasterizeSyntheticSvgTerrain(false, 256, 144);
+    const after = rasterizeSyntheticSvgTerrain(true, 256, 144);
+
+    assert(before.data.length === 256 * 144, 'Before matrix data length must match width * height');
+    assert(after.data.length === 256 * 144, 'After matrix data length must match width * height');
+
+    const diff = new GeoIntelImageDiff({ threshold: 30, minRegionPixels: 8 });
+    const candidates = diff.analyze(before, after);
+
+    assert(candidates.length >= 3, `Expected at least 3 detected change clusters from synthetic terrain alterations, got ${candidates.length}`);
+    for (const c of candidates) {
+      assert(c.bbox.x >= 0 && c.bbox.x + c.bbox.width <= 256, 'Bounding box X bounds within matrix dimensions');
+      assert(c.bbox.y >= 0 && c.bbox.y + c.bbox.height <= 144, 'Bounding box Y bounds within matrix dimensions');
+      assert(c.areaPixels >= 8, 'Area pixels exceeds minimum region threshold');
+      assert(c.differenceScore > 0, 'Difference score is strictly positive');
+    }
+  });
+
+  test('GeoIntel: Identical synthetic terrain produces empty detection result without hanging', () => {
+    const before = rasterizeSyntheticSvgTerrain(false, 256, 144);
+    const diff = new GeoIntelImageDiff({ threshold: 30, minRegionPixels: 8 });
+    const candidates = diff.analyze(before, before);
+
+    assert(candidates.length === 0, 'Identical synthetic terrain must return exactly 0 candidate regions');
   });
 
   test('GeoIntel: Dimension mismatch returns clear structured error', () => {

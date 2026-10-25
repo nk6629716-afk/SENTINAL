@@ -1,4 +1,9 @@
-import {
+export type {
+  CandidateRegion,
+  BoundingBox,
+  GeoIntelReport
+} from '../../../shared/contracts';
+import type {
   CandidateRegion,
   BoundingBox,
   GeoIntelReport
