@@ -1,7 +1,15 @@
 /**
- * SENTINEL - API Endpoint Contracts and Constants
- * Single source of truth for routes and error codes.
+ * SENTINEL — Shared Data Contracts & Type Definitions
+ * 
+ * Single source of truth for all modules:
+ * - Module 1: FieldLink (Offline Reports & Queue Sync)
+ * - Module 2: SkyWatch (Counter-Drone Telemetry & Anomaly Alerts)
+ * - Module 3: GeoIntel (Reconnaissance Image Diff & Candidate Regions)
+ * - Module 4: MediRoute (Emergency Triage & Hazard-Aware Routing)
+ * - Unified Operations Dashboard & Cross-Module Scenario
  */
+
+export const API_BASE_URL = '/api';
 
 export const API_ROUTES = {
   HEALTH: '/api/health',
@@ -19,6 +27,7 @@ export const API_ROUTES = {
   HAZARDS: '/api/hazards',
   HAZARD_BY_ID: (id: string) => `/api/hazards/${id}`,
   ROUTES_CALCULATE: '/api/routes/calculate',
+  ROUTES_GRAPH: '/api/routes/graph',
   DEMO_RESET: '/api/demo/reset',
   DEMO_SEED: '/api/demo/seed',
   EVENTS_SSE: '/api/events',
@@ -34,3 +43,5 @@ export const ERROR_CODES = {
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+
+export * from './types';

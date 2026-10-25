@@ -1,23 +1,20 @@
 /**
- * SENTINEL - Shared Types and Domain Contracts
- * Shared across Person 1 (Frontend), Person 2 (Backend), and Person 3 (Algorithms).
- * 
- * NOTE: All data is fictional and clearly labeled as simulated.
+ * SENTINEL Shared Project Contracts & Type Definitions
+ * Single source of truth for frontend (Person 1), backend (Person 2), and algorithms (Person 3).
+ * ALL records must explicitly carry `isSimulated: true` for honest simulation labeling.
  */
 
-// --------------------------------------------------------------------------
-// Core & Common Types
-// --------------------------------------------------------------------------
+export type ModuleSource = 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'system';
+export type SourceModule = ModuleSource;
 
-export type SourceModule = 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'system';
+export type PriorityLevel = 'low' | 'medium' | 'high' | 'critical';
 
-export type PriorityLevel = 'critical' | 'high' | 'medium' | 'low';
-
-export interface GeoPoint {
+export interface GeoLocation {
+  name?: string;
   lat: number;
   lng: number;
-  name?: string;
 }
+export type GeoPoint = GeoLocation;
 
 export interface ApiErrorPayload {
   code: string;
@@ -35,11 +32,17 @@ export interface ApiResponse<T = unknown> {
   };
 }
 
-// --------------------------------------------------------------------------
-// 1. Incident Reports (FieldLink & Shared Awareness)
-// --------------------------------------------------------------------------
-
+// -------------------------------------------------------------
+// MODULE 1: FIELDLINK (Offline Tactical Communication)
+// -------------------------------------------------------------
 export type IncidentType =
+  | 'security_breach'
+  | 'medical_evac'
+  | 'drone_incursion'
+  | 'recon_anomaly'
+  | 'infrastructure_damage'
+  | 'communication_loss'
+  | 'road_blockage'
   | 'medical'
   | 'hazard'
   | 'hostile_drone'
@@ -47,23 +50,29 @@ export type IncidentType =
   | 'recon'
   | 'general';
 
-export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'archived';
+export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'pending_sync' | 'archived';
+export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
-export interface Incident {
+export interface IncidentReport {
   id: string;
-  clientId?: string; // Client-side idempotency/tracking key
-  sourceModule: SourceModule;
+  sourceModule: ModuleSource;
   type: IncidentType;
   priority: PriorityLevel;
-  status: IncidentStatus;
   title: string;
   notes: string;
-  location: GeoPoint;
-  createdAt: string; // ISO 8601 (preserved client creation time)
+  location: GeoLocation;
+  createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
-  syncedAt?: string;  // ISO 8601 (server receipt time)
+  status: IncidentStatus;
   isSimulated: true;
+  clientId?: string; // Idempotency key for offline queue
+  syncStatus?: SyncStatus;
+  syncAttempts?: number;
+  syncErrorMessage?: string;
+  syncedAt?: string;
 }
+
+export type Incident = IncidentReport;
 
 export interface CreateIncidentInput {
   clientId?: string;
@@ -72,7 +81,7 @@ export interface CreateIncidentInput {
   priority: PriorityLevel;
   title: string;
   notes: string;
-  location: GeoPoint;
+  location: GeoLocation;
   status?: IncidentStatus;
   createdAt?: string;
 }
@@ -84,49 +93,77 @@ export interface UpdateIncidentInput {
   title?: string;
 }
 
-// --------------------------------------------------------------------------
-// 2. Offline Synchronization (FieldLink Batch Sync)
-// --------------------------------------------------------------------------
+export interface OfflineSyncPayload {
+  clientId: string;
+  report: IncidentReport;
+  clientTimestamp: string;
+}
 
 export type SyncItemOutcome = 'accepted' | 'already_received' | 'rejected';
 
+export interface SyncResponseItem {
+  clientId: string;
+  serverId?: string;
+  outcome: SyncItemOutcome;
+  status?: SyncItemOutcome; // alias for outcome
+  errorCode?: string;
+  errorMessage?: string;
+  reason?: string;
+  syncedAt?: string;
+  syncTimestamp?: string;
+}
+
+export type SyncItemResult = SyncResponseItem;
+
 export interface SyncBatchItem {
-  clientId: string; // Unique client-generated ID
+  clientId: string;
   sourceModule: SourceModule;
   type: IncidentType;
   priority: PriorityLevel;
   title: string;
   notes: string;
-  location: GeoPoint;
-  createdAt: string; // Client-side generation timestamp
+  location: GeoLocation;
+  createdAt: string;
   status?: IncidentStatus;
-}
-
-export interface SyncItemResult {
-  clientId: string;
-  serverId: string | null;
-  status: SyncItemOutcome;
-  reason?: string;
-  syncedAt: string;
 }
 
 export interface SyncBatchRequest {
   batchId?: string;
-  items: SyncBatchItem[];
+  items?: SyncBatchItem[];
+  reports?: OfflineSyncPayload[];
 }
 
-export interface SyncBatchResponse {
-  results: SyncItemResult[];
-  processedCount: number;
+export interface BatchSyncResult {
+  totalSubmitted: number;
   acceptedCount: number;
   duplicateCount: number;
   rejectedCount: number;
-  processedAt: string;
+  items: SyncResponseItem[];
+  results?: SyncResponseItem[];
+  processedCount?: number;
+  processedAt?: string;
 }
 
-// --------------------------------------------------------------------------
-// 3. Counter-Drone Monitoring (SkyWatch)
-// --------------------------------------------------------------------------
+export type SyncBatchResponse = BatchSyncResult;
+
+// -------------------------------------------------------------
+// MODULE 2: SKYWATCH (Counter-Drone Monitoring & Airspace Security)
+// -------------------------------------------------------------
+export type TrackType =
+  | 'friendly_uav'
+  | 'unknown_quadcopter'
+  | 'fast_mover'
+  | 'commercial_fixed_wing'
+  | 'stealth_incursion';
+
+export type TrackStatus = 'tracking' | 'suspicious' | 'hostile' | 'lost_signal';
+
+export interface Waypoint {
+  lat: number;
+  lng: number;
+  altitude: number;
+  timestamp: string;
+}
 
 export interface TelemetryPosition {
   lat: number;
@@ -135,26 +172,43 @@ export interface TelemetryPosition {
 }
 
 export interface TelemetryTrack {
-  id: string; // e.g. "TRK-001"
+  id: string;
   callsign: string;
-  position: TelemetryPosition;
-  speedKts: number;
-  headingDeg: number;
-  timestamp: string; // ISO 8601
-  isSimulated: true;
+  type?: TrackType;
+  position?: TelemetryPosition;
+  lat?: number;
+  lng?: number;
+  altitude?: number; // meters AGL
+  altitudeMeters?: number;
+  speed?: number; // m/s
+  speedKts?: number;
+  heading?: number; // 0-360 degrees
+  headingDeg?: number;
+  timestamp: string;
+  status?: TrackStatus;
+  flightHistory?: Waypoint[];
   anomalyFlags?: string[];
+  isSimulated: true;
 }
 
 export type AnomalyRuleName =
-  | 'SUDDEN_ACCELERATION'
+  | 'NO_FLY_ZONE_INCURSION'
   | 'ZONE_INCURSION'
+  | 'RAPID_ACCELERATION_SPIKE'
+  | 'SUDDEN_ACCELERATION'
+  | 'UNUSUAL_ALTITUDE_DROP'
+  | 'FLIGHT_PATH_DEVIATION'
   | 'ROUTE_DEVIATION'
+  | 'STALE_TELEMETRY_SIGNAL'
   | 'STALE_TELEMETRY';
 
-export interface Alert {
+export type AlertSeverity = 'info' | 'warning' | 'high' | 'critical' | 'low' | 'medium';
+
+export interface AirspaceAlert {
   id: string;
-  trackId: string;
-  severity: PriorityLevel;
+  trackId?: string;
+  trackCallsign?: string;
+  severity: PriorityLevel | AlertSeverity;
   ruleName: AnomalyRuleName;
   observedValue: string | number;
   threshold: string | number;
@@ -162,48 +216,89 @@ export interface Alert {
   timestamp: string;
   acknowledged: boolean;
   acknowledgedAt?: string;
+  acknowledgedBy?: string;
   isSimulated: true;
 }
+
+export type Alert = AirspaceAlert;
 
 export interface UpdateAlertInput {
   acknowledged: boolean;
 }
 
-// --------------------------------------------------------------------------
-// 4. Geospatial Intelligence & Change Detection (GeoIntel)
-// --------------------------------------------------------------------------
+export interface RestrictedAirspaceZone {
+  id: string;
+  name: string;
+  type: 'no_fly' | 'military_patrol' | 'civilian_buffer';
+  center: GeoLocation;
+  radiusKm: number;
+  ceilingMeters: number;
+}
 
-export type GeoIntelReviewStatus =
-  | 'pending_review'
-  | 'confirmed_candidate'
-  | 'dismissed_false_positive';
-
+// -------------------------------------------------------------
+// MODULE 3: GEOINTEL (Geospatial Intelligence & Reconnaissance)
+// -------------------------------------------------------------
 export interface BoundingBox {
-  x: number; // 0.0 to 1.0 (normalized)
-  y: number; // 0.0 to 1.0 (normalized)
+  x: number;
+  y: number;
   width: number;
   height: number;
 }
 
+export interface ChangeCandidate {
+  id: string;
+  boundingBox: BoundingBox;
+  differenceScore: number; // 0.0 - 1.0 (e.g. 0.84 = 84% change)
+  label: string;
+  anomalyType:
+    | 'structure_alteration'
+    | 'vehicle_movement'
+    | 'terrain_disturbance'
+    | 'vegetation_clearing';
+  explanation: string;
+  reviewed: boolean;
+  analystNotes?: string;
+  confidence: number;
+}
+
+export type GeoIntelReviewStatus =
+  | 'pending'
+  | 'pending_review'
+  | 'reviewed'
+  | 'confirmed_candidate'
+  | 'escalated'
+  | 'dismissed'
+  | 'dismissed_false_positive';
+
 export interface GeoIntelObservation {
   id: string;
-  samplePairId: string;
-  beforeImageId: string;
-  afterImageId: string;
-  normalizedCoordinates: BoundingBox;
-  geoCoordinates?: GeoPoint;
-  differenceScore: number; // 0.0 - 1.0
-  algorithmSettings: {
-    threshold: number;
-    minRegionSize: number;
+  title?: string;
+  zoneName?: string;
+  samplePairId?: string;
+  beforeImageId?: string;
+  afterImageId?: string;
+  beforeImageUrl?: string;
+  afterImageUrl?: string;
+  coordinates?: GeoLocation;
+  geoCoordinates?: GeoLocation;
+  resolutionMeters?: number;
+  normalizedCoordinates?: BoundingBox;
+  differenceScore?: number;
+  explanation?: string;
+  candidates?: ChangeCandidate[];
+  algorithmSettings?: {
+    sensitivityThreshold?: number;
+    kernelSize?: number;
+    noiseReduction?: boolean;
+    threshold?: number;
+    minRegionSize?: number;
     blurRadius?: number;
   };
-  explanation: string;
-  analystNotes: string;
   reviewStatus: GeoIntelReviewStatus;
+  analystNotes?: string;
   reviewedAt?: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   isSimulated: true;
 }
 
@@ -212,7 +307,7 @@ export interface CreateGeoObservationInput {
   beforeImageId: string;
   afterImageId: string;
   normalizedCoordinates: BoundingBox;
-  geoCoordinates?: GeoPoint;
+  geoCoordinates?: GeoLocation;
   differenceScore: number;
   algorithmSettings: {
     threshold: number;
@@ -228,41 +323,53 @@ export interface UpdateGeoObservationInput {
   analystNotes?: string;
 }
 
-// --------------------------------------------------------------------------
-// 5. Emergency Medical Triage & Evacuation Routing (MediRoute)
-// --------------------------------------------------------------------------
-
+// -------------------------------------------------------------
+// MODULE 4: MEDIROUTE (Emergency Medical Triage & Evacuation)
+// -------------------------------------------------------------
 export type TriageCategory = 'immediate' | 'delayed' | 'minimal' | 'expectant';
 
-export type PatientWorkflowStatus =
+export type PatientStatus =
   | 'awaiting_assessment'
   | 'assessed'
   | 'assigned'
+  | 'in_transit'
   | 'evacuated';
 
+export type PatientWorkflowStatus = PatientStatus;
+
 export interface PatientVitals {
-  respiratoryRate?: number;
+  canWalk?: boolean;
+  ambulatory?: boolean;
+  respiratoryRate?: number; // breaths/min
+  radialPulsePresent?: boolean;
   pulsePresent?: boolean;
   canFollowCommands?: boolean;
-  ambulatory?: boolean;
+  mentalStatus?: 'can_follow_commands' | 'unresponsive' | 'altered';
+  severeBleedingControlled?: boolean;
 }
 
-export interface Patient {
+export interface CasualtyRecord {
   id: string;
-  fictionalName: string;
-  age: number;
+  patientCode?: string;
+  fictionalName?: string;
+  age?: number;
   gender?: string;
-  triageCategory: TriageCategory;
-  ruleVersion: string; // e.g. "DEMO_START_TRIAGE_V1"
-  triageReason: string;
-  workflowStatus: PatientWorkflowStatus;
+  location: GeoLocation;
   vitals: PatientVitals;
-  location: GeoPoint;
-  assignedFacilityId?: string;
+  triageCategory: TriageCategory;
+  ruleVersion: string; // e.g. "START_TACTICAL_DEMO_v1.0"
+  triageReason: string;
+  status: PatientStatus;
+  workflowStatus?: PatientStatus; // alias
+  assignedHospitalId?: string;
+  assignedFacilityId?: string; // alias
+  notes?: string;
   createdAt: string;
   updatedAt: string;
   isSimulated: true;
 }
+
+export type Patient = CasualtyRecord;
 
 export interface CreatePatientInput {
   fictionalName: string;
@@ -270,7 +377,7 @@ export interface CreatePatientInput {
   gender?: string;
   triageCategory?: TriageCategory;
   vitals: PatientVitals;
-  location: GeoPoint;
+  location: GeoLocation;
   workflowStatus?: PatientWorkflowStatus;
 }
 
@@ -281,17 +388,24 @@ export interface UpdatePatientInput {
   triageReason?: string;
 }
 
-export interface HazardEdge {
+export interface RoadHazardEdge {
   id: string;
-  edgeId: string;
-  fromNode: string;
-  toNode: string;
-  hazardType: 'road_blocked' | 'structural_damage' | 'unexploded_ordnance' | 'flooding';
+  name?: string;
+  edgeId?: string; // alias
+  fromNodeId?: string;
+  toNodeId?: string;
+  fromNode?: string; // alias
+  toNode?: string; // alias
+  distanceKm?: number;
   blocked: boolean;
-  reportedBy: string;
-  reportedAt: string;
+  hazardType?: 'debris' | 'hostile_activity' | 'bridge_collapse' | 'flooding' | 'unexploded_ordnance' | 'road_blocked' | 'structural_damage';
+  reportedBy?: string;
+  reportedAt?: string;
+  updatedAt?: string;
   isSimulated: true;
 }
+
+export type HazardEdge = RoadHazardEdge;
 
 export interface CreateHazardInput {
   edgeId: string;
@@ -302,13 +416,19 @@ export interface CreateHazardInput {
   reportedBy?: string;
 }
 
-export interface RoadGraphNode {
+export interface EvacuationNode {
   id: string;
-  label: string;
-  lat: number;
-  lng: number;
-  type: 'aid_station' | 'hospital' | 'casualty_site' | 'intersection';
+  name: string;
+  type: 'hospital' | 'aid_station' | 'casualty_pickup' | 'intersection' | 'casualty_site';
+  coordinates?: GeoLocation;
+  lat?: number;
+  lng?: number;
+  label?: string;
+  capacity?: number;
+  occupied?: number;
 }
+
+export type RoadGraphNode = EvacuationNode;
 
 export interface RoadGraphEdge {
   id: string;
@@ -318,43 +438,58 @@ export interface RoadGraphEdge {
   roadName: string;
 }
 
+export interface CalculatedRoute {
+  id?: string;
+  routeFound?: boolean;
+  sourceNodeId?: string;
+  destinationNodeId?: string;
+  startNodeId?: string;
+  totalDistanceKm: number;
+  estimatedMinutes?: number;
+  estimatedTimeMinutes?: number;
+  pathNodeIds: string[];
+  edgesTraversed?: any[];
+  avoidedHazardIds?: string[];
+  hazardsAvoided?: string[];
+  algorithmUsed?: 'Dijkstra-Hazard-Aware' | 'A*-Terrain-Cost';
+  hasActiveBlockage?: boolean;
+  alternativeFound?: boolean;
+  explanation?: string;
+  message?: string;
+  calculatedAt?: string;
+}
+
+export type RouteCalculationResponse = CalculatedRoute;
+
 export interface RouteCalculationRequest {
   startNodeId: string;
   destinationNodeId: string;
   avoidHazards?: boolean;
 }
 
-export interface RouteCalculationResponse {
-  routeFound: boolean;
-  pathNodeIds: string[];
-  edgesTraversed: Array<{
-    id: string;
-    from: string;
-    to: string;
-    distanceKm: number;
-    roadName: string;
-  }>;
-  totalDistanceKm: number;
-  estimatedTimeMinutes: number;
-  hazardsAvoided: string[];
-  message?: string;
-}
-
-// --------------------------------------------------------------------------
-// 6. Unified Dashboard Aggregate Summary
-// --------------------------------------------------------------------------
-
+// -------------------------------------------------------------
+// UNIFIED DASHBOARD SUMMARY & CROSS-MODULE
+// -------------------------------------------------------------
 export interface DashboardSummary {
-  metrics: {
+  systemStatus?: 'nominal' | 'degraded' | 'offline_mode';
+  pendingSyncCount?: number;
+  activeIncidentsCount?: number;
+  activeAirspaceTracksCount?: number;
+  unacknowledgedAlertsCount?: number;
+  pendingGeoReviewsCount?: number;
+  criticalPatientsAwaitingEvac?: number;
+  blockedRoadSegmentsCount?: number;
+  lastSyncTimestamp?: string | null;
+  metrics?: {
     openIncidentsCount: number;
     activeTracksCount: number;
     pendingGeoReviewsCount: number;
     patientsAwaitingEvacCount: number;
     activeHazardsCount: number;
   };
-  recentIncidents: Incident[];
-  activeAlerts: Alert[];
-  systemHealth: {
+  recentIncidents?: Incident[];
+  activeAlerts?: Alert[];
+  systemHealth?: {
     status: 'healthy' | 'degraded' | 'offline';
     lastSyncTimestamp: string;
     uptimeSeconds: number;
@@ -363,10 +498,9 @@ export interface DashboardSummary {
   isSimulated: true;
 }
 
-// --------------------------------------------------------------------------
-// 7. Realtime Event Payloads
-// --------------------------------------------------------------------------
-
+// -------------------------------------------------------------
+// REALTIME EVENT BUS
+// -------------------------------------------------------------
 export type RealtimeEventType =
   | 'incident:created'
   | 'incident:updated'
