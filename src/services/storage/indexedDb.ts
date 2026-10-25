@@ -10,7 +10,11 @@ import {
   GeoIntelObservation,
   CasualtyRecord,
   RoadHazardEdge,
+  SharedMapMarker,
+  MeshMessage,
+  SyncLogEntry,
 } from '@shared/types';
+export type { SyncLogEntry };
 import {
   INITIAL_INCIDENTS,
   INITIAL_ALERTS,
@@ -20,7 +24,7 @@ import {
 } from '../data/fixtures';
 
 const DB_NAME = 'SENTINEL_TACTICAL_DB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export class SentinelDatabase {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -59,6 +63,18 @@ export class SentinelDatabase {
         if (!db.objectStoreNames.contains('hazards')) {
           db.createObjectStore('hazards', { keyPath: 'id' });
         }
+
+        if (!db.objectStoreNames.contains('markers')) {
+          db.createObjectStore('markers', { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains('mesh_messages')) {
+          db.createObjectStore('mesh_messages', { keyPath: 'id' });
+        }
+
+        if (!db.objectStoreNames.contains('sync_logs')) {
+          db.createObjectStore('sync_logs', { keyPath: 'id' });
+        }
       };
 
       request.onsuccess = () => {
@@ -72,6 +88,7 @@ export class SentinelDatabase {
 
     return this.dbPromise;
   }
+
 
   // Populate initial fixtures if DB is freshly opened
   public async seedDefaultFixturesIfEmpty(): Promise<void> {
@@ -240,6 +257,80 @@ export class SentinelDatabase {
       req.onerror = () => reject(req.error);
     });
   }
+
+  // Markers Store
+  public async getMarkers(): Promise<SharedMapMarker[]> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('markers', 'readonly');
+      const req = tx.objectStore('markers').getAll();
+      req.onsuccess = () => resolve(req.result as SharedMapMarker[]);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async putMarker(marker: SharedMapMarker): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('markers', 'readwrite');
+      const req = tx.objectStore('markers').put(marker);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Mesh Messages Store
+  public async getMeshMessages(): Promise<MeshMessage[]> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('mesh_messages', 'readonly');
+      const req = tx.objectStore('mesh_messages').getAll();
+      req.onsuccess = () => {
+        const sorted = (req.result as MeshMessage[]).sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        resolve(sorted);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async putMeshMessage(msg: MeshMessage): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('mesh_messages', 'readwrite');
+      const req = tx.objectStore('mesh_messages').put(msg);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Sync Logs Store
+  public async getSyncLogs(): Promise<SyncLogEntry[]> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('sync_logs', 'readonly');
+      const req = tx.objectStore('sync_logs').getAll();
+      req.onsuccess = () => {
+        const sorted = (req.result as SyncLogEntry[]).sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        resolve(sorted);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async putSyncLog(log: SyncLogEntry): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('sync_logs', 'readwrite');
+      const req = tx.objectStore('sync_logs').put(log);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
 }
 
 export const dbService = new SentinelDatabase();
+

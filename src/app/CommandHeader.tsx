@@ -6,6 +6,8 @@ import {
   Sun,
   Moon,
   Menu,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { themeService, ThemeMode } from '../services/theme/themeService';
 
@@ -17,6 +19,10 @@ export interface CommandHeaderProps {
   onTriggerSync: () => Promise<void>;
   onResetDemo: () => Promise<void>;
   isSyncing: boolean;
+  simSpeed?: 1 | 2 | 5;
+  isSimPaused?: boolean;
+  onSetSimSpeed?: (speed: 1 | 2 | 5) => void;
+  onToggleSimPause?: () => void;
   onToggleMobileMenu?: () => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebarCollapse?: () => void;
@@ -36,6 +42,10 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   onTriggerSync,
   onResetDemo,
   isSyncing,
+  simSpeed = 1,
+  isSimPaused = false,
+  onSetSimSpeed,
+  onToggleSimPause,
   onToggleMobileMenu,
   isSidebarCollapsed = false,
   onToggleSidebarCollapse,
@@ -179,6 +189,62 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
 
       {/* Right: Controls Strip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        {/* Simulation Speed & Pause Control */}
+        {onSetSimSpeed && onToggleSimPause && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(0, 0, 0, 0.25)',
+              padding: '1px 3px',
+              gap: '2px',
+            }}
+            role="group"
+            aria-label="Simulation speed and pause control"
+          >
+            <button
+              type="button"
+              onClick={onToggleSimPause}
+              title={isSimPaused ? 'Resume live simulation' : 'Pause simulation'}
+              style={{
+                border: 'none',
+                background: isSimPaused ? 'rgba(239, 68, 68, 0.3)' : 'transparent',
+                color: isSimPaused ? '#FF9494' : '#B4F0B4',
+                padding: '2px 5px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              {isSimPaused ? <Play size={11} fill="currentColor" /> : <Pause size={11} fill="currentColor" />}
+            </button>
+            {([1, 2, 5] as const).map((spd) => (
+              <button
+                key={spd}
+                type="button"
+                onClick={() => onSetSimSpeed(spd)}
+                title={`Set speed to ${spd}x`}
+                style={{
+                  border: 'none',
+                  background: simSpeed === spd ? 'rgba(255, 255, 255, 0.25)' : 'transparent',
+                  color: simSpeed === spd ? '#FFFFFF' : '#8D9A8F',
+                  padding: '1px 5px',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.68rem',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {spd}x
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* UTC Clock */}
         <div
           style={{

@@ -26,7 +26,7 @@ interface SkyWatchModuleProps {
 }
 
 export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
-  tracks: initialTracks,
+  tracks: initialTracks = [],
   alerts,
   zones,
   onRefreshAlerts,
@@ -35,13 +35,17 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
   isSimPaused = false,
 }) => {
   const [tracks, setTracks] = useState<TelemetryTrack[]>(initialTracks);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isPlaying, setIsPlaying] = useState<boolean>(!isSimPaused);
   const [simSpeed, setSimSpeed] = useState<number>(1);
   const [selectedTrackId, setSelectedTrackId] = useState<string>('Track 07');
 
   useEffect(() => {
     setTracks(initialTracks);
   }, [initialTracks]);
+
+  useEffect(() => {
+    setIsPlaying(!isSimPaused);
+  }, [isSimPaused]);
 
   // Simulation tick loop
   useEffect(() => {
@@ -69,7 +73,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
           }
 
           const newHistory = [
-            ...track.flightHistory.slice(-15),
+            ...(track.flightHistory || []).slice(-15),
             { lat: newLat, lng: newLng, altitude: track.altitude, timestamp: new Date().toISOString() },
           ];
 
@@ -115,6 +119,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
     setTracks(initialTracks);
     setIsPlaying(false);
   };
+
   const handleAcknowledge = async (alertId: string) => {
     try {
       await api.acknowledgeAlert(alertId, 'Duty Watch Officer');
@@ -124,7 +129,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
     }
   };
 
-  const activeAlerts = alerts.filter((a) => !a.acknowledged);
+  const activeAlerts = (alerts || []).filter((a) => !a.acknowledged);
 
   const selectedTrack = tracks.find((t) => t.callsign === selectedTrackId || t.id === selectedTrackId) || tracks[0];
 
@@ -268,64 +273,62 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                   fontFamily: 'var(--font-heading)',
                   fontWeight: 800,
                   color: 'var(--color-crit)',
-                  lineHeight: 1,
                 }}
               >
-                92
+                {selectedTrack?.threatScore || 92}
               </span>
             </div>
 
-            {/* Why This Score */}
-            <div>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                Why this score
+            {/* Altitude & Heading */}
+            <div style={{ display: 'flex', gap: '16px', fontSize: '0.74rem' }}>
+              <div>
+                <span style={{ color: 'var(--text-secondary)' }}>Alt: </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700 }}>{selectedTrack?.altitude || 420} m</span>
               </div>
-              {/* Stacked breakdown bar */}
-              <div style={{ display: 'flex', height: '8px', borderRadius: '1px', overflow: 'hidden', marginBottom: '8px' }}>
-                <div style={{ width: '37%', background: 'var(--color-crit)' }} />
-                <div style={{ width: '24%', background: '#E8590C' }} />
-                <div style={{ width: '20%', background: '#FFB35A' }} />
-                <div style={{ width: '13%', background: '#F6F8F3' }} />
-                <div style={{ width: '6%', background: '#8D9A8F' }} />
+              <div>
+                <span style={{ color: 'var(--text-secondary)' }}>Speed: </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700 }}>{selectedTrack?.speed || 140} km/h</span>
               </div>
-              {/* Legend Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '0.7rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>■ Heading to zone</span>
-                  <strong>34</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>■ No transponder</span>
-                  <strong>22</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>■ Speed</span>
-                  <strong>18</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>■ Altitude</span>
-                  <strong>12</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>■ Loitering</span>
-                  <strong>6</strong>
-                </div>
+              <div>
+                <span style={{ color: 'var(--text-secondary)' }}>Hdg: </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700 }}>{selectedTrack?.heading || 185}°</span>
               </div>
             </div>
 
-            {/* Kinematic Estimates */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-line)', paddingTop: '6px' }}>
+            {/* Breached Rules Badges */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+              <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '1px', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--color-crit)', border: '1px solid var(--color-crit)', fontWeight: 700 }}>
+                SPEED ANOMALY (+45 kts)
+              </span>
+              <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '1px', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--color-crit)', border: '1px solid var(--color-crit)', fontWeight: 700 }}>
+                ALT CORRIDOR BREACH
+              </span>
+              <span style={{ fontSize: '0.64rem', padding: '1px 5px', borderRadius: '1px', background: 'rgba(239, 68, 68, 0.15)', color: 'var(--color-crit)', border: '1px solid var(--color-crit)', fontWeight: 700 }}>
+                GEOFENCE INCURSION
+              </span>
+            </div>
+
+            {/* Sensor Fusion Matrix */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '6px',
+                borderTop: '1px solid var(--color-line)',
+                paddingTop: '6px',
+              }}
+            >
               <div>
                 <div style={{ fontSize: '0.9rem', fontFamily: 'var(--font-heading)', fontWeight: 800 }}>
-                  1 min 40 s
+                  0.94
                 </div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Time to breach</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Optical confidence</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.9rem', fontFamily: 'var(--font-heading)', fontWeight: 800 }}>
-                  62 m
+                  98 dB
                 </div>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Closest approach</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Acoustic signature</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.9rem', fontFamily: 'var(--font-heading)', fontWeight: 800 }}>
@@ -378,10 +381,10 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
           {/* Alerts Section (Spec 02) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
             <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-              Alerts {activeAlerts.length}
+              Alerts ({activeAlerts.length})
             </div>
 
-            {alerts.slice(0, 3).map((alert, i) => (
+            {(alerts || []).slice(0, 3).map((alert, i) => (
               <div
                 key={alert.id || i}
                 style={{
@@ -450,14 +453,14 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={handleTogglePlay}
             style={{ width: '24px', height: '24px', minWidth: '24px', padding: 0 }}
           >
             {isPlaying ? <Pause size={12} /> : <Play size={12} />}
           </button>
 
           <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-            {[1, 2, 5].map((speed) => (
+            {([1, 2, 5] as const).map((speed) => (
               <button
                 key={speed}
                 type="button"

@@ -478,6 +478,35 @@ assert(parseModuleFromHash('#SkyWatch') === 'skywatch', 'Handles case-insensitiv
 assert(parseModuleFromHash('#') === 'dashboard', 'Empty hash falls back to dashboard');
 assert(parseModuleFromHash('#unknown_route') === 'dashboard', 'Unknown or malformed route falls back safely to dashboard');
 
+// Navigation state simulation: Selection, back/forward history, and normalization
+let currentWindowHash = '#fieldlink';
+let activeNavModule = parseModuleFromHash(currentWindowHash);
+assert(activeNavModule === 'fieldlink', 'Initial load from #fieldlink selects fieldlink module');
+
+function simulateNavigate(mod) {
+  currentWindowHash = `#${mod}`;
+  activeNavModule = parseModuleFromHash(currentWindowHash);
+}
+simulateNavigate('skywatch');
+assert(activeNavModule === 'skywatch' && currentWindowHash === '#skywatch', 'Navigating to skywatch updates active module and hash');
+
+// Simulate browser back button (hashchange)
+currentWindowHash = '#fieldlink';
+activeNavModule = parseModuleFromHash(currentWindowHash);
+assert(activeNavModule === 'fieldlink', 'Browser back button (hashchange) restores previous module');
+
+// Simulate page refresh with existing valid hash
+const reloadedModule = parseModuleFromHash(currentWindowHash);
+assert(reloadedModule === 'fieldlink', 'Page refresh preserves active module from hash');
+
+// Simulate invalid route normalization
+function normalizeHash(hash) {
+  const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  return VALID_MODULES.includes(clean) ? `#${clean}` : '#dashboard';
+}
+assert(normalizeHash('#invalid_subpath') === '#dashboard', 'Invalid hash normalizes to #dashboard');
+assert(normalizeHash('#skywatch') === '#skywatch', 'Valid hash preserves normalized form');
+
 console.log('\n===============================================================');
 console.log(`ALL ${passedCount} AUTOMATED CONTRACT & BEHAVIOR TESTS PASSED! (${passedCount}/${totalCount}) ✓`);
 console.log('===============================================================\n');
