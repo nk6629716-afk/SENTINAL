@@ -47,10 +47,10 @@ export async function loadImageElement(source: string | File | Blob): Promise<HT
       resolve(img);
     };
 
-    img.onerror = (e) => {
+    img.onerror = () => {
       cleanup();
       const srcSummary = typeof source === 'string' ? source : (source instanceof File ? source.name : 'Blob');
-      reject(new Error(`Failed to decode image from source: ${srcSummary}`));
+      reject(new Error(`Failed to decode image from source: ${srcSummary}. Corrupt file or unsupported format.`));
     };
 
     if (typeof source === 'string') {
@@ -151,6 +151,16 @@ export async function loadAndRasterizePair(
     loadImageElement(beforeSource),
     loadImageElement(afterSource),
   ]);
+
+  // Validate perspective & aspect ratio compatibility
+  const beforeAspect = beforeImg.naturalWidth / beforeImg.naturalHeight;
+  const afterAspect = afterImg.naturalWidth / afterImg.naturalHeight;
+  const aspectDelta = Math.abs(beforeAspect - afterAspect) / Math.max(beforeAspect, afterAspect);
+  if (aspectDelta > 0.20) {
+    throw new Error(
+      `Incompatible image dimensions: Aspect ratios differ significantly (Before: ${beforeImg.naturalWidth}x${beforeImg.naturalHeight} [${beforeAspect.toFixed(2)}:1], After: ${afterImg.naturalWidth}x${afterImg.naturalHeight} [${afterAspect.toFixed(2)}:1]). Change detection requires matching perspective frames.`
+    );
+  }
 
   const beforeMatrix = imageToMatrix(beforeImg, {
     targetWidth: width,

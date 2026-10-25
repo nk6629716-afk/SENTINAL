@@ -380,6 +380,17 @@ export function runAllAlgorithmTests(): { passed: number; total: number; logs: s
       assert(e.message.includes('Dimension mismatch'), 'Error should specify dimension mismatch');
     }
     assert(errored, 'Should have thrown error on dimension mismatch');
+
+    // Test zero or negative dimensions
+    const mZero = { id: '0', label: '0', width: 0, height: 10, data: [] };
+    let zeroErrored = false;
+    try {
+      validateImageMatrices(mZero, m1);
+    } catch (e: any) {
+      zeroErrored = true;
+      assert(e.message.includes('positive non-zero'), 'Should reject zero or negative dimensions');
+    }
+    assert(zeroErrored, 'Should throw on zero dimensions');
   });
 
   test('GeoIntel: Review workflow and limitation disclaimer', () => {

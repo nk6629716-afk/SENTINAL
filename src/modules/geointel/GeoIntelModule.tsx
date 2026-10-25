@@ -55,6 +55,30 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
   // Custom User Uploaded Images
   const [customBeforeFile, setCustomBeforeFile] = useState<File | null>(null);
   const [customAfterFile, setCustomAfterFile] = useState<File | null>(null);
+  const [customBeforeUrl, setCustomBeforeUrl] = useState<string | null>(null);
+  const [customAfterUrl, setCustomAfterUrl] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // Object URL lifecycle management
+  useEffect(() => {
+    if (customBeforeFile) {
+      const url = URL.createObjectURL(customBeforeFile);
+      setCustomBeforeUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setCustomBeforeUrl(null);
+    }
+  }, [customBeforeFile]);
+
+  useEffect(() => {
+    if (customAfterFile) {
+      const url = URL.createObjectURL(customAfterFile);
+      setCustomAfterUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setCustomAfterUrl(null);
+    }
+  }, [customAfterFile]);
 
   // Modal State
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -110,34 +134,28 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
     ) => {
       setIsAnalyzing(true);
       setAnalysisProgress(20);
+      setAnalysisError(null);
       setStatusNotification('Extracting and normalizing raster pixel matrices...');
 
       try {
-        const beforeSrc = customBFile || targetObs?.beforeImageUrl || '/assets/terrain-default.png';
-        const afterSrc =
-          customAFile ||
-          targetObs?.afterImageUrl ||
-          (targetObs?.id === 'GEO-302' ? '/assets/terrain-default.png' : '/assets/terrain-blue.png');
-
         let matrices: { before: ImageMatrix; after: ImageMatrix };
 
-        if (typeof window !== 'undefined' && typeof Image !== 'undefined') {
-          try {
-            matrices = await loadAndRasterizePair(beforeSrc, afterSrc, {
-              width: 256,
-              height: 144,
-              beforeLabel: targetObs?.beforeImageId || 'Baseline Image',
-              afterLabel: targetObs?.afterImageId || 'Surveillance Image',
-            });
-          } catch (rasterErr) {
-            console.warn('[GeoIntel] Real image decode fallback to deterministic terrain raster:', rasterErr);
-            const isAfterDifferent = targetObs?.id !== 'GEO-302';
-            matrices = {
-              before: rasterizeSyntheticSvgTerrain(false, 256, 144),
-              after: rasterizeSyntheticSvgTerrain(isAfterDifferent, 256, 144),
-            };
-          }
+        const hasCustom = Boolean(customBFile || customAFile);
+
+        if (hasCustom) {
+          // If custom files are provided, both must be valid or paired with observation defaults
+          const beforeSrc = customBFile || targetObs?.beforeImageUrl || '/assets/terrain-default.png';
+          const afterSrc = customAFile || targetObs?.afterImageUrl || '/assets/terrain-default.png';
+
+          // MUST decode safely through browser canvas raster adapter. Never silently substitute synthetic data on error.
+          matrices = await loadAndRasterizePair(beforeSrc, afterSrc, {
+            width: 256,
+            height: 144,
+            beforeLabel: customBFile ? customBFile.name : (targetObs?.beforeImageId || 'Baseline Image'),
+            afterLabel: customAFile ? customAFile.name : (targetObs?.afterImageId || 'Surveillance Image'),
+          });
         } else {
+          // Deterministic observation mode synced with Surveillance Canvas elements
           const isAfterDifferent = targetObs?.id !== 'GEO-302';
           matrices = {
             before: rasterizeSyntheticSvgTerrain(false, 256, 144),
@@ -167,9 +185,24 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
           mapRegionToCandidate(region, idx, matrices.before.width, matrices.before.height, baseCoords)
         );
 
-        setEnrichedCandidates(mappedCandidates);
+        // Preserve previous analyst review decisions for matching candidate IDs on rerun
+        setEnrichedCandidates((prev) => {
+          return mappedCandidates.map((cand) => {
+            const existing = prev.find((p) => p.id === cand.id);
+            if (existing && existing.reviewed) {
+              return {
+                ...cand,
+                reviewed: existing.reviewed,
+                decision: existing.decision,
+                auditTrail: existing.auditTrail,
+              };
+            }
+            return cand;
+          });
+        });
+
         if (mappedCandidates.length > 0) {
-          setSelectedCandidateId(mappedCandidates[0].id);
+          setSelectedCandidateId((prev) => (mappedCandidates.some((c) => c.id === prev) ? prev : mappedCandidates[0].id));
           setStatusNotification(
             `Analysis complete: ${mappedCandidates.length} candidate alteration region${
               mappedCandidates.length === 1 ? '' : 's'
@@ -190,20 +223,23 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
         setTimeout(() => setStatusNotification(null), 5000);
       } catch (err) {
         console.error('[GeoIntel] Analysis failed:', err);
+        const errMsg = err instanceof Error ? err.message : String(err);
         setIsAnalyzing(false);
         setAnalysisProgress(0);
-        setStatusNotification(`Analysis failed: ${err instanceof Error ? err.message : String(err)}`);
-        setTimeout(() => setStatusNotification(null), 6000);
+        setEnrichedCandidates([]);
+        setSelectedCandidateId(null);
+        setAnalysisError(errMsg);
+        setStatusNotification(`Analysis failed: ${errMsg}`);
       }
     },
     []
   );
 
-  // Initialize/run on active observation change
+  // Initialize/run on active observation change, threshold adjustments, or custom file uploads
   useEffect(() => {
     if (!activeObs) return;
     executeAnalysis(activeObs, sensitivity, minArea, customBeforeFile, customAfterFile);
-  }, [activeObs?.id, executeAnalysis]);
+  }, [activeObs?.id, sensitivity, minArea, customBeforeFile, customAfterFile, executeAnalysis]);
 
   // Handle Swipe Dragging
   const handleMouseDown = () => setIsDraggingSwipe(true);
@@ -449,6 +485,7 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                       onClick={() => {
                         setCustomBeforeFile(null);
                         setCustomAfterFile(null);
+                        setAnalysisError(null);
                       }}
                       style={{
                         background: 'none',
@@ -571,48 +608,75 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                   </clipPath>
                 </defs>
 
-                {/* Tactical Grid Lines */}
-                {[70, 140, 210, 280].map((y, i) => (
-                  <line key={`h-${i}`} x1="0" y1={y} x2="700" y2={y} stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
-                ))}
-                {[140, 280, 420, 560].map((x, i) => (
-                  <line key={`v-${i}`} x1={x} y1="0" x2={x} y2="340" stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
-                ))}
+                {/* When custom uploaded images are active, render them as image layers */}
+                {customBeforeUrl && (
+                  <image
+                    href={customBeforeUrl}
+                    x="0"
+                    y="0"
+                    width="700"
+                    height="340"
+                    preserveAspectRatio="none"
+                  />
+                )}
+                {customAfterUrl && (
+                  <image
+                    href={customAfterUrl}
+                    x="0"
+                    y="0"
+                    width="700"
+                    height="340"
+                    preserveAspectRatio="none"
+                    clipPath={viewMode === 'swipe' ? 'url(#swipeAfterClip)' : undefined}
+                  />
+                )}
 
-                {/* River */}
-                <path
-                  d="M 0,260 Q 200,240 380,260 T 700,230"
-                  fill="none"
-                  stroke="var(--color-water)"
-                  strokeWidth="24"
-                />
+                {/* Tactical Grid Lines and Terrain (rendered when not viewing custom uploads) */}
+                {!customBeforeUrl && !customAfterUrl && (
+                  <>
+                    {[70, 140, 210, 280].map((y, i) => (
+                      <line key={`h-${i}`} x1="0" y1={y} x2="700" y2={y} stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
+                    ))}
+                    {[140, 280, 420, 560].map((x, i) => (
+                      <line key={`v-${i}`} x1={x} y1="0" x2={x} y2="340" stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
+                    ))}
 
-                {/* Topographic Contours */}
-                <path d="M 120,120 Q 180,80 240,110 T 320,150 Q 280,200 200,190 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
-                <path d="M 140,125 Q 180,95 230,120 T 300,150 Q 260,185 200,180 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1" opacity={0.8} />
-
-                {/* Second Hill Contours */}
-                <path d="M 280,110 Q 360,70 420,100 T 500,140 Q 460,190 380,180 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
-
-                {/* Foliage / Forest Patches */}
-                <ellipse cx="160" cy="240" rx="40" ry="25" fill="var(--color-forest)" opacity={0.5} />
-                <ellipse cx="460" cy="250" rx="50" ry="30" fill="var(--color-forest)" opacity={0.5} />
-
-                {/* Alterations Layer (revealed on After side or full in side-by-side) */}
-                {activeObs?.id !== 'GEO-302' && (
-                  <g clipPath={viewMode === 'swipe' ? 'url(#swipeAfterClip)' : undefined}>
-                    {/* Cleared area polygon on hill */}
-                    <polygon
-                      points="320,60 420,50 460,110 440,150 340,155 310,110"
-                      fill="rgba(232, 89, 12, 0.12)"
+                    {/* River */}
+                    <path
+                      d="M 0,260 Q 200,240 380,260 T 700,230"
+                      fill="none"
+                      stroke="var(--color-water)"
+                      strokeWidth="24"
                     />
-                    {/* Road line cut across hill */}
-                    <line x1="375" y1="290" x2="520" y2="220" stroke="#C2AE86" strokeWidth="6" strokeLinecap="round" opacity={0.8} />
-                    {/* Vehicles dots */}
-                    <rect x="432" y="168" width="5" height="5" fill="var(--color-ink)" />
-                    <rect x="444" y="168" width="5" height="5" fill="var(--color-ink)" />
-                    <rect x="438" y="178" width="5" height="5" fill="var(--color-ink)" />
-                  </g>
+
+                    {/* Topographic Contours */}
+                    <path d="M 120,120 Q 180,80 240,110 T 320,150 Q 280,200 200,190 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
+                    <path d="M 140,125 Q 180,95 230,120 T 300,150 Q 260,185 200,180 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1" opacity={0.8} />
+
+                    {/* Second Hill Contours */}
+                    <path d="M 280,110 Q 360,70 420,100 T 500,140 Q 460,190 380,180 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
+
+                    {/* Foliage / Forest Patches */}
+                    <ellipse cx="160" cy="240" rx="40" ry="25" fill="var(--color-forest)" opacity={0.5} />
+                    <ellipse cx="460" cy="250" rx="50" ry="30" fill="var(--color-forest)" opacity={0.5} />
+
+                    {/* Alterations Layer (revealed on After side or full in side-by-side) */}
+                    {activeObs?.id !== 'GEO-302' && (
+                      <g clipPath={viewMode === 'swipe' ? 'url(#swipeAfterClip)' : undefined}>
+                        {/* Cleared area polygon on hill */}
+                        <polygon
+                          points="320,60 420,50 460,110 440,150 340,155 310,110"
+                          fill="rgba(232, 89, 12, 0.12)"
+                        />
+                        {/* Road line cut across hill */}
+                        <line x1="375" y1="290" x2="520" y2="220" stroke="#C2AE86" strokeWidth="6" strokeLinecap="round" opacity={0.8} />
+                        {/* Vehicles dots */}
+                        <rect x="432" y="168" width="5" height="5" fill="var(--color-ink)" />
+                        <rect x="444" y="168" width="5" height="5" fill="var(--color-ink)" />
+                        <rect x="438" y="178" width="5" height="5" fill="var(--color-ink)" />
+                      </g>
+                    )}
+                  </>
                 )}
               </svg>
 
@@ -673,8 +737,57 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                 })}
               </svg>
 
-              {/* Empty state banner when no regions exceed threshold */}
-              {enrichedCandidates.length === 0 && !isAnalyzing && (
+              {/* Error banner when image decode or analysis fails */}
+              {analysisError && !isAnalyzing && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(254, 242, 242, 0.95)',
+                    zIndex: 25,
+                    padding: '24px',
+                    textAlign: 'center',
+                    border: '2px solid var(--color-crit)',
+                  }}
+                >
+                  <AlertTriangle size={32} color="var(--color-crit)" style={{ marginBottom: '8px' }} />
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-crit)', fontFamily: 'var(--font-heading)' }}>
+                    IMAGE PROCESSING / DECODING FAILED
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--color-ink)', marginTop: '6px', maxWidth: '440px', lineHeight: 1.4 }}>
+                    {analysisError}
+                  </div>
+                  {(customBeforeFile || customAfterFile) && (
+                    <button
+                      onClick={() => {
+                        setCustomBeforeFile(null);
+                        setCustomAfterFile(null);
+                        setAnalysisError(null);
+                      }}
+                      style={{
+                        marginTop: '12px',
+                        background: 'var(--color-crit)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        padding: '6px 14px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-heading)',
+                      }}
+                    >
+                      Clear Custom Files
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state banner when no regions exceed threshold and no error */}
+              {!analysisError && enrichedCandidates.length === 0 && !isAnalyzing && (
                 <div
                   style={{
                     position: 'absolute',
