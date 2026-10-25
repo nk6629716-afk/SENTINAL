@@ -27,11 +27,6 @@ fi
 exit 0
 `;
 
-const postCommitHook = `#!/bin/sh
-# Auto-update report.md and REPORT.md after commit
-node scripts/generate-report.js || true
-`;
-
 export function setupHooks() {
   if (!fs.existsSync(hooksDir)) {
     console.log('[setup-hooks] .git/hooks directory not found, skipping hook setup.');
@@ -41,8 +36,12 @@ export function setupHooks() {
   try {
     fs.writeFileSync(path.join(hooksDir, 'post-merge'), postMergeHook, { encoding: 'utf-8', mode: 0o755 });
     fs.writeFileSync(path.join(hooksDir, 'pre-push'), prePushHook, { encoding: 'utf-8', mode: 0o755 });
-    fs.writeFileSync(path.join(hooksDir, 'post-commit'), postCommitHook, { encoding: 'utf-8', mode: 0o755 });
-    console.log('[setup-hooks] Git hooks (post-merge, pre-push, post-commit) successfully configured!');
+    // Remove post-commit hook so working tree remains pristine after committing
+    const postCommitPath = path.join(hooksDir, 'post-commit');
+    if (fs.existsSync(postCommitPath)) {
+      fs.unlinkSync(postCommitPath);
+    }
+    console.log('[setup-hooks] Git hooks (post-merge, pre-push) successfully configured!');
   } catch (err) {
     console.warn('[setup-hooks] Could not write git hooks:', err.message);
   }
