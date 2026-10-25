@@ -127,20 +127,28 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         )}
 
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
               style={{
-                fontSize: '0.66rem',
+                fontSize: '0.74rem',
                 fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
+                fontWeight: 800,
                 color: 'var(--accent)',
-                letterSpacing: '0.08em',
+                letterSpacing: '0.04em',
+                background: 'var(--surface-inset)',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              {moduleInfo.tag}
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--healthy)', boxShadow: '0 0 6px var(--healthy)' }} />
+              SENTINEL v2.6
             </span>
-            <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.62rem', padding: '1px 6px' }}>
-              SIMULATED TELEMETRY
+            <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>
+              / {moduleInfo.tag}
             </span>
           </div>
           <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0 0' }}>
