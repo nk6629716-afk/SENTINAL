@@ -21,8 +21,50 @@ import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
 
+export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
+
+export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute'] as const;
+
+export function parseModuleFromHash(hash: string): ModuleId {
+  const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  if ((VALID_MODULES as readonly string[]).includes(clean)) {
+    return clean as ModuleId;
+  }
+  return 'dashboard';
+}
+
 export const App: React.FC = () => {
-  const [activeModule, setActiveModule] = useState<'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute'>('dashboard');
+  const [activeModule, setActiveModuleState] = useState<ModuleId>(() => {
+    if (typeof window !== 'undefined') {
+      return parseModuleFromHash(window.location.hash);
+    }
+    return 'dashboard';
+  });
+
+  const handleNavigate = useCallback((mod: ModuleId) => {
+    setActiveModuleState(mod);
+    if (typeof window !== 'undefined') {
+      if (window.location.hash !== `#${mod}`) {
+        window.location.hash = `#${mod}`;
+      }
+    }
+  }, []);
+
+  // Listen to hash changes (browser back/forward or manual hash changes)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const parsed = parseModuleFromHash(window.location.hash);
+      setActiveModuleState(parsed);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    if (!window.location.hash) {
+      window.history.replaceState(null, '', '#dashboard');
+    }
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -377,7 +419,7 @@ export const App: React.FC = () => {
       {/* 1. Neumorphic Sidebar Navigation */}
       <Sidebar
         activeModule={activeModule}
-        onNavigate={setActiveModule}
+        onNavigate={handleNavigate}
         pendingSyncCount={pendingSyncCount}
         unackAlertsCount={unackAlertsCount}
         isOfflineMode={isOfflineMode}
@@ -420,7 +462,7 @@ export const App: React.FC = () => {
             casualties={casualties}
             hazards={hazards}
             nodes={EVACUATION_NODES}
-            onNavigate={setActiveModule}
+            onNavigate={handleNavigate}
             onResetDemo={handleResetDemo}
             isOfflineMode={isOfflineMode}
             realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}

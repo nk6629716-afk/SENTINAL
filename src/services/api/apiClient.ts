@@ -302,40 +302,65 @@ export class SentinelApiClient {
       throw new Error('Sync failed: Network unreachable (Offline Mode active).');
     }
 
-    const payloads: OfflineSyncPayload[] = pending.map((item) => ({
+    // Canonical request schema: { items: SyncBatchItem[] }
+    const items = pending.map((item) => ({
       clientId: item.clientId || item.id,
-      report: item,
-      clientTimestamp: item.createdAt,
+      sourceModule: item.sourceModule || 'fieldlink',
+      type: item.type,
+      priority: item.priority,
+      title: item.title || 'Untitled Incident Report',
+      notes: item.notes || '',
+      location: item.location,
+      createdAt: item.createdAt || new Date().toISOString(),
+      status: 'active' as const,
     }));
 
     try {
       const res = await fetch(`${API_BASE_URL}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reports: payloads }),
+        body: JSON.stringify({ items }),
       });
 
       if (res.ok) {
         const body = await res.json();
         const result: BatchSyncResult = body.data || body;
-        for (const item of result.items) {
-          const match = pending.find((p) => p.clientId === item.clientId || p.id === item.clientId);
-          if (match && (item.outcome === 'accepted' || item.outcome === 'already_received')) {
-            match.syncStatus = 'synced';
-            match.status = 'active';
-            match.id = item.serverId || match.id;
-            match.syncedAt = item.syncTimestamp || new Date().toISOString();
-            await dbService.putIncident(match);
+        const responseItems = result.items || result.results || [];
+        for (const resItem of responseItems) {
+          const match = pending.find((p) => p.clientId === resItem.clientId || p.id === resItem.clientId);
+          if (match) {
+            const isConfirmed =
+              resItem.outcome === 'accepted' ||
+              resItem.outcome === 'already_received' ||
+              (resItem as any).status === 'accepted' ||
+              (resItem as any).status === 'already_received';
+
+            if (isConfirmed) {
+              match.syncStatus = 'synced';
+              match.status = 'active';
+              match.id = resItem.serverId || match.id;
+              match.syncedAt = resItem.syncTimestamp || (resItem as any).syncedAt || new Date().toISOString();
+              delete (match as any).syncError;
+              await dbService.putIncident(match);
+            } else if (resItem.outcome === 'rejected' || (resItem as any).status === 'rejected') {
+              match.syncStatus = 'failed';
+              match.status = 'pending_sync';
+              (match as any).syncError =
+                (resItem as any).errorMessage || (resItem as any).reason || 'Sync rejected by server validation';
+              await dbService.putIncident(match);
+            }
           }
         }
         return result;
+      } else {
+        const errJson = await res.json().catch(() => null);
+        const errMsg = errJson?.error?.message || `Sync failed with HTTP status ${res.status}`;
+        throw new Error(errMsg);
       }
     } catch (err) {
       console.warn('[ApiClient] Live server sync failed, keeping outbox in pending status:', err);
       throw err;
     }
-
-    throw new Error('Sync reconciliation rejected by remote server.');
   }
 
   // 3. SkyWatch Airspace Tracks & Alerts

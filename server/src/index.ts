@@ -12,8 +12,8 @@ const server = app.listen(config.port, HOST, () => {
   console.log(`  Environment:  ${config.nodeEnv}`);
   console.log(`  Host:         ${HOST}`);
   console.log(`  Port:         ${config.port}`);
-  console.log(`  Storage Mode: ${supabaseActive ? 'supabase + file fallback' : config.storageMode}`);
-  console.log(`  Supabase:     ${supabaseActive ? 'CONFIGURED (' + config.supabaseUrl + ')' : 'UNCONFIGURED (using local store)'}`);
+  console.log(`  Storage Mode: ${config.storageMode}`);
+  console.log(`  Supabase:     ${supabaseActive ? 'CLIENT INITIALIZED (' + config.supabaseUrl + ' - local JSON persistence active)' : 'UNCONFIGURED (using local store)'}`);
   console.log(`  Data Dir:     ${config.dataDir}`);
   console.log(`  Notice:       ALL DATA IS SYNTHETIC & SIMULATED`);
   console.log(`=======================================================`);

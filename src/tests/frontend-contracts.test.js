@@ -153,4 +153,27 @@ assert(item1.outcome === 'accepted', 'First sync submission is accepted');
 const item1Retry = reconcileItem('client-001', true);
 assert(item1Retry.outcome === 'already_received', 'Retry submission detects duplicate and returns already_received without duplicate record');
 
-console.log('\nALL 9 AUTOMATED FRONTEND CONTRACT AND ALGORITHM TESTS PASSED SUCCESSFULLY! ✓\n');
+// Test 4: URL Hash Deep Linking & Navigation Parser
+console.log('\n[TEST GROUP 4] URL Hash Deep Linking & Navigation Parser:');
+
+const VALID_MODULES = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute'];
+
+function parseModuleFromHash(hash) {
+  const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  if (VALID_MODULES.includes(clean)) {
+    return clean;
+  }
+  return 'dashboard';
+}
+
+assert(parseModuleFromHash('#fieldlink') === 'fieldlink', 'Correctly resolves #fieldlink module');
+assert(parseModuleFromHash('#skywatch') === 'skywatch', 'Correctly resolves #skywatch module');
+assert(parseModuleFromHash('#geointel') === 'geointel', 'Correctly resolves #geointel module');
+assert(parseModuleFromHash('#mediroute') === 'mediroute', 'Correctly resolves #mediroute module');
+assert(parseModuleFromHash('#/mediroute') === 'mediroute', 'Correctly resolves #/mediroute with leading slash');
+assert(parseModuleFromHash('#SkyWatch') === 'skywatch', 'Handles case-insensitive hashes (#SkyWatch -> skywatch)');
+assert(parseModuleFromHash('#') === 'dashboard', 'Empty hash falls back to dashboard');
+assert(parseModuleFromHash('#unknown_route') === 'dashboard', 'Unknown or malformed route falls back safely to dashboard');
+
+console.log('\nALL 17 AUTOMATED FRONTEND CONTRACT, NAVIGATION AND ALGORITHM TESTS PASSED SUCCESSFULLY! ✓\n');
+

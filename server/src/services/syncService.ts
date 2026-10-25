@@ -17,7 +17,17 @@ export class SyncService {
     let duplicateCount = 0;
     let rejectedCount = 0;
 
-    const items = batch.items || (batch.reports?.map((r) => r.report)) || [];
+    const rawItems: any[] = batch.items || (batch as any).reports || [];
+    const items = rawItems.map((entry) => {
+      if (entry && typeof entry === 'object' && entry.report && typeof entry.report === 'object') {
+        return {
+          ...entry.report,
+          clientId: entry.clientId || entry.report.clientId,
+          createdAt: entry.clientTimestamp || entry.report.createdAt,
+        };
+      }
+      return entry;
+    });
 
     for (const item of items) {
       if (!item || typeof item !== 'object' || !item.clientId) {

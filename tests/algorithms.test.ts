@@ -170,8 +170,10 @@ export function runAllAlgorithmTests(): { passed: number; total: number; logs: s
     sim.setScenario('speed_spike_anomaly');
     const detector = new SkyWatchAnomalyDetector({ speedChangeThresholdKnots: 45 });
 
-    sim.step(); // Normal
-    sim.step(); // Normal
+    const p1 = sim.step(); // Normal
+    if (p1) detector.evaluate(p1);
+    const p2 = sim.step(); // Normal
+    if (p2) detector.evaluate(p2);
     const spikePt = sim.step(); // Spikes to 155 knots
     assert(spikePt !== null, 'Spike step generated');
 

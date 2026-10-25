@@ -128,3 +128,63 @@ test('POST /api/sync handles partial failures gracefully returning per-item outc
   assert.strictEqual(rejected.serverId, null);
   assert.ok(rejected.reason);
 });
+
+test('POST /api/sync accepts FieldLink UI incident types and legacy reports payload format', async () => {
+  // Test canonical items with UI incident types
+  const canonicalBatch = {
+    items: [
+      {
+        clientId: 'fl-ui-item-1',
+        sourceModule: 'fieldlink',
+        type: 'security_breach',
+        priority: 'high',
+        title: 'Perimeter Intrusion Detected',
+        notes: 'Motion tripwire activated on Sector 4 fence.',
+        location: { lat: 34.052, lng: -118.243 },
+        createdAt: '2026-10-25T07:10:00.000Z',
+      },
+      {
+        clientId: 'fl-ui-item-2',
+        sourceModule: 'fieldlink',
+        type: 'road_blockage',
+        priority: 'critical',
+        title: 'Culvert Washout on Bridge 4',
+        notes: 'Road collapsed after flash flood surge.',
+        location: { lat: 34.062, lng: -118.231 },
+        createdAt: '2026-10-25T07:12:00.000Z',
+      },
+    ],
+  };
+
+  const res1 = await request(app).post('/api/sync').send(canonicalBatch);
+  assert.strictEqual(res1.status, 200);
+  assert.strictEqual(res1.body.data.acceptedCount, 2);
+  assert.strictEqual(res1.body.data.rejectedCount, 0);
+
+  // Test backward-compatible reports envelope
+  const legacyReportsBatch = {
+    reports: [
+      {
+        clientId: 'fl-legacy-report-1',
+        clientTimestamp: '2026-10-25T07:15:00.000Z',
+        report: {
+          clientId: 'fl-legacy-report-1',
+          sourceModule: 'fieldlink',
+          type: 'infrastructure_damage',
+          priority: 'medium',
+          title: 'Antenna Array Degraded',
+          notes: 'Secondary VHF repeater mast tilted by wind.',
+          location: { lat: 34.071, lng: -118.258 },
+          createdAt: '2026-10-25T07:15:00.000Z',
+        },
+      },
+    ],
+  };
+
+  const res2 = await request(app).post('/api/sync').send(legacyReportsBatch);
+  assert.strictEqual(res2.status, 200);
+  assert.strictEqual(res2.body.data.acceptedCount, 1);
+  assert.strictEqual(res2.body.data.results[0].clientId, 'fl-legacy-report-1');
+  assert.strictEqual(res2.body.data.results[0].status, 'accepted');
+});
+
