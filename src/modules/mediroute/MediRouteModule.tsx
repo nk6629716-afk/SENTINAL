@@ -756,19 +756,23 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--color-ink)' }}>
-                    Destination: {getNodeLabel(activeRoute.destinationNodeId)}
+                    {((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false)
+                      ? 'All corridors obstructed'
+                      : `Destination: ${getNodeLabel(activeRoute.destinationNodeId)}`}
                   </span>
                   <span
                     className="numeral"
                     style={{
                       fontSize: '0.84rem',
                       fontWeight: 800,
-                      color: 'var(--color-ink)',
+                      color: ((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false) ? 'var(--color-crit)' : 'var(--color-ink)',
                       fontFamily: 'var(--font-numerals)',
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >
-                    {activeRoute.totalDistanceKm} km ({activeRoute.estimatedMinutes} min)
+                    {((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false)
+                      ? 'Disconnected'
+                      : `${activeRoute.totalDistanceKm} km (${activeRoute.estimatedMinutes} min)`}
                   </span>
                 </div>
 
