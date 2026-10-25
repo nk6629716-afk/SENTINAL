@@ -57,8 +57,8 @@
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
   /* Dimensions */
-  --header-height: 64px;
-  --sidebar-width: 260px;
+  --header-height: 56px;
+  --sidebar-width: 248px;
 
   /* Radar & Tactical Map Tokens (Light Mode) */
   --radar-glow: rgba(2, 132, 199, 0.35);
@@ -382,53 +382,260 @@ select.input-neu {
   .grid-cols-2, .grid-cols-4 { grid-template-columns: 1fr; }
 }
 
-/* App Master Layout (Sidebar + Content) */
+/* App Master Layout (CSS Grid Shell with dynamic CSS variables) */
 .app-shell {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--sidebar-width, 248px) 1fr;
+  grid-template-rows: var(--header-height, 56px) 1fr;
+  grid-template-areas:
+    "sidebar header"
+    "sidebar main";
   min-height: 100vh;
   width: 100%;
+  overflow-x: hidden;
+  position: relative;
+  transition: grid-template-columns 200ms ease;
 }
 
 .app-sidebar {
-  width: var(--sidebar-width);
+  grid-area: sidebar;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  width: var(--sidebar-width, 248px);
   background: var(--surface);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  flex-shrink: 0;
   z-index: 40;
   box-shadow: var(--shadow-sidebar);
-  transition: transform 0.25s ease, background 0.2s ease;
+  transition: width 200ms ease, background 0.2s ease, border-color 0.2s ease;
+  user-select: none;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
+.app-sidebar.resizing {
+  transition: none !important;
+}
+
+/* Right-edge drag handle for manual width adjustment */
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 50;
+  transition: background-color 0.15s ease;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer.active {
+  background-color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-light);
+}
+
+/* Nav Item & Fixed 40px Icon Column */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: left;
+  position: relative;
+  box-sizing: border-box;
+  padding: 0 4px;
+  text-decoration: none;
+}
+
+.sidebar-nav-item:hover {
+  background: var(--surface-inset);
+  color: var(--accent);
+}
+
+.sidebar-nav-item.active {
+  border-left: 3px solid var(--accent);
+  background: var(--surface-inset);
+  box-shadow: var(--shadow-inset-sm);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.sidebar-icon-col {
+  width: 40px;
+  min-width: 40px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Collapsed Rail Tooltip */
+.rail-tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent);
+  box-shadow: var(--shadow-raised);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.sidebar-nav-item:hover .rail-tooltip,
+.sidebar-nav-item:focus-visible .rail-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(2px);
+}
+
+/* Command Header */
+.command-header {
+  grid-area: header;
+  height: var(--header-height, 56px);
+  min-height: var(--header-height, 56px);
+  max-height: var(--header-height, 56px);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-raised-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  transition: height 200ms ease, background 0.2s ease, border-color 0.2s ease;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.command-header.minimized {
+  padding: 0 14px;
+  border-bottom: 1px solid var(--accent);
+}
+
+/* Header icon buttons & tooltips */
+.header-icon-btn {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* App Main Content */
 .app-main {
-  flex: 1;
+  grid-area: main;
   display: flex;
   flex-direction: column;
   min-width: 0;
   background: var(--surface);
+  box-sizing: border-box;
+}
+
+/* Overflow Dropdown Menu */
+.header-overflow-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 16px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-raised);
+  padding: 8px;
+  min-width: 220px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive Rules */
+@media (max-width: 1100px) {
+  .header-subtitle {
+    display: none !important;
+  }
 }
 
 @media (max-width: 900px) {
   .app-shell {
+    display: flex;
     flex-direction: column;
+    grid-template-columns: 1fr;
   }
   .app-sidebar {
     position: fixed;
     top: 0;
     left: 0;
     bottom: 0;
-    width: 280px;
+    width: min(280px, 85vw) !important;
     height: 100vh;
     transform: translateX(-100%);
+    transition: transform 0.25s ease !important;
     box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
     z-index: 100;
   }
   .app-sidebar.open {
     transform: translateX(0);
   }
+  .sidebar-resizer {
+    display: none !important;
+  }
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(2px);
+    z-index: 95;
+    animation: fadeIn 0.15s ease;
+  }
   .btn-mobile-nav {
     display: inline-flex !important;
+  }
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .header-icon-btn,
+  .btn-neu-sm {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .sidebar-nav-item {
+    min-height: 48px;
+    height: 48px;
   }
 }
 

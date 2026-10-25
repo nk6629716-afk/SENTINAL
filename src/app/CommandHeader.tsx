@@ -1,20 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Wifi,
   WifiOff,
   RefreshCw,
   RotateCcw,
   Clock,
-  CheckCircle2,
-  AlertCircle,
-  Menu,
   Sun,
   Moon,
   Monitor,
+  Menu,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  MoreVertical,
+  Check,
 } from 'lucide-react';
 import { themeService, ThemeMode } from '../services/theme/themeService';
 
-interface CommandHeaderProps {
+export interface CommandHeaderProps {
   activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
   pendingSyncCount: number;
   isOfflineMode: boolean;
@@ -23,6 +28,12 @@ interface CommandHeaderProps {
   onResetDemo: () => Promise<void>;
   isSyncing: boolean;
   onToggleMobileMenu?: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebarCollapse?: () => void;
+  isHeaderCompact?: boolean;
+  onToggleHeaderCompact?: () => void;
+  isHeaderMinimized?: boolean;
+  onToggleHeaderMinimized?: () => void;
 }
 
 export const CommandHeader: React.FC<CommandHeaderProps> = ({
@@ -34,348 +45,728 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   onResetDemo,
   isSyncing,
   onToggleMobileMenu,
+  isSidebarCollapsed = false,
+  onToggleSidebarCollapse,
+  isHeaderCompact = false,
+  onToggleHeaderCompact,
+  isHeaderMinimized = false,
+  onToggleHeaderMinimized,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getMode());
-  const [browserHardwareOnline, setBrowserHardwareOnline] = useState<boolean>(
-    typeof navigator !== 'undefined' ? navigator.onLine : true
+  const [isOverflowOpen, setIsOverflowOpen] = useState<boolean>(false);
+  const [windowWidth, setWindowWidth] = useState<number>(
+    typeof window !== 'undefined' ? window.innerWidth : 1200
   );
 
+  const overflowRef = useRef<HTMLDivElement>(null);
+
+  // UTC clock update
   useEffect(() => {
-    const updateTime = () => {
+    const update = () => {
       const now = new Date();
       setCurrentTime(now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
     };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-
-    const handleHwOnline = () => setBrowserHardwareOnline(true);
-    const handleHwOffline = () => setBrowserHardwareOnline(false);
-
-    window.addEventListener('online', handleHwOnline);
-    window.addEventListener('offline', handleHwOffline);
-
-    const unsubscribeTheme = themeService.subscribe((mode) => {
-      setThemeMode(mode);
-    });
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('online', handleHwOnline);
-      window.removeEventListener('offline', handleHwOffline);
-      unsubscribeTheme();
-    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleThemeChange = (mode: ThemeMode) => {
-    themeService.setMode(mode);
+  // Theme subscription
+  useEffect(() => {
+    const unsubscribe = themeService.subscribe((mode) => {
+      setThemeMode(mode);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Resize listener
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Click-outside and Escape listener for overflow menu
+  useEffect(() => {
+    if (!isOverflowOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOverflowOpen(false);
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+        setIsOverflowOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOverflowOpen]);
+
+  const handleThemeChange = (newMode: ThemeMode) => {
+    themeService.setMode(newMode);
+    setThemeMode(newMode);
   };
 
-  const getModuleTitle = () => {
+  const getModuleInfo = () => {
     switch (activeModule) {
       case 'dashboard':
         return {
+          code: 'COP',
+          tag: 'OPERATIONAL LEVEL 1',
           title: 'Common Operational Picture',
-          subtitle: 'Cross-module tactical synthesis, field queue, and airspace situational feeds',
-          tag: 'SYNTHESIS-01',
+          subtitle: 'Multi-domain threat synthesis, tactical asset map, and incident response overview',
         };
       case 'fieldlink':
         return {
-          title: 'FieldLink Tactical Reports',
-          subtitle: 'Offline-first battlefield communication, IndexedDB queue, and idempotent sync',
-          tag: 'TACTICAL-COMMS-02',
+          code: 'FLK',
+          tag: 'TACTICAL COMMUNICATIONS',
+          title: 'FieldLink Ground Reports',
+          subtitle: 'Offline-first asynchronous incident reporting and resilient outbox dispatch',
         };
       case 'skywatch':
         return {
+          code: 'SKY',
+          tag: 'AIR DEFENSE & RADAR',
           title: 'SkyWatch Airspace Security',
-          subtitle: 'Counter-drone radar simulation and explainable mathematical anomaly detection',
-          tag: 'AIRSPACE-DEFENSE-03',
+          subtitle: 'Real-time telemetry tracking, geofence monitoring, and explainable rule heuristics',
         };
       case 'geointel':
         return {
+          code: 'GEO',
+          tag: 'GEOSPATIAL INTELLIGENCE',
           title: 'GeoIntel Reconnaissance',
-          subtitle: 'Multi-temporal change analysis and candidate review workflow',
-          tag: 'GEO-RECON-04',
+          subtitle: 'Multi-spectral satellite difference analysis and analyst review candidate workflow',
         };
       case 'mediroute':
         return {
+          code: 'MED',
+          tag: 'CASUALTY & EVACUATION',
           title: 'MediRoute Logistics',
-          subtitle: 'Algorithmic START triage and hazard-avoiding Dijkstra evacuation routing',
-          tag: 'MED-EVAC-05',
+          subtitle: 'Algorithmic START triage justification and hazard-aware Dijkstra corridor routing',
         };
     }
   };
 
-  const moduleInfo = getModuleTitle();
-  const effectiveOffline = isOfflineMode || !browserHardwareOnline;
+  const moduleInfo = getModuleInfo();
+  const isMobile = windowWidth < 600;
+  const isTablet = windowWidth < 900;
 
-  return (
-    <header
-      style={{
-        background: 'var(--surface-raised)',
-        borderBottom: '1px solid var(--border-subtle)',
-        padding: '14px 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '14px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 30,
-        boxShadow: 'var(--shadow-raised-sm)',
-        transition: 'background 0.2s ease, border-color 0.2s ease',
-      }}
-    >
-      {/* Title & Context */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        {onToggleMobileMenu && (
+  // 1. Minimized Mode (28px strip)
+  if (isHeaderMinimized) {
+    return (
+      <header
+        className="command-header minimized"
+        aria-label="Command Header Minimized Strip"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: isOfflineMode ? 'var(--critical)' : 'var(--healthy)',
+              boxShadow: `0 0 6px ${isOfflineMode ? 'var(--critical)' : 'var(--healthy)'}`,
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontSize: '0.74rem',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 800,
+              color: 'var(--accent)',
+              letterSpacing: '0.04em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            SENTINEL v2.6
+          </span>
+          <span
+            className="badge-neu badge-neu-info"
+            style={{
+              fontSize: '0.58rem',
+              padding: '1px 5px',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 700,
+            }}
+          >
+            {moduleInfo.code}
+          </span>
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              color: 'var(--text-primary)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {moduleInfo.title}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <span
+            style={{
+              fontSize: '0.68rem',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {currentTime.substring(11, 19)} UTC
+          </span>
           <button
-            className="btn-neu btn-neu-sm btn-mobile-nav"
+            type="button"
+            className="btn-neu btn-neu-sm"
+            onClick={onToggleHeaderMinimized}
+            aria-label="Restore full header"
+            title="Restore full header"
+            style={{
+              padding: '2px 8px',
+              height: '22px',
+              fontSize: '0.66rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <ChevronDown size={12} />
+            <span>Restore</span>
+          </button>
+        </div>
+      </header>
+    );
+  }
+
+  // 2. Normal (56px) or Compact (44px) Mode
+  return (
+    <header className="command-header" aria-label="Command Header">
+      {/* Left: Navigation toggles, SENTINEL badge, Module Title & Subtitle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+        {/* Mobile Hamburger toggle (< 900px) */}
+        {isTablet && onToggleMobileMenu && (
+          <button
+            type="button"
+            className="btn-neu header-icon-btn btn-mobile-nav"
             onClick={onToggleMobileMenu}
-            style={{ display: 'none' }}
-            aria-label="Open Navigation Menu"
+            aria-label="Toggle navigation drawer"
+            title="Open navigation menu"
           >
             <Menu size={16} />
           </button>
         )}
 
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span
+        {/* Desktop Sidebar collapse toggle (>= 900px) */}
+        {!isTablet && onToggleSidebarCollapse && (
+          <button
+            type="button"
+            className="btn-neu header-icon-btn"
+            onClick={onToggleSidebarCollapse}
+            aria-label={isSidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+            title={isSidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+          >
+            {isSidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+          </button>
+        )}
+
+        {/* SENTINEL v2.6 Badge */}
+        <span
+          style={{
+            fontSize: '0.72rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 800,
+            color: 'var(--accent)',
+            letterSpacing: '0.04em',
+            background: 'var(--surface-inset)',
+            padding: '2px 8px',
+            borderRadius: 'var(--radius-pill)',
+            border: '1px solid var(--accent)',
+            display: isMobile ? 'none' : 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            flexShrink: 0,
+            boxShadow: '0 0 8px var(--accent-light)',
+          }}
+        >
+          <span
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: isOfflineMode ? 'var(--critical)' : 'var(--healthy)',
+              boxShadow: `0 0 6px ${isOfflineMode ? 'var(--critical)' : 'var(--healthy)'}`,
+            }}
+          />
+          SENTINEL v2.6
+        </span>
+
+        {/* Module Title & Subtitle */}
+        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <h1
               style={{
-                fontSize: '0.8rem',
-                fontFamily: 'var(--font-mono)',
+                fontSize: isHeaderCompact ? '1.05rem' : '1.2rem',
                 fontWeight: 800,
-                color: 'var(--accent)',
-                letterSpacing: '0.06em',
-                background: 'var(--surface-inset)',
-                padding: '3px 10px',
-                borderRadius: 'var(--radius-pill)',
-                border: '1px solid var(--accent)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '7px',
-                boxShadow: '0 0 10px var(--accent-light)',
+                color: 'var(--text-primary)',
+                margin: 0,
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
             >
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--healthy)', boxShadow: '0 0 8px var(--healthy)' }} />
-              SENTINEL v2.6
-            </span>
-            <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>
-              / {moduleInfo.tag}
-            </span>
-            <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.65rem' }}>
-              DEMO TESTBED — SYNTHETIC DATA
+              {moduleInfo.title}
+            </h1>
+            <span
+              style={{
+                fontSize: '0.62rem',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              [{moduleInfo.code}]
             </span>
           </div>
-          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0 0' }}>
-            {moduleInfo.title}
-          </h1>
-          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-            {moduleInfo.subtitle}
-          </p>
+
+          {!isHeaderCompact && (
+            <p
+              className="header-subtitle"
+              style={{
+                fontSize: '0.72rem',
+                color: 'var(--text-secondary)',
+                margin: '1px 0 0 0',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {moduleInfo.subtitle}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Quick Controls, Theme Selector & Status Area */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        {/* System / Light / Dark Mode Toggle */}
+      {/* Right: Grouped controls with consistent 8px gaps */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexShrink: 0,
+          position: 'relative',
+        }}
+      >
+        {/* Theme Segmented Switcher (Visible on desktop >= 900px) */}
+        {!isTablet && (
+          <div
+            className="neu-inset"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '2px',
+              borderRadius: 'var(--radius-pill)',
+              gap: '2px',
+              height: '32px',
+            }}
+            role="group"
+            aria-label="Appearance Mode"
+          >
+            <button
+              type="button"
+              onClick={() => handleThemeChange('system')}
+              title="System Theme (Follows OS)"
+              aria-label="System Theme"
+              style={{
+                border: 'none',
+                background: themeMode === 'system' ? 'var(--surface-raised)' : 'transparent',
+                boxShadow: themeMode === 'system' ? 'var(--shadow-raised-sm)' : 'none',
+                color: themeMode === 'system' ? 'var(--accent)' : 'var(--text-muted)',
+                borderRadius: 'var(--radius-pill)',
+                width: '26px',
+                height: '26px',
+                padding: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <Monitor size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleThemeChange('light')}
+              title="Light Theme"
+              aria-label="Light Theme"
+              style={{
+                border: 'none',
+                background: themeMode === 'light' ? 'var(--surface-raised)' : 'transparent',
+                boxShadow: themeMode === 'light' ? 'var(--shadow-raised-sm)' : 'none',
+                color: themeMode === 'light' ? 'var(--warning)' : 'var(--text-muted)',
+                borderRadius: 'var(--radius-pill)',
+                width: '26px',
+                height: '26px',
+                padding: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <Sun size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleThemeChange('dark')}
+              title="Dark Theme"
+              aria-label="Dark Theme"
+              style={{
+                border: 'none',
+                background: themeMode === 'dark' ? 'var(--surface-raised)' : 'transparent',
+                boxShadow: themeMode === 'dark' ? 'var(--shadow-raised-sm)' : 'none',
+                color: themeMode === 'dark' ? 'var(--accent)' : 'var(--text-muted)',
+                borderRadius: 'var(--radius-pill)',
+                width: '26px',
+                height: '26px',
+                padding: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              <Moon size={13} />
+            </button>
+          </div>
+        )}
+
+        {/* Live UTC Clock (Always visible; compact format on mobile) */}
         <div
           className="neu-inset"
           style={{
             display: 'flex',
             alignItems: 'center',
-            padding: '3px',
+            gap: '5px',
+            padding: '4px 10px',
             borderRadius: 'var(--radius-pill)',
-            gap: '2px',
-          }}
-          role="group"
-          aria-label="Appearance Mode"
-        >
-          <button
-            type="button"
-            onClick={() => handleThemeChange('system')}
-            title="System Mode (Follows OS preference)"
-            style={{
-              border: 'none',
-              background: themeMode === 'system' ? 'var(--surface-raised)' : 'transparent',
-              boxShadow: themeMode === 'system' ? 'var(--shadow-raised-sm)' : 'none',
-              color: themeMode === 'system' ? 'var(--accent)' : 'var(--text-muted)',
-              borderRadius: 'var(--radius-pill)',
-              padding: '4px 8px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Monitor size={12} />
-            <span>Auto</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleThemeChange('light')}
-            title="Light Theme"
-            style={{
-              border: 'none',
-              background: themeMode === 'light' ? 'var(--surface-raised)' : 'transparent',
-              boxShadow: themeMode === 'light' ? 'var(--shadow-raised-sm)' : 'none',
-              color: themeMode === 'light' ? 'var(--warning)' : 'var(--text-muted)',
-              borderRadius: 'var(--radius-pill)',
-              padding: '4px 8px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Sun size={12} />
-            <span>Light</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleThemeChange('dark')}
-            title="Dark Tactical Theme"
-            style={{
-              border: 'none',
-              background: themeMode === 'dark' ? 'var(--surface-raised)' : 'transparent',
-              boxShadow: themeMode === 'dark' ? 'var(--shadow-raised-sm)' : 'none',
-              color: themeMode === 'dark' ? 'var(--accent)' : 'var(--text-muted)',
-              borderRadius: 'var(--radius-pill)',
-              padding: '4px 8px',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <Moon size={12} />
-            <span>Dark</span>
-          </button>
-        </div>
-
-        {/* Live UTC Clock */}
-        <div
-          className="neu-inset"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '5px 12px',
-            borderRadius: 'var(--radius-pill)',
-            fontSize: '0.74rem',
+            fontSize: '0.72rem',
             fontFamily: 'var(--font-mono)',
             fontWeight: 600,
             color: 'var(--text-secondary)',
+            height: '32px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
-          title="Current Zulu Operational Time"
+          title="Live UTC Synchronized Clock"
         >
           <Clock size={12} color="var(--accent)" />
-          <span>{currentTime}</span>
+          <span>{isMobile ? currentTime.substring(11, 16) + ' UTC' : currentTime}</span>
         </div>
 
-        {/* Local Connectivity Status Pill */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '5px 12px',
-            borderRadius: 'var(--radius-pill)',
-            background: effectiveOffline ? 'var(--critical-bg)' : 'var(--healthy-bg)',
-            border: `1px solid ${effectiveOffline ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
-            fontSize: '0.72rem',
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 700,
-            color: effectiveOffline ? 'var(--critical)' : 'var(--healthy)',
-          }}
-          title={
-            effectiveOffline
-              ? 'Local device/browser network is disconnected or field blackout simulation is active'
-              : 'Local browser network is connected'
-          }
-        >
-          {effectiveOffline ? <WifiOff size={12} /> : <Wifi size={12} />}
-          <span>{effectiveOffline ? 'OFFLINE (BLACKOUT)' : 'ONLINE'}</span>
-        </div>
+        {/* Go Offline / Offline Mode Icon Button (Visible on screens >= 600px) */}
+        {!isMobile && (
+          <button
+            type="button"
+            className={`btn-neu header-icon-btn ${isOfflineMode ? 'btn-neu-critical' : ''}`}
+            onClick={onToggleOffline}
+            aria-label={isOfflineMode ? 'Restore online telemetry link' : 'Simulate remote offline blackout'}
+            title={
+              isOfflineMode
+                ? 'Offline buffer active (Click to go online)'
+                : 'Command link active (Click to simulate offline)'
+            }
+          >
+            {isOfflineMode ? <WifiOff size={15} color="var(--critical)" /> : <Wifi size={15} />}
+          </button>
+        )}
 
-        {/* Data Sync Status Pill */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '5px 12px',
-            borderRadius: 'var(--radius-pill)',
-            background: pendingSyncCount > 0 ? 'var(--warning-bg)' : 'var(--surface-inset)',
-            border: `1px solid ${pendingSyncCount > 0 ? 'rgba(245, 158, 11, 0.3)' : 'var(--border-subtle)'}`,
-            fontSize: '0.72rem',
-            fontFamily: 'var(--font-mono)',
-            fontWeight: 700,
-            color: pendingSyncCount > 0 ? 'var(--warning)' : 'var(--text-secondary)',
-          }}
-          title="FieldLink outbox synchronization queue status"
-        >
-          {pendingSyncCount > 0 ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
-          <span>{pendingSyncCount > 0 ? `${pendingSyncCount} PENDING OUTBOX` : 'ALL SYNCHRONIZED'}</span>
-        </div>
+        {/* Sync Outbox Button (Visible on screens >= 600px) */}
+        {!isMobile && (
+          <button
+            type="button"
+            className={`btn-neu header-icon-btn ${pendingSyncCount > 0 ? 'btn-neu-primary' : ''}`}
+            onClick={onTriggerSync}
+            disabled={isSyncing || isOfflineMode || pendingSyncCount === 0}
+            aria-label={`Synchronize pending outbox (${pendingSyncCount} pending)`}
+            title={`Synchronize pending outbox (${pendingSyncCount} pending)`}
+          >
+            <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+            {pendingSyncCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-3px',
+                  right: '-3px',
+                  minWidth: '15px',
+                  height: '15px',
+                  borderRadius: 'var(--radius-pill)',
+                  background: 'var(--accent)',
+                  color: '#FFFFFF',
+                  fontSize: '0.58rem',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 2px',
+                  boxShadow: '0 0 6px var(--accent-light)',
+                }}
+              >
+                {pendingSyncCount}
+              </span>
+            )}
+          </button>
+        )}
 
-        {/* Simulated Blackout Button */}
-        <button
-          className={`btn-neu btn-neu-sm ${effectiveOffline ? 'btn-neu-critical' : ''}`}
-          onClick={onToggleOffline}
-          title={
-            effectiveOffline
-              ? 'Restore online connection mode'
-              : 'Simulate field network blackout (no internet)'
-          }
-        >
-          {effectiveOffline ? <Wifi size={13} /> : <WifiOff size={13} />}
-          <span>{effectiveOffline ? 'Restore Online' : 'Simulate Blackout'}</span>
-        </button>
+        {/* Reset Scenario Button (Visible on screens >= 900px) */}
+        {!isTablet && (
+          <button
+            type="button"
+            className="btn-neu header-icon-btn"
+            onClick={onResetDemo}
+            aria-label="Reset scenario to deterministic baseline fixtures"
+            title="Reset scenario to baseline fixtures"
+            style={{ color: 'var(--warning)', borderColor: 'rgba(245, 158, 11, 0.4)' }}
+          >
+            <RotateCcw size={14} />
+          </button>
+        )}
 
-        {/* Manual Outbox Sync Button */}
-        <button
-          className={`btn-neu btn-neu-sm ${pendingSyncCount > 0 && !effectiveOffline ? 'btn-neu-primary' : ''}`}
-          onClick={onTriggerSync}
-          disabled={isSyncing || effectiveOffline || pendingSyncCount === 0}
-          title={
-            effectiveOffline
-              ? 'Outbox sync requires an online connection'
-              : pendingSyncCount === 0
-              ? 'No pending reports in outbox'
-              : `Trigger batch synchronization for ${pendingSyncCount} queued reports`
-          }
-        >
-          <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
-          <span>{isSyncing ? 'Syncing...' : `Sync Outbox (${pendingSyncCount})`}</span>
-        </button>
+        {/* Header Compact Height Toggle (Visible on desktop >= 900px) */}
+        {!isTablet && onToggleHeaderCompact && (
+          <button
+            type="button"
+            className="btn-neu header-icon-btn"
+            onClick={onToggleHeaderCompact}
+            aria-label={isHeaderCompact ? 'Default header height (56px)' : 'Compact header height (44px)'}
+            title={isHeaderCompact ? 'Default Header (56px)' : 'Compact Header (44px)'}
+          >
+            <ChevronsUpDown size={14} />
+          </button>
+        )}
 
-        {/* Distinct Reset Baseline Button */}
-        <button
-          className="btn-neu btn-neu-sm"
-          onClick={onResetDemo}
-          style={{
-            borderColor: 'var(--warning)',
-            color: 'var(--text-primary)',
-          }}
-          title="Reset scenario data to deterministic baseline fixtures"
-        >
-          <RotateCcw size={13} color="var(--warning)" />
-          <span>Reset Demo</span>
-        </button>
+        {/* Minimize Header Strip Toggle (Visible on desktop >= 900px) */}
+        {!isTablet && onToggleHeaderMinimized && (
+          <button
+            type="button"
+            className="btn-neu header-icon-btn"
+            onClick={onToggleHeaderMinimized}
+            aria-label="Minimize header to thin 28px strip"
+            title="Minimize header (28px strip)"
+          >
+            <ChevronUp size={14} />
+          </button>
+        )}
+
+        {/* Overflow Menu Button (Visible under 900px) */}
+        {isTablet && (
+          <div ref={overflowRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className="btn-neu header-icon-btn"
+              onClick={() => setIsOverflowOpen(!isOverflowOpen)}
+              aria-label="More actions"
+              aria-expanded={isOverflowOpen}
+              aria-haspopup="menu"
+              title="More actions"
+            >
+              <MoreVertical size={16} />
+            </button>
+
+            {/* Overflow Dropdown Menu */}
+            {isOverflowOpen && (
+              <div
+                className="header-overflow-menu"
+                role="menu"
+                aria-label="Additional Actions"
+              >
+                {/* Mobile-only offline toggle (< 600px) */}
+                {isMobile && (
+                  <button
+                    type="button"
+                    className="btn-neu btn-neu-sm"
+                    onClick={() => {
+                      onToggleOffline();
+                      setIsOverflowOpen(false);
+                    }}
+                    role="menuitem"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      padding: '8px 10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {isOfflineMode ? <WifiOff size={14} color="var(--critical)" /> : <Wifi size={14} />}
+                      <span>{isOfflineMode ? 'Disable Offline' : 'Simulate Offline'}</span>
+                    </div>
+                    <span
+                      className={`badge-neu ${isOfflineMode ? 'badge-neu-crit' : 'badge-neu-ok'}`}
+                      style={{ fontSize: '0.6rem' }}
+                    >
+                      {isOfflineMode ? 'OFFLINE' : 'ONLINE'}
+                    </span>
+                  </button>
+                )}
+
+                {/* Mobile-only sync outbox (< 600px) */}
+                {isMobile && (
+                  <button
+                    type="button"
+                    className="btn-neu btn-neu-sm"
+                    onClick={() => {
+                      onTriggerSync();
+                      setIsOverflowOpen(false);
+                    }}
+                    disabled={isSyncing || isOfflineMode || pendingSyncCount === 0}
+                    role="menuitem"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      width: '100%',
+                      padding: '8px 10px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
+                      <span>{isSyncing ? 'Syncing...' : 'Sync Outbox'}</span>
+                    </div>
+                    <span className="badge-neu badge-neu-info" style={{ fontSize: '0.6rem' }}>
+                      {pendingSyncCount}
+                    </span>
+                  </button>
+                )}
+
+                {/* Appearance Theme Selector */}
+                <div style={{ padding: '4px 6px' }}>
+                  <div
+                    style={{
+                      fontSize: '0.64rem',
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--text-muted)',
+                      marginBottom: '4px',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Appearance Theme
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      type="button"
+                      className={`btn-neu btn-neu-sm ${themeMode === 'system' ? 'btn-neu-primary' : ''}`}
+                      onClick={() => handleThemeChange('system')}
+                      style={{ flex: 1, padding: '4px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                    >
+                      <Monitor size={12} />
+                      <span>Auto</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-neu btn-neu-sm ${themeMode === 'light' ? 'btn-neu-primary' : ''}`}
+                      onClick={() => handleThemeChange('light')}
+                      style={{ flex: 1, padding: '4px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                    >
+                      <Sun size={12} />
+                      <span>Light</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-neu btn-neu-sm ${themeMode === 'dark' ? 'btn-neu-primary' : ''}`}
+                      onClick={() => handleThemeChange('dark')}
+                      style={{ flex: 1, padding: '4px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                    >
+                      <Moon size={12} />
+                      <span>Dark</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Reset Scenario Button */}
+                <button
+                  type="button"
+                  className="btn-neu btn-neu-sm"
+                  onClick={() => {
+                    onResetDemo();
+                    setIsOverflowOpen(false);
+                  }}
+                  role="menuitem"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '8px 10px',
+                    color: 'var(--warning)',
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  <span>Reset Scenario Baseline</span>
+                </button>
+
+                {/* Header Height Toggle */}
+                {onToggleHeaderCompact && (
+                  <button
+                    type="button"
+                    className="btn-neu btn-neu-sm"
+                    onClick={() => {
+                      onToggleHeaderCompact();
+                      setIsOverflowOpen(false);
+                    }}
+                    role="menuitem"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '8px 10px',
+                    }}
+                  >
+                    <ChevronsUpDown size={14} />
+                    <span>{isHeaderCompact ? 'Default Height (56px)' : 'Compact Height (44px)'}</span>
+                  </button>
+                )}
+
+                {/* Minimize Header Toggle */}
+                {onToggleHeaderMinimized && (
+                  <button
+                    type="button"
+                    className="btn-neu btn-neu-sm"
+                    onClick={() => {
+                      onToggleHeaderMinimized();
+                      setIsOverflowOpen(false);
+                    }}
+                    role="menuitem"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      width: '100%',
+                      padding: '8px 10px',
+                    }}
+                  >
+                    <ChevronUp size={14} />
+                    <span>Minimize Header (28px)</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </header>
   );

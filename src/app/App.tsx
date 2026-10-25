@@ -27,6 +27,43 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
+  // App Shell States & Persistence
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      const val = localStorage.getItem('sentinel_sidebar_collapsed');
+      return val !== null ? JSON.parse(val) : false;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    try {
+      const val = localStorage.getItem('sentinel_sidebar_width');
+      return val !== null ? Math.max(200, Math.min(320, Number(val))) : 248;
+    } catch (e) {
+      return 248;
+    }
+  });
+
+  const [isHeaderCompact, setIsHeaderCompact] = useState<boolean>(() => {
+    try {
+      const val = localStorage.getItem('sentinel_header_compact');
+      return val !== null ? JSON.parse(val) : false;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const [isHeaderMinimized, setIsHeaderMinimized] = useState<boolean>(() => {
+    try {
+      const val = localStorage.getItem('sentinel_header_minimized');
+      return val !== null ? JSON.parse(val) : false;
+    } catch (e) {
+      return false;
+    }
+  });
+
   // Core Data States
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [incidents, setIncidents] = useState<IncidentReport[]>([]);
@@ -140,6 +177,81 @@ export const App: React.FC = () => {
     }
   };
 
+  // 6. Global Keyboard Shortcuts (Ctrl+B / Cmd+B for sidebar, Escape for mobile menu)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        if (window.innerWidth < 900) {
+          setIsMobileMenuOpen((prev) => !prev);
+        } else {
+          setIsSidebarCollapsed((prev) => {
+            const next = !prev;
+            try {
+              localStorage.setItem('sentinel_sidebar_collapsed', JSON.stringify(next));
+            } catch (err) {}
+            return next;
+          });
+        }
+      }
+      if (e.key === 'Escape') {
+        if (isMobileMenuOpen) {
+          setIsMobileMenuOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen]);
+
+  const handleToggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sentinel_sidebar_collapsed', JSON.stringify(next));
+      } catch (err) {}
+      return next;
+    });
+  };
+
+  const handleSidebarWidthChange = (newWidth: number) => {
+    setSidebarWidth(newWidth);
+    try {
+      localStorage.setItem('sentinel_sidebar_width', JSON.stringify(newWidth));
+    } catch (err) {}
+  };
+
+  const handleSidebarCollapseChange = (col: boolean) => {
+    setIsSidebarCollapsed(col);
+    try {
+      localStorage.setItem('sentinel_sidebar_collapsed', JSON.stringify(col));
+    } catch (err) {}
+  };
+
+  const handleToggleHeaderCompact = () => {
+    setIsHeaderCompact((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sentinel_header_compact', JSON.stringify(next));
+      } catch (err) {}
+      return next;
+    });
+  };
+
+  const handleToggleHeaderMinimized = () => {
+    setIsHeaderMinimized((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('sentinel_header_minimized', JSON.stringify(next));
+      } catch (err) {}
+      return next;
+    });
+  };
+
+  const effectiveSidebarWidth = isSidebarCollapsed ? 72 : sidebarWidth;
+  const effectiveHeaderHeight = isHeaderMinimized ? 28 : (isHeaderCompact ? 44 : 56);
+
   const pendingSyncCount = incidents.filter(
     (i) => i.syncStatus === 'pending' || i.syncStatus === 'failed'
   ).length;
@@ -194,7 +306,22 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="app-shell">
+    <div
+      className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}
+      style={{
+        '--sidebar-width': `${effectiveSidebarWidth}px`,
+        '--header-height': `${effectiveHeaderHeight}px`,
+      } as React.CSSProperties}
+    >
+      {/* Mobile Drawer Backdrop */}
+      {isMobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* 1. Neumorphic Sidebar Navigation */}
       <Sidebar
         activeModule={activeModule}
@@ -204,78 +331,86 @@ export const App: React.FC = () => {
         isOfflineMode={isOfflineMode}
         isOpenMobile={isMobileMenuOpen}
         onCloseMobile={() => setIsMobileMenuOpen(false)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebarCollapse}
+        sidebarWidth={sidebarWidth}
+        onWidthChange={handleSidebarWidthChange}
+        onCollapseChange={handleSidebarCollapseChange}
       />
 
-      {/* 2. Main Content Area */}
-      <div className="app-main">
-        <CommandHeader
-          activeModule={activeModule}
-          pendingSyncCount={pendingSyncCount}
-          isOfflineMode={isOfflineMode}
-          onToggleOffline={handleToggleOffline}
-          onTriggerSync={handleTriggerSync}
-          onResetDemo={handleResetDemo}
-          isSyncing={isSyncing}
-          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        />
+      {/* 2. Sticky Command Header */}
+      <CommandHeader
+        activeModule={activeModule}
+        pendingSyncCount={pendingSyncCount}
+        isOfflineMode={isOfflineMode}
+        onToggleOffline={handleToggleOffline}
+        onTriggerSync={handleTriggerSync}
+        onResetDemo={handleResetDemo}
+        isSyncing={isSyncing}
+        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebarCollapse={handleToggleSidebarCollapse}
+        isHeaderCompact={isHeaderCompact}
+        onToggleHeaderCompact={handleToggleHeaderCompact}
+        isHeaderMinimized={isHeaderMinimized}
+        onToggleHeaderMinimized={handleToggleHeaderMinimized}
+      />
 
-        <main style={{ flex: 1, padding: '24px' }}>
-          {activeModule === 'dashboard' && (
-            <Dashboard
-              summary={summary}
-              incidents={incidents}
-              tracks={tracks}
-              alerts={alerts}
-              zones={zones}
-              observations={observations}
-              casualties={casualties}
-              hazards={hazards}
-              nodes={EVACUATION_NODES}
-              onNavigate={setActiveModule}
-              onResetDemo={handleResetDemo}
-              isOfflineMode={isOfflineMode}
-            />
-          )}
+      {/* 3. Main Content Area */}
+      <main className="app-main" style={{ padding: '24px' }}>
+        {activeModule === 'dashboard' && (
+          <Dashboard
+            summary={summary}
+            incidents={incidents}
+            tracks={tracks}
+            alerts={alerts}
+            zones={zones}
+            observations={observations}
+            casualties={casualties}
+            hazards={hazards}
+            nodes={EVACUATION_NODES}
+            onNavigate={setActiveModule}
+            onResetDemo={handleResetDemo}
+            isOfflineMode={isOfflineMode}
+          />
+        )}
 
-          {activeModule === 'fieldlink' && (
-            <FieldLinkModule
-              incidents={incidents}
-              isOfflineMode={isOfflineMode}
-              onRefreshIncidents={refreshAllData}
-              onTriggerSync={handleTriggerSync}
-              onResetDemo={handleResetDemo}
-              isSyncing={isSyncing}
-            />
-          )}
+        {activeModule === 'fieldlink' && (
+          <FieldLinkModule
+            incidents={incidents}
+            isOfflineMode={isOfflineMode}
+            onRefreshIncidents={refreshAllData}
+            onTriggerSync={handleTriggerSync}
+            isSyncing={isSyncing}
+          />
+        )}
 
-          {activeModule === 'skywatch' && (
-            <SkyWatchModule
-              tracks={tracks}
-              alerts={alerts}
-              zones={zones}
-              onRefreshAlerts={refreshAllData}
-              onResetDemo={handleResetDemo}
-            />
-          )}
+        {activeModule === 'skywatch' && (
+          <SkyWatchModule
+            tracks={tracks}
+            alerts={alerts}
+            zones={zones}
+            onRefreshAlerts={refreshAllData}
+          />
+        )}
 
-          {activeModule === 'geointel' && (
-            <GeoIntelModule
-              observations={observations}
-              onRefreshObservations={refreshAllData}
-            />
-          )}
+        {activeModule === 'geointel' && (
+          <GeoIntelModule
+            observations={observations}
+            onRefreshObservations={refreshAllData}
+          />
+        )}
 
-          {activeModule === 'mediroute' && (
-            <MediRouteModule
-              casualties={casualties}
-              hazards={hazards}
-              nodes={EVACUATION_NODES}
-              onRefreshCasualties={refreshAllData}
-              onRefreshHazards={refreshAllData}
-            />
-          )}
-        </main>
-      </div>
+        {activeModule === 'mediroute' && (
+          <MediRouteModule
+            casualties={casualties}
+            hazards={hazards}
+            nodes={EVACUATION_NODES}
+            onRefreshCasualties={refreshAllData}
+            onRefreshHazards={refreshAllData}
+          />
+        )}
+      </main>
     </div>
   );
 };
