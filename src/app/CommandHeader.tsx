@@ -9,8 +9,6 @@ import {
   Moon,
   Monitor,
   Menu,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -65,11 +63,13 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
 
   const overflowRef = useRef<HTMLDivElement>(null);
 
-  // UTC clock update
+  // IST clock update (Asia/Kolkata, UTC+05:30)
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      setCurrentTime(now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
+      const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
+      setCurrentTime(`${dateStr} ${timeStr} IST`);
     };
     update();
     const interval = setInterval(update, 1000);
@@ -190,19 +190,27 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           />
           <span
             style={{
-              fontSize: '0.78rem',
+              fontSize: '0.76rem',
               fontFamily: 'var(--font-mono)',
               fontWeight: 800,
               color: 'var(--accent)',
               letterSpacing: '0.04em',
               whiteSpace: 'nowrap',
               background: 'var(--surface-inset)',
-              padding: '2px 8px',
+              padding: '0 10px',
+              height: '24px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 1,
+              boxSizing: 'border-box',
               borderRadius: 'var(--radius-pill)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
             }}
           >
-            SENTINEL v2.6
+            <span style={{ display: 'inline-block', lineHeight: 1, transform: 'translateY(0.5px)' }}>
+              SENTINEL v2.6
+            </span>
           </span>
           <span
             className="badge-neu badge-neu-info"
@@ -246,7 +254,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             }}
           >
             <Clock size={11} color="var(--accent)" />
-            {currentTime.substring(11, 19)} UTC
+            {currentTime ? currentTime.substring(11) : ''}
           </span>
           <button
             type="button"
@@ -290,36 +298,27 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           </button>
         )}
 
-        {/* Desktop Sidebar collapse toggle (>= 900px) */}
-        {!isTablet && onToggleSidebarCollapse && (
-          <button
-            type="button"
-            className="btn-neu header-icon-btn"
-            onClick={onToggleSidebarCollapse}
-            aria-label={isSidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
-            title={isSidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
-          >
-            {isSidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
-          </button>
-        )}
-
         {/* SENTINEL v2.6 Badge */}
         <span
           style={{
-            fontSize: '0.72rem',
+            height: '26px',
+            padding: '0 10px',
+            display: isMobile ? 'none' : 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            borderRadius: 'var(--radius-pill)',
+            border: '1px solid var(--accent)',
+            background: 'var(--surface-inset)',
+            fontSize: '0.74rem',
             fontFamily: 'var(--font-mono)',
             fontWeight: 800,
             color: 'var(--accent)',
             letterSpacing: '0.04em',
-            background: 'var(--surface-inset)',
-            padding: '2px 8px',
-            borderRadius: 'var(--radius-pill)',
-            border: '1px solid var(--accent)',
-            display: isMobile ? 'none' : 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
+            lineHeight: 1,
             flexShrink: 0,
             boxShadow: '0 0 8px var(--accent-light)',
+            boxSizing: 'border-box',
           }}
         >
           <span
@@ -329,9 +328,19 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               borderRadius: '50%',
               background: isOfflineMode ? 'var(--critical)' : 'var(--healthy)',
               boxShadow: `0 0 6px ${isOfflineMode ? 'var(--critical)' : 'var(--healthy)'}`,
+              display: 'inline-block',
+              flexShrink: 0,
             }}
           />
-          SENTINEL v2.6
+          <span
+            style={{
+              display: 'inline-block',
+              lineHeight: 1,
+              transform: 'translateY(0.5px)',
+            }}
+          >
+            SENTINEL v2.6
+          </span>
         </span>
 
         {/* Module Title & Subtitle */}
@@ -533,7 +542,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           </span>
         </div>
 
-        {/* Live UTC Clock (Always visible; compact format on mobile) */}
+        {/* Live IST Clock (Always visible; compact format on mobile) */}
         <div
           className="neu-inset"
           style={{
@@ -550,10 +559,10 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             whiteSpace: 'nowrap',
             flexShrink: 0,
           }}
-          title="Live UTC Synchronized Clock"
+          title="Live IST Synchronized Clock (UTC+05:30)"
         >
           <Clock size={12} color="var(--accent)" />
-          <span>{isMobile ? currentTime.substring(11, 16) + ' UTC' : currentTime}</span>
+          <span>{isMobile ? (currentTime ? currentTime.substring(11, 16) + ' IST' : '') : currentTime}</span>
         </div>
 
         {/* Go Offline / Offline Mode Icon Button (Visible on screens >= 600px) */}
