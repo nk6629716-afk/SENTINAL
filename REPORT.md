@@ -1,5 +1,5 @@
 # SENTINEL Project Report & System Architecture Ledger
-*Automated Operational & Technical Dossier — Generated 2026-10-25T18:13:46.092Z*
+*Automated Operational & Technical Dossier — Generated 2026-10-25T18:15:00.648Z*
 
 ---
 
@@ -18,14 +18,12 @@ The platform provides resilient disaster-zone situational awareness for military
 | Metric | Active Repository Value |
 | :--- | :--- |
 | **Active Branch** | `main` |
-| **Commit SHA** | `3ae9de6bf1a264a8a094ccb326219706ac83185a` (`3ae9de6`) |
-| **Last Commit Date** | `2026-10-25 23:38:24 +0530` |
+| **Commit SHA** | `e570362658d0b2e5c50d1a2350559326ca8a5839` (`e570362`) |
+| **Last Commit Date** | `2026-10-25 23:44:43 +0530` |
 | **Author** | `nk6629716-afk <nk6629716@gmail.com>` |
 | **Remote URL** | `https://github.com/nk6629716-afk/fallingsun` |
-| **Working Tree Status** | `M package.json
-?? REPORT.md
-?? scripts/` |
-| **Latest Message** | `Merge remote-tracking branch 'origin/main'` |
+| **Working Tree Status** | `M REPORT.md` |
+| **Latest Message** | `Merge branch 'main' of https://github.com/nk6629716-afk/fallingsun` |
 
 ---
 
@@ -35,7 +33,7 @@ The test suite evaluates mission-critical algorithmic behaviors, safety-critical
 
 | Suite | Status | Metrics / Outcome |
 | :--- | :---: | :--- |
-| **Frontend Behavioral & Contract Suite** | **PASSED** | **54 / 54 tests passed (100%)** |
+| **Frontend Behavioral & Contract Suite** | **PASSED** | **66 / 66 tests passed (100%)** |
 | **MediRoute START Triage Rules** | **PASSED** | 6/6 tests (Respiratory > 30, Absent Pulse, Unresponsive Mental Status, Walking Wounded) |
 | **Dijkstra Hazard-Aware Routing** | **PASSED** | 5/5 tests (Open highway 5.5 km, blocked bridge detour 6.6 km, all-blocked failure mode) |
 | **FieldLink Idempotent Sync Contract** | **PASSED** | 3/3 tests (Duplicate clientId detection, already_received resolution, retry queue) |
