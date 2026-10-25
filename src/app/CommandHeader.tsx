@@ -130,21 +130,22 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span
               style={{
-                fontSize: '0.74rem',
+                fontSize: '0.8rem',
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 800,
                 color: 'var(--accent)',
-                letterSpacing: '0.04em',
+                letterSpacing: '0.06em',
                 background: 'var(--surface-inset)',
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-subtle)',
+                padding: '3px 10px',
+                borderRadius: 'var(--radius-pill)',
+                border: '1px solid var(--accent)',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '7px',
+                boxShadow: '0 0 10px var(--accent-light)',
               }}
             >
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--healthy)', boxShadow: '0 0 6px var(--healthy)' }} />
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--healthy)', boxShadow: '0 0 8px var(--healthy)' }} />
               SENTINEL v2.6
             </span>
             <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>

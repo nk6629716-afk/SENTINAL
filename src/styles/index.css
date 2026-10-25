@@ -4,52 +4,52 @@
    Accessible Contrast, Subtle Elevations, Recessed Insets, Asymmetric Composition
    ========================================================================== */
 
-/* 1. Light Theme Tokens (Warm Neutral Editorial) */
+/* 1. Light Theme Tokens (Crisp Aerospace Titanium & Clean Slate) */
 :root,
 :root[data-theme="light"] {
   /* Surfaces */
-  --surface: #F3F1EB;
-  --surface-raised: #F8F7F3;
+  --surface: #F8FAFC;
+  --surface-raised: #FFFFFF;
   --surface-elevated: #FFFFFF;
-  --surface-inset: #E8E7E0;
-  --surface-card: #F8F7F3;
+  --surface-inset: #F1F5F9;
+  --surface-card: #FFFFFF;
   --surface-highlight: #FFFFFF;
-  --map-canvas: #E4E2DA;
+  --map-canvas: #E2E8F0;
 
   /* Typography */
-  --text-primary: #202521;
-  --text-secondary: #5A645D;
-  --text-muted: #7E8981;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
 
   /* Borders & Dividers */
-  --border-subtle: #DBD8CF;
-  --border-light: rgba(255, 255, 255, 0.85);
+  --border-subtle: #E2E8F0;
+  --border-light: rgba(255, 255, 255, 0.9);
 
   /* Meaningful Status Accents */
-  --accent: #2B547E;
-  --accent-light: #EAF1F8;
-  --healthy: #286643;
-  --healthy-bg: #E7F3EB;
-  --warning: #945B11;
-  --warning-bg: #FAF0E3;
-  --critical: #A82E2E;
-  --critical-bg: #FAECEC;
-  --informational: #2B5F80;
-  --informational-bg: #E8F2F7;
+  --accent: #0284C7;
+  --accent-light: #E0F2FE;
+  --healthy: #059669;
+  --healthy-bg: #ECFDF5;
+  --warning: #D97706;
+  --warning-bg: #FFFBEB;
+  --critical: #DC2626;
+  --critical-bg: #FEF2F2;
+  --informational: #2563EB;
+  --informational-bg: #EFF6FF;
 
-  /* Neumorphic Shadows (Light Mode: Soft Warm Highlights & Muted Shadows) */
-  --shadow-raised: 5px 5px 13px rgba(175, 170, 158, 0.35), -5px -5px 13px rgba(255, 255, 255, 0.9);
-  --shadow-raised-sm: 3px 3px 8px rgba(175, 170, 158, 0.28), -3px -3px 8px rgba(255, 255, 255, 0.85);
-  --shadow-raised-hover: 7px 7px 18px rgba(175, 170, 158, 0.45), -7px -7px 18px rgba(255, 255, 255, 0.95);
-  --shadow-inset: inset 3px 3px 6px rgba(175, 170, 158, 0.32), inset -3px -3px 6px rgba(255, 255, 255, 0.82);
-  --shadow-inset-sm: inset 2px 2px 4px rgba(175, 170, 158, 0.26), inset -2px -2px 4px rgba(255, 255, 255, 0.76);
-  --shadow-sidebar: 4px 0 16px rgba(175, 170, 158, 0.2);
+  /* Clean Modern Shadows */
+  --shadow-raised: 0 4px 14px -2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.05);
+  --shadow-raised-sm: 0 2px 6px -1px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --shadow-raised-hover: 0 8px 24px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  --shadow-inset: inset 0 2px 4px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --shadow-inset-sm: inset 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-sidebar: 2px 0 12px rgba(15, 23, 42, 0.04);
 
   /* Geometry & Layout */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --radius-pill: 9999px;
 
   /* Typography Stacks */
@@ -59,60 +59,61 @@
   /* Dimensions */
   --header-height: 64px;
   --sidebar-width: 260px;
+
   /* Radar & Tactical Map Tokens (Light Mode) */
-  --radar-glow: rgba(43, 84, 126, 0.25);
-  --radar-sweep: rgba(43, 84, 126, 0.12);
-  --radar-grid: rgba(43, 84, 126, 0.18);
-  --radar-beam: #2B547E;
-  --radar-ring: rgba(43, 84, 126, 0.22);
+  --radar-glow: rgba(2, 132, 199, 0.35);
+  --radar-sweep: rgba(2, 132, 199, 0.15);
+  --radar-grid: rgba(2, 132, 199, 0.16);
+  --radar-beam: #0284C7;
+  --radar-ring: rgba(2, 132, 199, 0.22);
 }
 
-/* 2. Dark Theme Tokens (Genuine Tactical Dark - No blinding white highlights) */
+/* 2. Dark Theme Tokens (Deep Obsidian C4ISR Command Center) */
 :root[data-theme="dark"] {
   /* Surfaces */
-  --surface: #171B20;
-  --surface-raised: #20262D;
-  --surface-elevated: #252D35;
-  --surface-inset: #13161A;
-  --surface-card: #20262D;
-  --surface-highlight: rgba(255, 255, 255, 0.05);
-  --map-canvas: #0A0E14;
+  --surface: #0A0E17;
+  --surface-raised: #111827;
+  --surface-elevated: #162235;
+  --surface-inset: #060910;
+  --surface-card: #111827;
+  --surface-highlight: rgba(255, 255, 255, 0.06);
+  --map-canvas: #05080E;
 
   /* Typography */
-  --text-primary: #EDF1F4;
-  --text-secondary: #95A1AD;
-  --text-muted: #6B7683;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
 
   /* Borders & Dividers */
-  --border-subtle: #2C3540;
-  --border-light: rgba(255, 255, 255, 0.06);
+  --border-subtle: #1E293B;
+  --border-light: rgba(255, 255, 255, 0.08);
 
   /* Meaningful Status Accents */
-  --accent: #5283BD;
-  --accent-light: rgba(82, 131, 189, 0.16);
-  --healthy: #44A670;
-  --healthy-bg: rgba(68, 166, 112, 0.16);
-  --warning: #D89128;
-  --warning-bg: rgba(216, 145, 40, 0.16);
-  --critical: #E35353;
-  --critical-bg: rgba(227, 83, 83, 0.16);
-  --informational: #4898CF;
-  --informational-bg: rgba(72, 152, 207, 0.16);
+  --accent: #38BDF8;
+  --accent-light: rgba(56, 189, 248, 0.15);
+  --healthy: #10B981;
+  --healthy-bg: rgba(16, 185, 129, 0.15);
+  --warning: #F59E0B;
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --critical: #EF4444;
+  --critical-bg: rgba(239, 68, 68, 0.18);
+  --informational: #60A5FA;
+  --informational-bg: rgba(96, 165, 250, 0.15);
 
   /* Radar & Tactical Map Tokens (Dark Mode) */
-  --radar-glow: rgba(0, 242, 254, 0.45);
-  --radar-sweep: rgba(0, 242, 254, 0.18);
-  --radar-grid: rgba(0, 242, 254, 0.16);
+  --radar-glow: rgba(0, 242, 254, 0.55);
+  --radar-sweep: rgba(0, 242, 254, 0.22);
+  --radar-grid: rgba(0, 242, 254, 0.18);
   --radar-beam: #00F2FE;
-  --radar-ring: rgba(0, 242, 254, 0.25);
+  --radar-ring: rgba(0, 242, 254, 0.28);
 
-  /* Neumorphic Shadows (Dark Mode: Restrained Ambient Shadows & Thin Elevation) */
-  --shadow-raised: 0 6px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --shadow-raised-sm: 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --shadow-raised-hover: 0 8px 22px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --shadow-inset: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.03);
-  --shadow-inset-sm: inset 0 1px 4px rgba(0, 0, 0, 0.45);
-  --shadow-sidebar: 4px 0 18px rgba(0, 0, 0, 0.4);
+  /* Tactical Luminous Shadows */
+  --shadow-raised: 0 4px 20px -2px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-raised-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-raised-hover: 0 8px 28px -4px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(56, 189, 248, 0.2);
+  --shadow-inset: inset 0 2px 6px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-inset-sm: inset 0 1px 4px rgba(0, 0, 0, 0.55);
+  --shadow-sidebar: 3px 0 18px rgba(0, 0, 0, 0.6);
 }
 
 /* Reset & Base Canvas */
