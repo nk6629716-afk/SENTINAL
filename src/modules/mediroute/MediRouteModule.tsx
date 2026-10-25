@@ -213,7 +213,10 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
     activeRoute?.blockedEdgesAvoided?.length ||
     (activeRoute?.alternativeFound ? 1 : 0) ||
     (activeRoute?.hasActiveBlockage ? 1 : 0);
-  const meanEta = activeRoute?.estimatedMinutes
+  const isDisconnected = Boolean(activeRoute && (activeRoute.alternativeFound === false || activeRoute.routeFound === false || (activeRoute.pathNodeIds && activeRoute.pathNodeIds.length === 0)));
+  const meanEta = isDisconnected
+    ? 'N/A'
+    : activeRoute?.estimatedMinutes
     ? `${activeRoute.estimatedMinutes} min`
     : activeRoute?.totalTimeMin
     ? `${Math.round(activeRoute.totalTimeMin)} min`
@@ -565,23 +568,27 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
             {/* Active route summary */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-ink)' }}>
-                Field hospital, 8.9 km, 18 min
+                {activeRoute?.alternativeFound === false || activeRoute?.routeFound === false
+                  ? 'All corridors obstructed'
+                  : activeRoute?.totalDistanceKm
+                  ? `Field hospital, ${activeRoute.totalDistanceKm} km, ${activeRoute.estimatedMinutes || activeRoute.estimatedTimeMinutes || 18} min`
+                  : 'Field hospital, 8.9 km, 18 min'}
               </span>
               <span
                 style={{
                   padding: '2px 6px',
-                  border: '1.2px solid var(--color-ok)',
-                  color: 'var(--color-ok)',
+                  border: `1.2px solid ${activeRoute?.alternativeFound === false || activeRoute?.routeFound === false ? 'var(--color-crit)' : 'var(--color-ok)'}`,
+                  color: activeRoute?.alternativeFound === false || activeRoute?.routeFound === false ? 'var(--color-crit)' : 'var(--color-ok)',
                   fontSize: '0.7rem',
                   fontWeight: 700,
                 }}
               >
-                Active
+                {activeRoute?.alternativeFound === false || activeRoute?.routeFound === false ? 'Disconnected' : 'Active'}
               </span>
             </div>
 
             <div style={{ fontSize: '0.74rem', color: 'var(--color-ink-2)', marginTop: '-6px' }}>
-              Avoids bridge B-4. Recalculated 14:31:48 after hazard report.
+              {activeRoute?.explanation || activeRoute?.message || 'Avoids bridge B-4. Recalculated 14:31:48 after hazard report.'}
             </div>
 
             {/* Bed Capacity Progress Bars */}

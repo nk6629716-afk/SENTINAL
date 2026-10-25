@@ -487,6 +487,9 @@ select.form-input {
   .btn-mobile-nav {
     display: inline-flex !important;
   }
+  .header-notice-badge {
+    display: none !important;
+  }
 }
 
 @media (max-width: 600px), (pointer: coarse) {

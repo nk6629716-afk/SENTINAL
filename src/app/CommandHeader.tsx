@@ -170,7 +170,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
       </div>
 
       {/* Center: Notice Badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="header-notice-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div
           style={{
             border: '1px solid #B77700',
