@@ -1,32 +1,23 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  Compass,
-  Sliders,
-  Layers,
-  Crosshair,
+  Activity,
+  Eye,
   ZoomIn,
   ZoomOut,
   Maximize2,
-  Calendar,
+  Crosshair,
+  MapPin,
+  Flame,
+  Layers,
   Satellite,
-  Eye,
-  Activity,
-  AlertTriangle,
-  CheckCircle,
-  HelpCircle,
+  Compass,
 } from 'lucide-react';
-import {
-  ComparisonViewMode,
-  EnrichedChangeCandidate,
-  SensorMetadata,
-} from '../types';
-import { convertToMGRS, formatTacticalTimestamp } from '../utils/geoUtils';
+import { EnrichedChangeCandidate, SensorMetadata } from '../types';
+import { convertToMGRS } from '../utils/geoUtils';
 
 interface SurveillanceCanvasProps {
-  viewMode: ComparisonViewMode;
-  onViewModeChange: (mode: ComparisonViewMode) => void;
-  beforeImageUrl?: string;
-  afterImageUrl?: string;
+  isOpticalDiff: boolean;
+  onToggleOpticalDiff: () => void;
   baselineSensor: SensorMetadata;
   surveillanceSensor: SensorMetadata;
   candidates: EnrichedChangeCandidate[];
@@ -39,10 +30,8 @@ interface SurveillanceCanvasProps {
 }
 
 export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
-  viewMode,
-  onViewModeChange,
-  beforeImageUrl,
-  afterImageUrl,
+  isOpticalDiff,
+  onToggleOpticalDiff,
   baselineSensor,
   surveillanceSensor,
   candidates,
@@ -53,10 +42,21 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
   showOverlays,
   onToggleOverlays,
 }) => {
-  const [sliderPosition, setSliderPosition] = useState(50); // 0 to 100 percentage
-  const [isDragging, setIsDragging] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [hoverCoords, setHoverCoords] = useState<{
+  // Zoom & Pan State
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const dragStartRef = useRef<{ startX: number; startY: number; initialPanX: number; initialPanY: number }>({
+    startX: 0,
+    startY: 0,
+    initialPanX: 0,
+    initialPanY: 0,
+  });
+
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Crosshair coordinate tracking
+  const [cursorGeo, setCursorGeo] = useState<{
     lat: number;
     lng: number;
     mgrs: string;
@@ -66,47 +66,84 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
     lat: centerCoordinates.lat,
     lng: centerCoordinates.lng,
     mgrs: convertToMGRS(centerCoordinates.lat, centerCoordinates.lng),
-    pixelX: 0,
-    pixelY: 0,
+    pixelX: 640,
+    pixelY: 360,
   });
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [beforeLoadFailed, setBeforeLoadFailed] = useState(false);
-  const [afterLoadFailed, setAfterLoadFailed] = useState(false);
+  // Clamp pan so scaled image never exposes empty background
+  const getClampedPan = useCallback(
+    (targetX: number, targetY: number, currentZoom: number) => {
+      if (currentZoom <= 1 || !containerRef.current) {
+        return { x: 0, y: 0 };
+      }
+      const rect = containerRef.current.getBoundingClientRect();
+      const maxPanX = (rect.width * (currentZoom - 1)) / 2;
+      const maxPanY = (rect.height * (currentZoom - 1)) / 2;
 
-  // Compute slider position from clientX with container bounding rect
-  const updateSliderFromClientX = useCallback((clientX: number) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const offsetX = clientX - rect.left;
-    const pct = Math.max(0, Math.min(100, (offsetX / rect.width) * 100));
-    setSliderPosition(Number(pct.toFixed(1)));
-  }, []);
+      const clampedX = Math.max(-maxPanX, Math.min(maxPanX, targetX));
+      const clampedY = Math.max(-maxPanY, Math.min(maxPanY, targetY));
+      return { x: clampedX, y: clampedY };
+    },
+    []
+  );
 
-  // Pointer drag event handlers with pointer capture
+  // Reset pan whenever zoom is returned to 1x
+  const handleZoomChange = (newZoom: number) => {
+    const clampedZoom = Math.max(1, Math.min(4, Number(newZoom.toFixed(2))));
+    setZoom(clampedZoom);
+    if (clampedZoom === 1) {
+      setPan({ x: 0, y: 0 });
+    } else {
+      setPan((prev) => getClampedPan(prev.x, prev.y, clampedZoom));
+    }
+  };
+
+  const handleResetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Wheel zoom handling
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.25 : -0.25;
+    handleZoomChange(zoom + delta);
+  };
+
+  // Pointer drag panning (only active when zoom > 1)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (zoom <= 1) return; // Drag disabled at default scale
     e.currentTarget.setPointerCapture(e.pointerId);
-    setIsDragging(true);
-    updateSliderFromClientX(e.clientX);
+    setIsPanning(true);
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialPanX: pan.x,
+      initialPanY: pan.y,
+    };
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (isDragging) {
-      updateSliderFromClientX(e.clientX);
+    // If dragging at zoom > 1, update pan
+    if (isPanning && zoom > 1) {
+      const deltaX = e.clientX - dragStartRef.current.startX;
+      const deltaY = e.clientY - dragStartRef.current.startY;
+      const nextX = dragStartRef.current.initialPanX + deltaX;
+      const nextY = dragStartRef.current.initialPanY + deltaY;
+      setPan(getClampedPan(nextX, nextY, zoom));
     }
 
-    // Update real-time crosshair HUD coordinates based on cursor offset
+    // Update crosshair coordinates
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       const relY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
 
-      // Calculate approximate localized geodetic delta around target epicenter (+/- 0.01 deg AOI)
       const lat = centerCoordinates.lat + (0.5 - relY) * 0.018;
       const lng = centerCoordinates.lng + (relX - 0.5) * 0.024;
       const mgrs = convertToMGRS(lat, lng);
 
-      setHoverCoords({
+      setCursorGeo({
         lat,
         lng,
         mgrs,
@@ -120,226 +157,121 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {}
-    setIsDragging(false);
+    setIsPanning(false);
   };
 
-  // Keyboard navigation for slider precision
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowLeft') {
-      setSliderPosition((prev) => Math.max(0, prev - 2));
-    } else if (e.key === 'ArrowRight') {
-      setSliderPosition((prev) => Math.min(100, prev + 2));
-    } else if (e.key === 'Home') {
-      setSliderPosition(0);
-    } else if (e.key === 'End') {
-      setSliderPosition(100);
-    }
-  };
+  // Keep pan clamped if container resizes
+  useEffect(() => {
+    const handleResize = () => {
+      setPan((prev) => getClampedPan(prev.x, prev.y, zoom));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [zoom, getClampedPan]);
 
-  // Fallback high-tech vector satellite terrain generator if images are missing or offline
-  const renderFallbackVectorMap = (isSurveillance: boolean) => (
-    <svg
-      width="100%"
-      height="100%"
-      viewBox="0 0 1000 600"
-      preserveAspectRatio="none"
-      style={{
-        display: 'block',
-        background: isSurveillance ? '#0E1726' : '#0B101D',
-      }}
-    >
-      <defs>
-        <pattern id={`tactical-grid-${isSurveillance ? 'after' : 'before'}`} width="50" height="50" patternUnits="userSpaceOnUse">
-          <path d="M 50 0 L 0 0 0 50" fill="none" stroke={isSurveillance ? 'rgba(0, 240, 255, 0.08)' : 'rgba(148, 163, 184, 0.08)'} strokeWidth="1" />
-          <circle cx="50" cy="50" r="1.5" fill={isSurveillance ? 'rgba(0, 240, 255, 0.2)' : 'rgba(148, 163, 184, 0.15)'} />
-        </pattern>
-      </defs>
-
-      <rect width="1000" height="600" fill={`url(#tactical-grid-${isSurveillance ? 'after' : 'before'})`} />
-
-      {/* Main road / river arterial */}
-      <path
-        d="M 120 580 C 280 440, 360 380, 500 320 C 640 260, 720 180, 880 40"
-        fill="none"
-        stroke={isSurveillance ? '#1E293B' : '#1F2937'}
-        strokeWidth="28"
-      />
-      <path
-        d="M 120 580 C 280 440, 360 380, 500 320 C 640 260, 720 180, 880 40"
-        fill="none"
-        stroke={isSurveillance ? '#334155' : '#374151'}
-        strokeWidth="14"
-        strokeDasharray="10 8"
-      />
-
-      {/* Secondary logistics spur */}
-      <path d="M 500 320 L 780 460" fill="none" stroke="#1E293B" strokeWidth="16" />
-
-      {/* Military compound / logistics footprints */}
-      <rect x="260" y="160" width="140" height="110" rx="4" fill="#172033" stroke="#2D3B55" strokeWidth="2" />
-      <rect x="290" y="185" width="45" height="30" fill="#243047" />
-      <rect x="345" y="185" width="45" height="30" fill="#243047" />
-
-      {/* Staging Area Delta */}
-      <rect x="580" y="340" width="180" height="140" rx="4" fill="#141C2B" stroke="#243247" strokeWidth="2" />
-
-      {/* Alterations visible ONLY on Surveillance side */}
-      {isSurveillance && (
-        <g>
-          {/* Excavated earthen crater & berms */}
-          <ellipse cx="330" cy="215" rx="38" ry="26" fill="rgba(239, 68, 68, 0.28)" stroke="#EF4444" strokeWidth="2" strokeDasharray="4 2" />
-          <path d="M 315 200 L 345 230 M 345 200 L 315 230" stroke="#EF4444" strokeWidth="2" />
-
-          {/* Heavy Transport Vehicles cluster */}
-          <rect x="630" y="380" width="28" height="14" rx="2" fill="#F59E0B" stroke="#FDE68A" strokeWidth="1.5" />
-          <rect x="668" y="385" width="28" height="14" rx="2" fill="#F59E0B" stroke="#FDE68A" strokeWidth="1.5" />
-          <rect x="650" y="415" width="28" height="14" rx="2" fill="#F59E0B" stroke="#FDE68A" strokeWidth="1.5" />
-
-          {/* Defoliated forest spur */}
-          <path d="M 460 480 Q 480 440 500 400" fill="none" stroke="#10B981" strokeWidth="8" strokeDasharray="6 4" />
-        </g>
-      )}
-
-      {/* Tactical Coordinate Reticle Corners */}
-      <path d="M 20 50 L 20 20 L 50 20" fill="none" stroke="#00F0FF" strokeWidth="2" />
-      <path d="M 980 50 L 980 20 L 950 20" fill="none" stroke="#00F0FF" strokeWidth="2" />
-      <path d="M 20 550 L 20 580 L 50 580" fill="none" stroke="#00F0FF" strokeWidth="2" />
-      <path d="M 980 550 L 980 580 L 950 580" fill="none" stroke="#00F0FF" strokeWidth="2" />
-
-      {/* Compass rose center mark */}
-      <circle cx="500" cy="300" r="40" fill="none" stroke="rgba(0, 240, 255, 0.12)" strokeWidth="1" strokeDasharray="4 4" />
-      <path d="M 500 250 L 500 350 M 450 300 L 550 300" stroke="rgba(0, 240, 255, 0.15)" strokeWidth="1" />
-    </svg>
-  );
+  const activeImageSrc = isOpticalDiff ? '/assets/terrain-blue.png' : '/assets/terrain-default.png';
 
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
+        gap: '10px',
         width: '100%',
       }}
     >
-      {/* 1. Tactical Canvas Toolbar */}
+      {/* 1. Tactical Command Header & Mode Controls */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '10px',
-          background: 'rgba(11, 15, 23, 0.85)',
-          backdropFilter: 'blur(8px)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          gap: '12px',
+          background: 'rgba(11, 15, 23, 0.92)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '10px',
           padding: '8px 16px',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Satellite size={16} color="#00F0FF" />
-            <span style={{ fontSize: '0.84rem', fontWeight: 700, color: '#F1F5F9', letterSpacing: '0.04em' }}>
-              SURVEILLANCE HUB: <span style={{ color: '#00F0FF' }}>{targetZoneName.toUpperCase()}</span>
+        {/* Left: Zone & Primary Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Satellite size={17} color="#00F0FF" />
+            <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#F1F5F9', letterSpacing: '0.04em' }}>
+              RECON SCOPE: <span style={{ color: '#00F0FF' }}>{targetZoneName.toUpperCase()}</span>
             </span>
           </div>
 
-          <div
-            style={{
-              height: '16px',
-              width: '1px',
-              background: 'rgba(255, 255, 255, 0.15)',
-            }}
-          />
+          <div style={{ height: '16px', width: '1px', background: 'rgba(255, 255, 255, 0.15)' }} />
 
-          {/* Mode Switcher Tabs */}
+          {/* Mode Pill Indicator */}
           <div
             style={{
-              display: 'inline-flex',
-              background: 'rgba(0, 0, 0, 0.4)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '6px',
-              padding: '2px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '3px 10px',
+              borderRadius: '20px',
+              background: isOpticalDiff ? 'rgba(239, 68, 68, 0.15)' : 'rgba(2, 132, 199, 0.15)',
+              border: `1px solid ${isOpticalDiff ? '#EF4444' : '#0284C7'}`,
+              fontSize: '0.72rem',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 800,
+              color: isOpticalDiff ? '#F87171' : '#38BDF8',
             }}
           >
-            <button
-              onClick={() => onViewModeChange('swipe')}
+            <span
               style={{
-                background: viewMode === 'swipe' ? '#0284C7' : 'transparent',
-                color: viewMode === 'swipe' ? '#FFFFFF' : '#94A3B8',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '4px 10px',
-                fontSize: '0.74rem',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease',
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: isOpticalDiff ? '#EF4444' : '#00F0FF',
+                boxShadow: isOpticalDiff ? '0 0 8px #EF4444' : '0 0 8px #00F0FF',
               }}
-            >
-              <Sliders size={13} />
-              <span>SWIPE SPLIT</span>
-            </button>
-
-            <button
-              onClick={() => onViewModeChange('side-by-side')}
-              style={{
-                background: viewMode === 'side-by-side' ? '#0284C7' : 'transparent',
-                color: viewMode === 'side-by-side' ? '#FFFFFF' : '#94A3B8',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '4px 10px',
-                fontSize: '0.74rem',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Layers size={13} />
-              <span>SIDE-BY-SIDE</span>
-            </button>
-
-            <button
-              onClick={() => onViewModeChange('heatmap')}
-              style={{
-                background: viewMode === 'heatmap' ? '#DC2626' : 'transparent',
-                color: viewMode === 'heatmap' ? '#FFFFFF' : '#94A3B8',
-                border: 'none',
-                borderRadius: '4px',
-                padding: '4px 10px',
-                fontSize: '0.74rem',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Activity size={13} />
-              <span>OPTICAL DIFF</span>
-            </button>
+            />
+            <span>{isOpticalDiff ? 'OPTICAL DIFF (SAR HEATMAP ACTIVE)' : 'PRIMARY TERRAIN (DEFAULT TAN)'}</span>
           </div>
         </div>
 
-        {/* View Controls & Overlays Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Right: Optical Diff Toggle, Overlays, and Zoom Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Optical Diff / Heatmap Toggle Button */}
+          <button
+            onClick={onToggleOpticalDiff}
+            style={{
+              background: isOpticalDiff
+                ? 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)'
+                : 'rgba(239, 68, 68, 0.12)',
+              border: `1px solid ${isOpticalDiff ? '#EF4444' : 'rgba(239, 68, 68, 0.35)'}`,
+              color: isOpticalDiff ? '#FFFFFF' : '#F87171',
+              borderRadius: '6px',
+              padding: '6px 14px',
+              fontSize: '0.74rem',
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              boxShadow: isOpticalDiff ? '0 0 16px rgba(220, 38, 38, 0.45)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Flame size={15} />
+            <span>OPTICAL DIFF: {isOpticalDiff ? 'ACTIVE' : 'OFF'}</span>
+          </button>
+
+          {/* Tactical Overlays Toggle */}
           <button
             onClick={onToggleOverlays}
             style={{
-              background: showOverlays ? 'rgba(0, 240, 255, 0.12)' : 'rgba(0, 0, 0, 0.4)',
+              background: showOverlays ? 'rgba(0, 240, 255, 0.12)' : 'rgba(0, 0, 0, 0.45)',
               border: `1px solid ${showOverlays ? '#00F0FF' : 'rgba(255, 255, 255, 0.1)'}`,
               color: showOverlays ? '#00F0FF' : '#94A3B8',
               borderRadius: '6px',
-              padding: '4px 10px',
+              padding: '6px 12px',
               fontSize: '0.72rem',
               fontFamily: 'var(--font-mono)',
               fontWeight: 700,
@@ -349,522 +281,346 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               gap: '6px',
             }}
           >
-            <Eye size={13} />
-            <span>OVERLAYS: {showOverlays ? 'ACTIVE' : 'MUTED'}</span>
+            <Eye size={14} />
+            <span>OVERLAYS: {showOverlays ? 'ON' : 'OFF'}</span>
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+          {/* Zoom Buttons & Readout */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+              background: 'rgba(0, 0, 0, 0.5)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '6px',
+              padding: '3px 6px',
+            }}
+          >
             <button
-              onClick={() => setZoomLevel((z) => Math.max(0.75, z - 0.25))}
+              onClick={() => handleZoomChange(zoom - 0.25)}
+              disabled={zoom <= 1}
               title="Zoom Out"
               style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: '#94A3B8',
-                borderRadius: '4px',
-                width: '28px',
-                height: '28px',
+                background: 'transparent',
+                border: 'none',
+                color: zoom <= 1 ? '#475569' : '#E2E8F0',
+                cursor: zoom <= 1 ? 'not-allowed' : 'pointer',
+                padding: '3px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer',
               }}
             >
-              <ZoomOut size={14} />
+              <ZoomOut size={15} />
             </button>
-            <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: '#94A3B8', padding: '0 4px' }}>
-              {(zoomLevel * 100).toFixed(0)}%
+
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontFamily: 'var(--font-mono)',
+                color: zoom > 1 ? '#00F0FF' : '#E2E8F0',
+                fontWeight: 800,
+                padding: '0 6px',
+                minWidth: '42px',
+                textAlign: 'center',
+              }}
+            >
+              {zoom.toFixed(1)}x
             </span>
+
             <button
-              onClick={() => setZoomLevel((z) => Math.min(2.5, z + 0.25))}
+              onClick={() => handleZoomChange(zoom + 0.25)}
+              disabled={zoom >= 4}
               title="Zoom In"
               style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: '#94A3B8',
-                borderRadius: '4px',
-                width: '28px',
-                height: '28px',
+                background: 'transparent',
+                border: 'none',
+                color: zoom >= 4 ? '#475569' : '#E2E8F0',
+                cursor: zoom >= 4 ? 'not-allowed' : 'pointer',
+                padding: '3px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: 'pointer',
               }}
             >
-              <ZoomIn size={14} />
+              <ZoomIn size={15} />
             </button>
+
             <button
-              onClick={() => setZoomLevel(1)}
-              title="Reset Viewport"
+              onClick={handleResetView}
+              title="Reset Zoom to 1.0x & Center Viewport"
               style={{
-                background: 'rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                color: '#94A3B8',
+                background: zoom > 1 ? 'rgba(0, 240, 255, 0.15)' : 'transparent',
+                border: 'none',
                 borderRadius: '4px',
-                width: '28px',
-                height: '28px',
+                color: zoom > 1 ? '#00F0FF' : '#64748B',
+                cursor: 'pointer',
+                padding: '3px 6px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
+                gap: '4px',
+                fontSize: '0.68rem',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
                 marginLeft: '4px',
               }}
             >
-              <Maximize2 size={13} />
+              <Maximize2 size={12} />
+              <span>1x</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. Central High-Precision Imagery Canvas */}
+      {/* 2. Single 1280x720 Viewport Container with Clamped Pan & Heatmap Overlay Layer */}
       <div
         ref={containerRef}
+        onWheel={handleWheel}
+        onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
         style={{
           position: 'relative',
           width: '100%',
-          height: '520px',
+          aspectRatio: '16 / 9',
+          maxHeight: '720px',
           background: '#070B12',
           border: '1px solid #1E293B',
           borderRadius: '12px',
           overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6), inset 0 0 100px rgba(0, 0, 0, 0.8)',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.7), inset 0 0 80px rgba(0, 0, 0, 0.85)',
           userSelect: 'none',
           touchAction: 'none',
+          cursor: zoom > 1 ? (isPanning ? 'grabbing' : 'grab') : 'crosshair',
         }}
       >
-        {/* VIEW MODE A: SWIPE SPLIT SLIDER */}
-        {viewMode === 'swipe' && (
-          <div
+        {/* UNIFIED TRANSFORM CONTAINER: Holds BOTH terrain image and heatmap overlay layer */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            transformOrigin: 'center center',
+            transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom})`,
+            transition: isPanning ? 'none' : 'transform 0.12s ease-out',
+            willChange: 'transform',
+          }}
+        >
+          {/* Base Terrain Image (Tan default OR Dark-Blue in Optical Diff mode) */}
+          <img
+            src={activeImageSrc}
+            alt={isOpticalDiff ? 'Surveillance SAR Dark-Blue Terrain' : 'Baseline Tan Optical Terrain'}
+            draggable={false}
             style={{
-              position: 'absolute',
-              inset: 0,
-              cursor: isDragging ? 'ew-resize' : 'crosshair',
-            }}
-            onClick={(e) => {
-              if (!isDragging) updateSliderFromClientX(e.clientX);
-            }}
-          >
-            {/* 1. Underlying Layer: Surveillance (Post-Incident) Image */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                transform: `scale(${zoomLevel})`,
-                transformOrigin: 'center center',
-                transition: isDragging ? 'none' : 'transform 0.2s ease',
-              }}
-            >
-              {afterImageUrl && !afterLoadFailed ? (
-                <img
-                  src={afterImageUrl}
-                  alt="Surveillance Satellite Imagery"
-                  onError={() => setAfterLoadFailed(true)}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    filter: 'contrast(1.08) brightness(0.96)',
-                  }}
-                />
-              ) : (
-                renderFallbackVectorMap(true)
-              )}
-            </div>
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+              userSelect: 'none',
+              WebkitUserDrag: 'none',
+              filter: isOpticalDiff ? 'contrast(1.1) brightness(0.98)' : 'contrast(1.05) brightness(1.0)',
+              pointerEvents: 'none',
+            } as React.CSSProperties}
+          />
 
-            {/* 2. Top Clamped Layer: Baseline (Pre-Incident) Image with Dynamic Inset Clip */}
+          {/* Optical Diff / Thermal Heatmap Anomaly Overlay Layer (Active when isOpticalDiff is TRUE) */}
+          {isOpticalDiff && (
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
-                transform: `scale(${zoomLevel})`,
-                transformOrigin: 'center center',
-                transition: isDragging ? 'none' : 'transform 0.2s ease',
-                clipPath: `inset(0 calc(100% - ${sliderPosition}%) 0 0)`,
-                WebkitClipPath: `inset(0 calc(100% - ${sliderPosition}%) 0 0)`,
                 pointerEvents: 'none',
               }}
             >
-              {beforeImageUrl && !beforeLoadFailed ? (
-                <img
-                  src={beforeImageUrl}
-                  alt="Baseline Satellite Imagery"
-                  onError={() => setBeforeLoadFailed(true)}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    filter: 'contrast(1.05) brightness(0.94)',
-                  }}
-                />
-              ) : (
-                renderFallbackVectorMap(false)
-              )}
-            </div>
-
-            {/* 3. Candidate Bounding Boxes Overlaid on Imagery */}
-            {showOverlays && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  transform: `scale(${zoomLevel})`,
-                  transformOrigin: 'center center',
-                  pointerEvents: 'none',
-                }}
-              >
-                {candidates.map((can) => {
-                  const isSelected = selectedCandidateId === can.id;
-                  const { x, y, width, height } = can.boundingBox;
-
-                  let borderCol = '#F59E0B'; // Amber pending
-                  let bgTint = 'rgba(245, 158, 11, 0.15)';
-                  if (can.decision === 'confirmed_threat') {
-                    borderCol = '#EF4444'; // Red alert
-                    bgTint = 'rgba(239, 68, 68, 0.22)';
-                  } else if (can.decision === 'benign_false_positive') {
-                    borderCol = '#10B981'; // Green benign
-                    bgTint = 'rgba(16, 185, 129, 0.15)';
-                  }
-
-                  return (
-                    <div
-                      key={can.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectCandidate(can.id);
-                      }}
-                      style={{
-                        position: 'absolute',
-                        left: `${x}%`,
-                        top: `${y}%`,
-                        width: `${width}%`,
-                        height: `${height}%`,
-                        border: `2px solid ${borderCol}`,
-                        background: isSelected ? 'rgba(0, 240, 255, 0.35)' : bgTint,
-                        boxShadow: isSelected ? `0 0 16px ${borderCol}, inset 0 0 10px rgba(0, 240, 255, 0.4)` : 'none',
-                        cursor: 'pointer',
-                        pointerEvents: 'auto',
-                        transition: 'all 0.15s ease',
-                        zIndex: isSelected ? 30 : 20,
-                      }}
-                    >
-                      {/* Tactical Reticle Corner Marks */}
-                      <div style={{ position: 'absolute', top: '-4px', left: '-4px', width: '8px', height: '8px', borderTop: `2px solid ${borderCol}`, borderLeft: `2px solid ${borderCol}` }} />
-                      <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', borderTop: `2px solid ${borderCol}`, borderRight: `2px solid ${borderCol}` }} />
-                      <div style={{ position: 'absolute', bottom: '-4px', left: '-4px', width: '8px', height: '8px', borderBottom: `2px solid ${borderCol}`, borderLeft: `2px solid ${borderCol}` }} />
-                      <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '8px', height: '8px', borderBottom: `2px solid ${borderCol}`, borderRight: `2px solid ${borderCol}` }} />
-
-                      {/* Header Badge */}
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '-24px',
-                          left: '-2px',
-                          background: borderCol,
-                          color: '#FFFFFF',
-                          padding: '2px 6px',
-                          fontSize: '0.66rem',
-                          fontFamily: 'var(--font-mono)',
-                          fontWeight: 800,
-                          letterSpacing: '0.04em',
-                          borderRadius: '3px',
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                          whiteSpace: 'nowrap',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <span>{can.id}</span>
-                        <span>•</span>
-                        <span>{(can.differenceScore * 100).toFixed(0)}%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* 4. The Interactive High-Precision Divider Slider */}
-            <div
-              onPointerDown={handlePointerDown}
-              onPointerUp={handlePointerUp}
-              tabIndex={0}
-              onKeyDown={handleKeyDown}
-              role="slider"
-              aria-valuenow={sliderPosition}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Before and After Imagery Split Slider"
-              style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                left: `${sliderPosition}%`,
-                width: '12px',
-                transform: 'translateX(-50%)',
-                cursor: 'ew-resize',
-                zIndex: 40,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                touchAction: 'none',
-              }}
-            >
-              {/* Neon Divider Line */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  bottom: 0,
-                  width: '2px',
-                  background: '#00F0FF',
-                  boxShadow: '0 0 12px #00F0FF, 0 0 24px rgba(0, 240, 255, 0.4)',
-                }}
-              />
-
-              {/* Tactical Diamond Reticle Handle */}
-              <div
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '50%',
-                  background: 'rgba(11, 15, 23, 0.95)',
-                  border: '2px solid #00F0FF',
-                  boxShadow: '0 0 14px rgba(0, 240, 255, 0.6), inset 0 0 8px rgba(0, 240, 255, 0.3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#00F0FF',
-                  fontSize: '13px',
-                  fontWeight: 900,
-                  transition: 'transform 0.1s ease',
-                  transform: isDragging ? 'scale(1.15)' : 'scale(1)',
-                }}
-              >
-                ⇄
-              </div>
-
-              {/* Floating Percentage Indicator */}
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '16px',
-                  background: 'rgba(11, 15, 23, 0.92)',
-                  border: '1px solid #00F0FF',
-                  color: '#00F0FF',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  fontSize: '0.68rem',
-                  fontFamily: 'var(--font-mono)',
-                  fontWeight: 800,
-                  whiteSpace: 'nowrap',
-                  pointerEvents: 'none',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                }}
-              >
-                {sliderPosition.toFixed(0)}%
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* VIEW MODE B: SIDE-BY-SIDE SYNCHRONIZED SPLIT */}
-        {viewMode === 'side-by-side' && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '2px',
-              background: '#1E293B',
-            }}
-          >
-            {/* Left Column: Baseline */}
-            <div style={{ position: 'relative', overflow: 'hidden', background: '#070B12' }}>
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  transform: `scale(${zoomLevel})`,
-                  transformOrigin: 'center center',
-                }}
-              >
-                {beforeImageUrl && !beforeLoadFailed ? (
-                  <img
-                    src={beforeImageUrl}
-                    alt="Baseline"
-                    onError={() => setBeforeLoadFailed(true)}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  renderFallbackVectorMap(false)
-                )}
-              </div>
-            </div>
-
-            {/* Right Column: Surveillance with Candidates */}
-            <div style={{ position: 'relative', overflow: 'hidden', background: '#070B12' }}>
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  transform: `scale(${zoomLevel})`,
-                  transformOrigin: 'center center',
-                }}
-              >
-                {afterImageUrl && !afterLoadFailed ? (
-                  <img
-                    src={afterImageUrl}
-                    alt="Surveillance"
-                    onError={() => setAfterLoadFailed(true)}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  renderFallbackVectorMap(true)
-                )}
-
-                {/* Overlaid bounding boxes */}
-                {showOverlays &&
-                  candidates.map((can) => {
-                    const isSelected = selectedCandidateId === can.id;
-                    const { x, y, width, height } = can.boundingBox;
-                    const col = can.decision === 'confirmed_threat' ? '#EF4444' : can.decision === 'benign_false_positive' ? '#10B981' : '#F59E0B';
-
-                    return (
-                      <div
-                        key={can.id}
-                        onClick={() => onSelectCandidate(can.id)}
-                        style={{
-                          position: 'absolute',
-                          left: `${x}%`,
-                          top: `${y}%`,
-                          width: `${width}%`,
-                          height: `${height}%`,
-                          border: `2px solid ${col}`,
-                          background: isSelected ? 'rgba(0, 240, 255, 0.3)' : 'rgba(245, 158, 11, 0.15)',
-                          cursor: 'pointer',
-                          zIndex: 20,
-                        }}
-                      />
-                    );
-                  })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* VIEW MODE C: OPTICAL DIFF HEATMAP */}
-        {viewMode === 'heatmap' && (
-          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
-            <div style={{ width: '100%', height: '100%', transform: `scale(${zoomLevel})`, transformOrigin: 'center center' }}>
-              {afterImageUrl && !afterLoadFailed ? (
-                <img
-                  src={afterImageUrl}
-                  alt="Heatmap Base"
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    filter: 'grayscale(0.85) contrast(1.4) brightness(0.6)',
-                  }}
-                />
-              ) : (
-                renderFallbackVectorMap(true)
-              )}
-
-              {/* Glowing thermal heat signature overlay */}
               {candidates.map((can) => {
                 const { x, y, width, height } = can.boundingBox;
+                // Center coordinate for the radial thermal blob
+                const centerX = x + width / 2;
+                const centerY = y + height / 2;
+
                 return (
                   <div
-                    key={can.id}
-                    onClick={() => onSelectCandidate(can.id)}
+                    key={`heat-${can.id}`}
                     style={{
                       position: 'absolute',
-                      left: `${x - 2}%`,
-                      top: `${y - 2}%`,
-                      width: `${width + 4}%`,
-                      height: `${height + 4}%`,
+                      left: `${centerX}%`,
+                      top: `${centerY}%`,
+                      width: `${Math.max(14, width * 1.8)}%`,
+                      aspectRatio: '1 / 1',
+                      transform: 'translate(-50%, -50%)',
                       borderRadius: '50%',
-                      background: 'radial-gradient(circle, rgba(239, 68, 68, 0.85) 0%, rgba(245, 158, 11, 0.6) 40%, rgba(0, 240, 255, 0.2) 75%, transparent 100%)',
-                      filter: 'blur(8px)',
+                      background:
+                        'radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(245, 158, 11, 0.8) 32%, rgba(234, 179, 8, 0.5) 55%, rgba(0, 240, 255, 0.2) 78%, transparent 100%)',
+                      filter: 'blur(10px)',
                       mixBlendMode: 'screen',
-                      cursor: 'pointer',
+                      pointerEvents: 'none',
+                      animation: 'radar-blip-pulse 2.2s infinite ease-in-out',
                     }}
                   />
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* 5. TACTICAL HUD METADATA OVERLAYS (Clipped over the canvas) */}
-        {/* Top-Left: Baseline Imagery Metadata Chip */}
+          {/* Interactive Candidate Bounding Boxes & Tags (Locked to terrain coordinates) */}
+          {showOverlays && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+              }}
+            >
+              {candidates.map((can) => {
+                const isSelected = selectedCandidateId === can.id;
+                const { x, y, width, height } = can.boundingBox;
+
+                let borderCol = '#F59E0B'; // Amber default
+                let bgTint = 'rgba(245, 158, 11, 0.18)';
+                if (can.decision === 'confirmed_threat') {
+                  borderCol = '#EF4444';
+                  bgTint = 'rgba(239, 68, 68, 0.25)';
+                } else if (can.decision === 'benign_false_positive') {
+                  borderCol = '#10B981';
+                  bgTint = 'rgba(16, 185, 129, 0.18)';
+                }
+
+                return (
+                  <div
+                    key={can.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectCandidate(can.id);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: `${x}%`,
+                      top: `${y}%`,
+                      width: `${width}%`,
+                      height: `${height}%`,
+                      border: `2px solid ${borderCol}`,
+                      background: isSelected ? 'rgba(0, 240, 255, 0.35)' : bgTint,
+                      boxShadow: isSelected ? `0 0 18px ${borderCol}, inset 0 0 12px rgba(0, 240, 255, 0.4)` : `0 0 8px ${borderCol}`,
+                      cursor: 'pointer',
+                      pointerEvents: 'auto',
+                      transition: 'all 0.15s ease',
+                      zIndex: isSelected ? 30 : 20,
+                    }}
+                  >
+                    {/* Tactical Reticle Corner Marks */}
+                    <div style={{ position: 'absolute', top: '-4px', left: '-4px', width: '8px', height: '8px', borderTop: `2px solid ${borderCol}`, borderLeft: `2px solid ${borderCol}` }} />
+                    <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', borderTop: `2px solid ${borderCol}`, borderRight: `2px solid ${borderCol}` }} />
+                    <div style={{ position: 'absolute', bottom: '-4px', left: '-4px', width: '8px', height: '8px', borderBottom: `2px solid ${borderCol}`, borderLeft: `2px solid ${borderCol}` }} />
+                    <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', width: '8px', height: '8px', borderBottom: `2px solid ${borderCol}`, borderRight: `2px solid ${borderCol}` }} />
+
+                    {/* Candidate Tag Header */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '-24px',
+                        left: '-2px',
+                        background: borderCol,
+                        color: '#FFFFFF',
+                        padding: '2px 7px',
+                        fontSize: '0.66rem',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 900,
+                        letterSpacing: '0.04em',
+                        borderRadius: '3px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                      }}
+                    >
+                      <span>{can.id}</span>
+                      <span>•</span>
+                      <span>{(can.differenceScore * 100).toFixed(0)}%</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 3. TACTICAL HUD OVERLAYS (Fixed to the Viewport) */}
+        {/* Top-Left: Active Layer Metadata Chip */}
         <div
           style={{
             position: 'absolute',
             top: '12px',
             left: '12px',
-            background: 'rgba(11, 15, 23, 0.88)',
+            background: 'rgba(11, 15, 23, 0.9)',
             backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            border: `1px solid ${isOpticalDiff ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.12)'}`,
             borderRadius: '6px',
             padding: '6px 12px',
             fontSize: '0.72rem',
             fontFamily: 'var(--font-mono)',
             color: '#94A3B8',
             pointerEvents: 'none',
-            zIndex: 35,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            zIndex: 40,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: '#F1F5F9' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#94A3B8' }} />
-            <span>BASELINE PASS</span>
-            <span style={{ color: '#00F0FF' }}>[{baselineSensor.platform}]</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: isOpticalDiff ? '#F87171' : '#F1F5F9' }}>
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: isOpticalDiff ? '#EF4444' : '#00F0FF',
+                boxShadow: isOpticalDiff ? '0 0 8px #EF4444' : '0 0 8px #00F0FF',
+              }}
+            />
+            <span>{isOpticalDiff ? 'SAR HEATMAP PASS' : 'OPTICAL RECON BASELINE'}</span>
+            <span style={{ color: isOpticalDiff ? '#EF4444' : '#00F0FF' }}>
+              [{isOpticalDiff ? 'DARK-BLUE THERMAL' : 'DEFAULT TAN'}]
+            </span>
           </div>
           <div style={{ display: 'flex', gap: '10px', marginTop: '3px', fontSize: '0.66rem' }}>
-            <span>DATE: {formatTacticalTimestamp(baselineSensor.captureTimestamp)}</span>
+            <span>GSD: 0.30m</span>
             <span>•</span>
-            <span>GSD: {baselineSensor.resolutionGsd}</span>
+            <span>SPECTRAL: {isOpticalDiff ? 'SWIR / RADIOMETRIC' : 'VNIR / OPTICAL'}</span>
             <span>•</span>
-            <span>CLOUD: {baselineSensor.cloudCoverPct}%</span>
+            <span>ANOMALIES: {candidates.length}</span>
           </div>
         </div>
 
-        {/* Top-Right: Surveillance Imagery Metadata Chip */}
+        {/* Top-Right: Pan / Zoom HUD Status */}
         <div
           style={{
             position: 'absolute',
             top: '12px',
             right: '12px',
-            background: 'rgba(11, 15, 23, 0.88)',
+            background: 'rgba(11, 15, 23, 0.9)',
             backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(0, 240, 255, 0.25)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
             borderRadius: '6px',
             padding: '6px 12px',
-            fontSize: '0.72rem',
+            fontSize: '0.7rem',
             fontFamily: 'var(--font-mono)',
             color: '#94A3B8',
             pointerEvents: 'none',
-            zIndex: 35,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+            zIndex: 40,
             textAlign: 'right',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', fontWeight: 800, color: '#00F0FF' }}>
-            <span>SURVEILLANCE PASS</span>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#00F0FF', boxShadow: '0 0 6px #00F0FF' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', color: '#F1F5F9', fontWeight: 700 }}>
+            <span>VIEWPORT:</span>
+            <span style={{ color: zoom > 1 ? '#00F0FF' : '#94A3B8' }}>{zoom.toFixed(1)}x SCALE</span>
           </div>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '3px', fontSize: '0.66rem', justifyContent: 'flex-end' }}>
-            <span>DATE: {formatTacticalTimestamp(surveillanceSensor.captureTimestamp)}</span>
-            <span>•</span>
-            <span>SENSOR: {surveillanceSensor.sensorId}</span>
-            <span>•</span>
-            <span>GSD: {surveillanceSensor.resolutionGsd}</span>
+          <div style={{ fontSize: '0.64rem', color: '#64748B', marginTop: '2px' }}>
+            {zoom > 1 ? (
+              <span style={{ color: '#38BDF8' }}>DRAG TO PAN • CLAMPED</span>
+            ) : (
+              <span>ZOOM IN TO PAN (WHEEL / BUTTONS)</span>
+            )}
           </div>
         </div>
 
@@ -874,7 +630,7 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
             position: 'absolute',
             bottom: '12px',
             left: '12px',
-            background: 'rgba(11, 15, 23, 0.88)',
+            background: 'rgba(11, 15, 23, 0.92)',
             backdropFilter: 'blur(6px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: '6px',
@@ -886,18 +642,18 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
             alignItems: 'center',
             gap: '12px',
             pointerEvents: 'none',
-            zIndex: 35,
+            zIndex: 40,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#00F0FF', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#00F0FF', fontWeight: 800 }}>
             <Crosshair size={13} />
-            <span>MGRS: {hoverCoords.mgrs}</span>
+            <span>MGRS: {cursorGeo.mgrs}</span>
           </div>
           <span>•</span>
-          <span>LAT: {hoverCoords.lat.toFixed(5)}°N</span>
-          <span>LNG: {hoverCoords.lng.toFixed(5)}°W</span>
+          <span>LAT: {cursorGeo.lat.toFixed(5)}°N</span>
+          <span>LNG: {cursorGeo.lng.toFixed(5)}°W</span>
           <span>•</span>
-          <span style={{ color: '#64748B' }}>PIXEL: [{hoverCoords.pixelX}, {hoverCoords.pixelY}]</span>
+          <span style={{ color: '#64748B' }}>PIXEL: [{cursorGeo.pixelX}, {cursorGeo.pixelY}]</span>
         </div>
       </div>
     </div>

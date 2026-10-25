@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { api } from '../../services/api/apiClient';
 import {
-  ComparisonViewMode,
   EnrichedChangeCandidate,
   CandidateReviewDecision,
   SensorMetadata,
@@ -43,7 +42,7 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
   onRefreshObservations,
 }) => {
   const [selectedObsIdx, setSelectedObsIdx] = useState(0);
-  const [viewMode, setViewMode] = useState<ComparisonViewMode>('swipe');
+  const [isOpticalDiff, setIsOpticalDiff] = useState(false);
   const [showOverlays, setShowOverlays] = useState(true);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [overallAnalystNotes, setOverallAnalystNotes] = useState(
@@ -503,10 +502,8 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
         {/* Left Column: Surveillance Comparison Canvas */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <SurveillanceCanvas
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            beforeImageUrl={activeObs?.beforeImageUrl}
-            afterImageUrl={activeObs?.afterImageUrl}
+            isOpticalDiff={isOpticalDiff}
+            onToggleOpticalDiff={() => setIsOpticalDiff((prev) => !prev)}
             baselineSensor={baselineSensor}
             surveillanceSensor={surveillanceSensor}
             candidates={enrichedCandidates}
