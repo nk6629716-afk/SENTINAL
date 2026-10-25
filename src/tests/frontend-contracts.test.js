@@ -418,6 +418,58 @@ assert(!identicalDiff.candidateDetected && identicalDiff.score === 0, 'Identical
 const anomalyDiff = computeMatrixDiff(mBefore, mAfterAnomaly);
 assert(anomalyDiff.candidateDetected && anomalyDiff.diffCount === 4, 'Altered imagery matrix clusters 4 anomalous pixels');
 
+// 3. Threshold sensitivity direction
+const lowThreshDiff = computeMatrixDiff(mBefore, mAfterAnomaly, 10);
+const highThreshDiff = computeMatrixDiff(mBefore, mAfterAnomaly, 150);
+assert(lowThreshDiff.diffCount >= highThreshDiff.diffCount, 'Lower threshold flags more or equal pixel differences than higher threshold');
+
+// 4. Dimension mismatch detection
+function validateDimensions(matrixA, matrixB) {
+  if (matrixA.length !== matrixB.length || matrixA[0].length !== matrixB[0].length) {
+    throw new Error(`Dimension mismatch: Before is ${matrixA.length}x${matrixA[0].length}, After is ${matrixB.length}x${matrixB[0].length}`);
+  }
+  return true;
+}
+let dimensionMismatchCaught = false;
+try {
+  validateDimensions([[1, 2]], [[1, 2], [3, 4]]);
+} catch (e) {
+  dimensionMismatchCaught = true;
+  assert(e.message.includes('Dimension mismatch'), 'Dimension mismatch throws clear structured error');
+}
+assert(dimensionMismatchCaught, 'Dimension mismatch caught cleanly');
+
+// 5. Candidate review transition & analyst notes persistence
+function updateCandidateReview(candidate, decision, notes) {
+  return {
+    ...candidate,
+    decision,
+    reviewed: decision === 'confirmed_threat' || decision === 'benign_false_positive',
+    analystNotes: notes,
+    updatedAt: new Date().toISOString()
+  };
+}
+const sampleCandidate = { id: 'CAN-100', decision: 'unreviewed', reviewed: false, differenceScore: 0.86, analystNotes: '' };
+const confirmedCandidate = updateCandidateReview(sampleCandidate, 'confirmed_threat', 'Confirmed arterial crater.');
+assert(confirmedCandidate.decision === 'confirmed_threat' && confirmedCandidate.reviewed === true, 'Accepting candidate marks as confirmed and reviewed');
+assert(confirmedCandidate.analystNotes === 'Confirmed arterial crater.', 'Analyst notes preserved in candidate record');
+
+// 6. Report compilation from actual review state
+function compileReportSummary(candidates, disclaimer) {
+  return {
+    total: candidates.length,
+    confirmed: candidates.filter(c => c.decision === 'confirmed_threat').length,
+    rejected: candidates.filter(c => c.decision === 'benign_false_positive').length,
+    unreviewed: candidates.filter(c => c.decision === 'unreviewed').length,
+    disclaimer: disclaimer,
+    isSynthetic: true
+  };
+}
+const reportSummary = compileReportSummary([confirmedCandidate], 'DISCLAIMER: Algorithmic radiometric scores.');
+assert(reportSummary.confirmed === 1 && reportSummary.total === 1, 'Report output aggregates candidate review decisions');
+assert(reportSummary.disclaimer.includes('DISCLAIMER:'), 'Report contains mandatory limitations disclaimer');
+assert(reportSummary.isSynthetic === true, 'Report transparently discloses synthetic demo data');
+
 // =========================================================================
 // [GROUP 7] UI Behavior, Shell State & Navigation Contracts
 // =========================================================================

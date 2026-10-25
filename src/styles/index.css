@@ -61,8 +61,15 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
 }
 
-.mono, .tabular-nums {
-  font-family: var(--font-body);
+.mono,
+.tabular-nums,
+.numeral,
+.clock-value,
+.coord-value,
+.metric-value,
+.stat-value,
+[data-numeral] {
+  font-family: var(--font-numerals), var(--font-heading), sans-serif;
   font-variant-numeric: tabular-nums;
 }
 
@@ -442,13 +449,13 @@ select.form-input {
   position: relative;
 }
 
-/* Responsive Drawer Under 900px */
-@media (max-width: 900px) {
+/* Responsive Drawer Under 1024px (768px to 1023px and mobile) */
+@media (max-width: 1023px) {
   .app-shell {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     overflow: hidden;
   }
   .command-header {
@@ -457,8 +464,8 @@ select.form-input {
   }
   .app-main {
     flex: 1;
-    height: calc(100vh - var(--header-height, 48px));
-    max-height: calc(100vh - var(--header-height, 48px));
+    height: calc(100dvh - var(--header-height, 48px));
+    max-height: calc(100dvh - var(--header-height, 48px));
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -468,8 +475,8 @@ select.form-input {
     left: 0;
     bottom: 0;
     width: min(280px, 85vw) !important;
-    height: 100vh;
-    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     transform: translateX(-100%);
     transition: transform 0.25s ease !important;
     box-shadow: 6px 0 24px rgba(0, 0, 0, 0.5);
@@ -554,5 +561,282 @@ a:focus-visible {
 
 img, canvas, svg {
   max-width: 100%;
+}
+
+/* ==========================================================================
+   PHASE 1 & 6: 4-Region Map Overlay System & Responsive Layout Rules
+   ========================================================================== */
+
+/* Layout Flex / Grid Reset */
+.app-shell,
+.app-main,
+.module-container,
+.map-container,
+.intel-pane,
+.intel-body,
+.map-overlay-layer {
+  min-width: 0;
+  min-height: 0;
+}
+
+html, body, #root, .app-shell {
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
+/* Map Grid Overlay Container (Layer pointer-events: none; Panels pointer-events: auto) */
+.map-overlay-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "top-left top-right"
+    "center-left center-right"
+    "bottom-left bottom-right";
+  pointer-events: none;
+  z-index: 20;
+  padding: 12px 16px;
+  overflow: hidden;
+}
+
+/* Top-Left: Metrics & Mode Switch in ONE Flex Toolbar */
+.map-overlay-tl {
+  grid-area: top-left;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  pointer-events: none;
+  max-width: 100%;
+}
+
+.map-overlay-tl > * {
+  pointer-events: auto;
+}
+
+/* Top-Right Region */
+.map-overlay-tr {
+  grid-area: top-right;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.map-overlay-tr > * {
+  pointer-events: auto;
+}
+
+/* Bottom-Left Region: Vertical Stack for Collapsible Panels */
+.map-overlay-bl {
+  grid-area: bottom-left;
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: none;
+  max-height: calc(100% - 100px);
+  max-width: min(320px, 90vw);
+  overflow-y: auto;
+  padding-bottom: 2px;
+}
+
+.map-overlay-bl > * {
+  pointer-events: auto;
+}
+
+/* Bottom-Right Region: Zoom / Controls Stack */
+.map-overlay-br {
+  grid-area: bottom-right;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+  padding-bottom: 4px;
+}
+
+.map-overlay-br > * {
+  pointer-events: auto;
+}
+
+/* Collapsible Floating Panel & Chip State */
+.overlay-collapsible-panel {
+  background: var(--color-sheet);
+  border: var(--border-width, 1.2px) solid var(--color-edge);
+  box-shadow: var(--shadow-flat);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  box-sizing: border-box;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  transition: all 0.15s ease;
+}
+
+.overlay-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-sheet);
+  border: var(--border-width, 1.2px) solid var(--color-edge);
+  box-shadow: var(--shadow-flat-sm);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.overlay-chip-btn:hover {
+  background: var(--color-paper);
+  border-color: var(--accent);
+}
+
+/* Right Intel Pane Standard Sizing & Scroll */
+.intel-pane {
+  width: clamp(320px, 28vw, 440px);
+  min-width: 320px;
+  max-width: 440px;
+  height: 100%;
+  background: var(--color-sheet);
+  border-left: var(--border-width, 1.2px) solid var(--color-edge);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.intel-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-sheet);
+  border-bottom: var(--border-width, 1.2px) solid var(--color-line);
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+
+.intel-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-bottom-dock {
+  display: none;
+}
+
+.header-overflow-trigger {
+  display: none !important;
+}
+
+.header-actions-desktop {
+  display: inline-flex !important;
+}
+
+/* Responsive Dock for Screens < 768px */
+@media (max-width: 767px) {
+  .header-actions-desktop {
+    display: none !important;
+  }
+
+  .header-overflow-trigger {
+    display: inline-flex !important;
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  .app-main {
+    height: calc(100dvh - var(--header-height, 48px) - 52px) !important;
+    max-height: calc(100dvh - var(--header-height, 48px) - 52px) !important;
+  }
+
+  .mobile-bottom-dock {
+    display: flex !important;
+    height: 52px;
+    background: var(--color-strip);
+    border-top: 1.2px solid var(--color-edge);
+    align-items: center;
+    justify-content: space-around;
+    z-index: 60;
+    flex-shrink: 0;
+  }
+
+  .mobile-dock-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: transparent;
+    border: none;
+    color: #8D9A8F;
+    font-size: 0.65rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    cursor: pointer;
+    padding: 4px 8px;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .mobile-dock-item.active {
+    color: var(--accent);
+  }
+
+  .bottom-replay-bar {
+    display: none !important;
+  }
+
+  .intel-pane {
+    width: 100% !important;
+    max-width: 100% !important;
+    position: fixed;
+    bottom: 52px;
+    left: 0;
+    right: 0;
+    height: 60vh;
+    border-top: 2px solid var(--color-edge);
+    border-left: none;
+    z-index: 50;
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.4);
+    transform: translateY(calc(100% - 44px));
+    transition: transform 0.25s ease;
+  }
+
+  .intel-pane.expanded {
+    transform: translateY(0);
+  }
+}
+
+/* Screens under 700px height or landscape phones */
+@media (max-height: 700px) {
+  .bottom-replay-bar {
+    display: none !important;
+  }
+  .command-header {
+    height: 40px !important;
+    min-height: 40px !important;
+  }
+  .overlay-collapsible-panel {
+    max-height: 55vh;
+  }
 }
 

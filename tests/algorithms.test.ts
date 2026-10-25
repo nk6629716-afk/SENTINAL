@@ -31,6 +31,13 @@ import {
 } from '../src/algorithms/geointel/imageDiff';
 
 import {
+  BUNDLED_SAMPLE_PAIRS,
+  SECTOR_34_PAIR,
+  IDENTICAL_PAIR,
+  CALIBRATION_GRID_PAIR
+} from '../src/modules/geointel/utils/samplePairs';
+
+import {
   MediRouteTriageEngine
 } from '../src/algorithms/mediroute/triageEngine';
 
@@ -265,6 +272,71 @@ export function runAllAlgorithmTests(): { passed: number; total: number; logs: s
     const report = diff.compileReport('Demo Report', fixture.before.id, fixture.after.id, [confirmed], 'Summary');
     assert(report.confirmedCount === 1, 'Report confirmed count is 1');
     assert(report.limitationsDisclaimer.includes('DISCLAIMER:'), 'Report must include limitation disclaimer');
+  });
+
+  test('GeoIntel: Bundled sample pairs return deterministic results (Sector 34 vs Identical Pair)', () => {
+    const diff = new GeoIntelImageDiff();
+
+    // 1. Sector 34
+    const s34Candidates = diff.analyze(SECTOR_34_PAIR.getBeforeMatrix(), SECTOR_34_PAIR.getAfterMatrix());
+    assert(s34Candidates.length >= 2, 'Sector 34 must detect candidate alterations');
+
+    // 2. Identical Pair
+    const idenCandidates = diff.analyze(IDENTICAL_PAIR.getBeforeMatrix(), IDENTICAL_PAIR.getAfterMatrix());
+    assert(idenCandidates.length === 0, 'Identical pair must return zero candidates');
+
+    // 3. Calibration Grid
+    const calCandidates = diff.analyze(CALIBRATION_GRID_PAIR.getBeforeMatrix(), CALIBRATION_GRID_PAIR.getAfterMatrix());
+    assert(calCandidates.length === 1, 'Calibration grid must return exactly 1 candidate');
+    assert(calCandidates[0].bbox.x === 6 && calCandidates[0].bbox.y === 6, 'Calibration bbox at [6,6]');
+  });
+
+  test('GeoIntel: Threshold sensitivity changes affect detection in expected direction', () => {
+    const sensitiveDiff = new GeoIntelImageDiff({ threshold: 20 });
+    const strictDiff = new GeoIntelImageDiff({ threshold: 120 });
+
+    const before = SECTOR_34_PAIR.getBeforeMatrix();
+    const after = SECTOR_34_PAIR.getAfterMatrix();
+
+    const sensitiveCandidates = sensitiveDiff.analyze(before, after);
+    const strictCandidates = strictDiff.analyze(before, after);
+
+    assert(sensitiveCandidates.length >= strictCandidates.length, 'Lower threshold must detect equal or more candidates than higher threshold');
+  });
+
+  test('GeoIntel: Corrupt or invalid matrix data throws structured validation error', () => {
+    const diff = new GeoIntelImageDiff();
+    const valid = getIdenticalMatrixFixture().before;
+
+    // 1. Missing matrix
+    let err1 = false;
+    try {
+      diff.analyze(null as any, valid);
+    } catch (e: any) {
+      err1 = true;
+      assert(e.message.includes('required'), 'Must require before matrix');
+    }
+    assert(err1, 'Should fail when matrix is null');
+
+    // 2. Negative dimension
+    let err2 = false;
+    try {
+      diff.analyze({ ...valid, width: -5 }, valid);
+    } catch (e: any) {
+      err2 = true;
+      assert(e.message.includes('positive non-zero'), 'Dimension must be positive');
+    }
+    assert(err2, 'Should fail on negative dimension');
+
+    // 3. Corrupt data length
+    let err3 = false;
+    try {
+      diff.analyze({ ...valid, data: [1, 2, 3] }, valid);
+    } catch (e: any) {
+      err3 = true;
+      assert(e.message.includes('Corrupt matrix data'), 'Should detect length mismatch');
+    }
+    assert(err3, 'Should fail on corrupt data length');
   });
 
   // ==========================================

@@ -93,7 +93,7 @@
   --color-paper: #120707;
   --color-sheet: #1D0D0C;
   --color-ink: #FFB3A3;
-  --color-ink-2: #B8665A;
+  --color-ink-2: #D58C7E;
   --color-edge: #7A2F28;
   --color-line: #3B1816;
   --color-accent: #FF5A3C;
@@ -184,9 +184,10 @@
 
   /* Typography Stacks */
   --font-heading: 'Barlow Semi Condensed', -apple-system, sans-serif;
+  --font-numerals: 'Barlow Semi Condensed', -apple-system, sans-serif;
   --font-body: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'Atkinson Hyperlegible', monospace;
+  --font-mono: 'Barlow Semi Condensed', monospace;
 
   /* App Dimensions */
   --header-height: 48px;

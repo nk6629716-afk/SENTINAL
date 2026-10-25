@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   IncidentReport,
-  IncidentType,
   PriorityLevel,
 } from '@shared/types';
 import {
   Play,
   Pause,
-  Send,
-  RefreshCw,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  FilePlus,
+  Radio,
+  Clock,
+  RotateCw,
+  CheckCircle,
 } from 'lucide-react';
 import { TacticalMap } from '../../components/TacticalMap';
 import { api } from '../../services/api/apiClient';
+import { selectPendingOutbox, selectSyncedIncidents } from '../../selectors';
+import { formatIST } from '../../utils/time';
 
 interface FieldLinkModuleProps {
   incidents: IncidentReport[];
@@ -20,6 +26,8 @@ interface FieldLinkModuleProps {
   onRefreshIncidents: () => Promise<void>;
   onTriggerSync: () => Promise<void>;
   isSyncing: boolean;
+  onToggleSimulationPause?: () => void;
+  isSimPaused?: boolean;
 }
 
 const PRESET_LOCATIONS = [
@@ -36,20 +44,46 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
   onRefreshIncidents,
   onTriggerSync,
   isSyncing,
+  onToggleSimulationPause,
+  isSimPaused = false,
 }) => {
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<PriorityLevel>('critical');
   const [selectedLocationIdx, setSelectedLocationIdx] = useState(0);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'channel' | 'outbox' | 'incidents'>('channel');
-  const [chatMessage, setChatMessage] = useState('');
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [simSpeed, setSimSpeed] = useState<number>(1);
+  const [activeTab, setActiveTab] = useState<'outbox' | 'incidents'>('outbox');
+  const [simElapsedSeconds, setSimElapsedSeconds] = useState(14);
+  const [isReportPanelCollapsed, setIsReportPanelCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1100 || window.innerHeight < 700;
+    }
+    return false;
+  });
 
-  const pendingIncidents = incidents.filter(
-    (i) => i.syncStatus === 'pending' || i.syncStatus === 'failed'
-  );
+  // Selectors for real single source of truth
+  const pendingIncidents = selectPendingOutbox(incidents);
+  const syncedIncidents = selectSyncedIncidents(incidents);
+
+  // Resize listener for default collapsed state
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1100 || window.innerHeight < 700) {
+        setIsReportPanelCollapsed(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Timer for elapsed sim seconds
+  useEffect(() => {
+    if (isSimPaused) return;
+    const interval = setInterval(() => {
+      setSimElapsedSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSimPaused]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,180 +128,290 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
     }
   };
 
+  const latestActivity = incidents.length > 0 ? {
+    module: 'FIELDLINK',
+    description: `${incidents[0].title} - ${incidents[0].location.name} (${formatIST(incidents[0].createdAt, { seconds: false })})`,
+  } : null;
+
+  // Top-left Metrics Toolbar Content (paired with Mode Switch)
+  const topLeftMetrics = (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        background: 'var(--color-sheet)',
+        border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '6px 14px',
+        gap: '20px',
+        boxShadow: 'var(--shadow-flat)',
+      }}
+    >
+      <div>
+        <div
+          className="numeral"
+          style={{
+            fontSize: '1.35rem',
+            fontFamily: 'var(--font-numerals)',
+            fontVariantNumeric: 'tabular-nums',
+            fontWeight: 800,
+            color: 'var(--color-ink)',
+            lineHeight: 1,
+          }}
+        >
+          {incidents.length}
+        </div>
+        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
+          Incidents
+        </div>
+      </div>
+
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+        <div
+          className="numeral"
+          style={{
+            fontSize: '1.35rem',
+            fontFamily: 'var(--font-numerals)',
+            fontVariantNumeric: 'tabular-nums',
+            fontWeight: 800,
+            color: pendingIncidents.length > 0 ? 'var(--color-warn)' : 'var(--color-ink)',
+            lineHeight: 1,
+          }}
+        >
+          {pendingIncidents.length}
+        </div>
+        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
+          Pending Outbox
+        </div>
+      </div>
+
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+        <div
+          className="numeral"
+          style={{
+            fontSize: '1.35rem',
+            fontFamily: 'var(--font-numerals)',
+            fontVariantNumeric: 'tabular-nums',
+            fontWeight: 800,
+            color: 'var(--color-ok)',
+            lineHeight: 1,
+          }}
+        >
+          {syncedIncidents.length}
+        </div>
+        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
+          Synced Records
+        </div>
+      </div>
+
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+        <div
+          className="numeral"
+          style={{
+            fontSize: '1.35rem',
+            fontFamily: 'var(--font-numerals)',
+            fontVariantNumeric: 'tabular-nums',
+            fontWeight: 800,
+            color: 'var(--color-ink)',
+            lineHeight: 1,
+          }}
+        >
+          {PRESET_LOCATIONS.length}
+        </div>
+        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
+          Target Sectors
+        </div>
+      </div>
+    </div>
+  );
+
+  // Bottom-left Collapsible Incident Report Panel
+  const bottomLeftReport = isReportPanelCollapsed ? (
+    <button
+      type="button"
+      className="overlay-chip-btn"
+      onClick={() => setIsReportPanelCollapsed(false)}
+      title="Open New incident report panel"
+    >
+      <FilePlus size={13} />
+      <span>New Report</span>
+    </button>
+  ) : (
+    <div
+      className="overlay-collapsible-panel"
+      style={{
+        width: '280px',
+        maxHeight: 'calc(100vh - 180px)',
+        overflowY: 'auto',
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '8px',
+          paddingBottom: '4px',
+          borderBottom: '1px solid var(--color-line)',
+        }}
+      >
+        <span
+          style={{
+            fontSize: '0.85rem',
+            fontFamily: 'var(--font-heading)',
+            fontWeight: 700,
+            color: 'var(--color-ink)',
+          }}
+        >
+          New incident report
+        </span>
+        <button
+          type="button"
+          onClick={() => setIsReportPanelCollapsed(true)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--color-ink-2)',
+            cursor: 'pointer',
+            padding: '2px',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          title="Collapse report panel"
+        >
+          <ChevronDown size={14} />
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div>
+          <label style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', display: 'block', marginBottom: '2px' }}>
+            Title <span style={{ color: 'var(--color-crit)' }}>*</span>
+          </label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="e.g. Bridge crossing blocked"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={{ padding: '5px 8px', fontSize: '0.78rem', width: '100%' }}
+          />
+          {!title.trim() && (
+            <div style={{ fontSize: '0.66rem', color: 'var(--color-crit)', marginTop: '2px' }}>
+              Title is required to save to outbox
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', display: 'block', marginBottom: '3px' }}>
+            Priority
+          </label>
+          <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+            {(['low', 'high', 'critical'] as PriorityLevel[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriority(p)}
+                style={{
+                  flex: 1,
+                  background: priority === p ? 'var(--color-strip)' : 'transparent',
+                  color: priority === p ? '#FFFFFF' : 'var(--color-ink)',
+                  border: 'none',
+                  padding: '4px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  textTransform: 'capitalize',
+                }}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', display: 'block', marginBottom: '2px' }}>
+            Location
+          </label>
+          <select
+            className="form-input"
+            value={selectedLocationIdx}
+            onChange={(e) => setSelectedLocationIdx(Number(e.target.value))}
+            style={{ padding: '5px 8px', fontSize: '0.75rem', width: '100%' }}
+          >
+            {PRESET_LOCATIONS.map((loc, idx) => (
+              <option key={idx} value={idx}>
+                {loc.name} ({loc.lat.toFixed(4)}N, {Math.abs(loc.lng).toFixed(4)}W)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', display: 'block', marginBottom: '2px' }}>
+            Notes
+          </label>
+          <textarea
+            className="form-input"
+            placeholder="Field situation details..."
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            style={{ padding: '5px 8px', fontSize: '0.75rem', width: '100%', resize: 'none' }}
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={isSubmitting || !title.trim()}
+          title={!title.trim() ? 'Enter a title to save to outbox' : 'Save incident to outbox'}
+          style={{
+            marginTop: '4px',
+            padding: '6px',
+            opacity: !title.trim() ? 0.6 : 1,
+            cursor: !title.trim() ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {isSubmitting ? 'Saving...' : 'Save to outbox'}
+        </button>
+      </form>
+    </div>
+  );
+
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 48px)',
+        height: '100%',
         width: '100%',
         position: 'relative',
         overflow: 'hidden',
+        minWidth: 0,
+        minHeight: 0,
       }}
     >
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
         {/* Left / Center Map Area */}
-        <div style={{ flex: 1, position: 'relative', minWidth: 0, height: '100%' }}>
+        <div style={{ flex: 1, position: 'relative', minWidth: 0, minHeight: 0, height: '100%' }}>
           <TacticalMap
             incidents={incidents}
             height="100%"
             showRadarSweep={false}
             initialMode="chart"
+            topLeftContent={topLeftMetrics}
+            bottomLeftContent={bottomLeftReport}
           />
-
-          {/* Floating Top-Left Metrics Panel (Spec 03) */}
-          <div
-            style={{
-              position: 'absolute',
-              top: '12px',
-              left: '16px',
-              zIndex: 20,
-              background: 'var(--color-sheet)',
-              border: 'var(--border-width, 1.2px) solid var(--color-edge)',
-              boxShadow: 'var(--shadow-flat)',
-              borderRadius: 'var(--radius-sm)',
-              display: 'flex',
-              padding: '8px 16px',
-              gap: '24px',
-              pointerEvents: 'auto',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                3
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Nodes online
-              </div>
-            </div>
-
-            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
-              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                {pendingIncidents.length || 4}
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Queued
-              </div>
-            </div>
-
-            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
-              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                380 ms
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Median delivery
-              </div>
-            </div>
-
-            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
-              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                2
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Average hops
-              </div>
-            </div>
-          </div>
-
-          {/* Floating New Incident Report Panel (Bottom-Left, Spec 03) */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '36px',
-              left: '16px',
-              zIndex: 20,
-              background: 'var(--color-sheet)',
-              border: 'var(--border-width, 1.2px) solid var(--color-edge)',
-              boxShadow: 'var(--shadow-flat)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '12px 14px',
-              width: '260px',
-              pointerEvents: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700, marginBottom: '8px' }}>
-              New incident report
-            </div>
-
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>
-                <label style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
-                  Title
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Bridge crossing blocked"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  style={{ padding: '5px 8px', fontSize: '0.78rem' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '3px' }}>
-                  Priority
-                </label>
-                <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-                  {(['low', 'high', 'critical'] as PriorityLevel[]).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setPriority(p)}
-                      style={{
-                        flex: 1,
-                        background: priority === p ? 'var(--color-strip)' : 'transparent',
-                        color: priority === p ? '#FFFFFF' : 'var(--text-primary)',
-                        border: 'none',
-                        padding: '4px',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        textTransform: 'capitalize',
-                      }}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
-                  Location
-                </label>
-                <select
-                  className="form-input"
-                  value={selectedLocationIdx}
-                  onChange={(e) => setSelectedLocationIdx(Number(e.target.value))}
-                  style={{ padding: '5px 8px', fontSize: '0.75rem' }}
-                >
-                  {PRESET_LOCATIONS.map((loc, idx) => (
-                    <option key={idx} value={idx}>
-                      {loc.lat.toFixed(4)} N, {Math.abs(loc.lng).toFixed(4)} W
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={isSubmitting || !title.trim()}
-                style={{ marginTop: '4px', padding: '6px' }}
-              >
-                Save to outbox
-              </button>
-            </form>
-          </div>
         </div>
 
-        {/* Right Intel Pane: Channel, Link Quality & Outbox (Spec 03) */}
+        {/* Right Intel Pane: Fixed width clamp, sticky header, internal scroll */}
         <aside
           style={{
-            width: '380px',
-            minWidth: '380px',
+            width: 'clamp(320px, 28vw, 440px)',
             background: 'var(--color-sheet)',
             borderLeft: 'var(--border-width, 1.2px) solid var(--color-edge)',
             display: 'flex',
@@ -275,32 +419,24 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
             overflowY: 'auto',
             overflowX: 'hidden',
             flexShrink: 0,
-            padding: '12px 14px',
-            gap: '12px',
+            height: '100%',
+            minHeight: 0,
+            zIndex: 20,
           }}
           aria-label="Field reports pane"
         >
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)', paddingBottom: '2px' }}>
-            <button
-              type="button"
-              onClick={() => setActiveTab('channel')}
-              style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                borderBottom: activeTab === 'channel' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                padding: '6px 8px',
-                fontSize: '0.82rem',
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 700,
-                color: activeTab === 'channel' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
-            >
-              Channel 4
-            </button>
+          {/* Sticky Tabs Header */}
+          <div
+            style={{
+              position: 'sticky',
+              top: 0,
+              background: 'var(--color-sheet)',
+              zIndex: 10,
+              display: 'flex',
+              borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
+              padding: '8px 12px 0 12px',
+            }}
+          >
             <button
               type="button"
               onClick={() => setActiveTab('outbox')}
@@ -313,13 +449,31 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                 fontSize: '0.82rem',
                 fontFamily: 'var(--font-heading)',
                 fontWeight: 700,
-                color: activeTab === 'outbox' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                color: activeTab === 'outbox' ? 'var(--color-ink)' : 'var(--color-ink-2)',
                 cursor: 'pointer',
-                textAlign: 'left',
+                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
               }}
             >
-              Outbox {pendingIncidents.length}
+              <span>Outbox</span>
+              <span
+                className="numeral"
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '1px 5px',
+                  borderRadius: '10px',
+                  background: pendingIncidents.length > 0 ? 'var(--color-warn)' : 'var(--color-paper)',
+                  color: pendingIncidents.length > 0 ? '#FFFFFF' : 'var(--color-ink-2)',
+                  fontFamily: 'var(--font-numerals)',
+                }}
+              >
+                {pendingIncidents.length}
+              </span>
             </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('incidents')}
@@ -332,202 +486,236 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                 fontSize: '0.82rem',
                 fontFamily: 'var(--font-heading)',
                 fontWeight: 700,
-                color: activeTab === 'incidents' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                color: activeTab === 'incidents' ? 'var(--color-ink)' : 'var(--color-ink-2)',
                 cursor: 'pointer',
-                textAlign: 'left',
+                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
               }}
             >
-              Incidents {incidents.length}
+              <span>Incidents</span>
+              <span
+                className="numeral"
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '1px 5px',
+                  borderRadius: '10px',
+                  background: 'var(--color-paper)',
+                  color: 'var(--color-ink-2)',
+                  fontFamily: 'var(--font-numerals)',
+                }}
+              >
+                {incidents.length}
+              </span>
             </button>
           </div>
 
-          {/* Team Transmission Stream */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[
-              {
-                sender: 'Alpha',
-                time: '14:31:52 UTC',
-                text: 'Contact east of bridge, two vehicles.',
-                status: 'Delivered, 380 ms',
-                statusType: 'ok',
-                path: 'Alpha, Bravo, Command',
-              },
-              {
-                sender: 'Command',
-                time: '14:32:01 UTC',
-                text: 'Hold position. Medevac inbound.',
-                status: 'Relayed at Bravo',
-                statusType: 'info',
-                path: 'Command, Bravo, Alpha',
-              },
-              {
-                sender: 'Bravo',
-                time: '14:32:10 UTC',
-                text: 'Rally point RP-1 placed on the map.',
-                status: 'Queued, retry in 8 s',
-                statusType: 'warn',
-                path: 'Bravo, Command',
-              },
-            ].map((msg, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                  padding: '6px 8px',
-                  background: 'var(--color-paper)',
-                  border: '1px solid var(--color-line)',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
+          {/* Body Content */}
+          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {activeTab === 'outbox' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                    {msg.sender}
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
+                    Pending Outbox Queue
                   </span>
-                  <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{msg.time}</span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>
+                    IndexedDB Local Store
+                  </span>
                 </div>
-                <div style={{ fontSize: '0.76rem', color: 'var(--text-primary)' }}>{msg.text}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                  <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>Path: {msg.path}</span>
-                  <span
+
+                {pendingIncidents.length === 0 ? (
+                  <div
                     style={{
-                      fontSize: '0.64rem',
-                      fontWeight: 700,
-                      padding: '1px 5px',
-                      borderRadius: '1px',
-                      border: `1px solid ${
-                        msg.statusType === 'ok' ? 'var(--color-ok)' : msg.statusType === 'warn' ? 'var(--color-warn)' : 'var(--color-info)'
-                      }`,
-                      color:
-                        msg.statusType === 'ok' ? 'var(--color-ok)' : msg.statusType === 'warn' ? 'var(--color-warn)' : 'var(--color-info)',
+                      padding: '18px 12px',
+                      textAlign: 'center',
+                      background: 'var(--color-paper)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--color-line)',
+                      color: 'var(--color-ink-2)',
+                      fontSize: '0.78rem',
                     }}
                   >
-                    {msg.status}
-                  </span>
+                    <CheckCircle size={20} style={{ color: 'var(--color-ok)', margin: '0 auto 6px auto', display: 'block' }} />
+                    Outbox empty. All field reports synchronized with command.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {pendingIncidents.map((item) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '6px',
+                          padding: '8px 10px',
+                          border: '1px solid var(--color-line)',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--color-paper)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-ink)' }}>
+                            {item.title}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.64rem',
+                              fontWeight: 700,
+                              padding: '1px 5px',
+                              borderRadius: '2px',
+                              border: `1px solid ${item.syncStatus === 'failed' ? 'var(--color-crit)' : 'var(--color-warn)'}`,
+                              color: item.syncStatus === 'failed' ? 'var(--color-crit)' : 'var(--color-warn)',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {item.syncStatus || 'Pending'}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>
+                          {item.notes}
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                          <span
+                            className="numeral"
+                            style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', fontFamily: 'var(--font-numerals)' }}
+                          >
+                            {formatIST(item.createdAt)}
+                          </span>
+
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            onClick={() => handleRetryItem(item.id)}
+                            disabled={isSyncing}
+                            style={{ padding: '2px 8px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <RotateCw size={10} className={isSyncing ? 'spin' : ''} />
+                            <span>Retry</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={onTriggerSync}
+                  disabled={isSyncing || isOfflineMode}
+                  style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                  }}
+                  title={isOfflineMode ? 'Cannot sync while Offline Mode is active' : 'Synchronize outbox records with command'}
+                >
+                  <RotateCw size={12} className={isSyncing ? 'spin' : ''} />
+                  <span>{isSyncing ? 'Synchronizing...' : 'Sync outbox now'}</span>
+                </button>
+
+                <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)', textAlign: 'center', marginTop: '4px' }}>
+                  {isOfflineMode
+                    ? 'Offline mode active: Records persisted locally in IndexedDB.'
+                    : 'Command link active: Client ID reconciliation enabled.'}
                 </div>
               </div>
-            ))}
-
-            {/* Quick message input */}
-            <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Message the team"
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                style={{ padding: '5px 8px', fontSize: '0.78rem' }}
-              />
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => setChatMessage('')}
-                style={{ padding: '5px 12px' }}
-              >
-                Send
-              </button>
-            </div>
-          </div>
-
-          {/* Link Quality Sliders */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                Link quality
-              </span>
-              <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>
-                Drag to drop packets
-              </span>
-            </div>
-
-            {[
-              { node: 'Alpha', pct: 92 },
-              { node: 'Bravo', pct: 62 },
-              { node: 'Command', pct: 100 },
-            ].map((link) => (
-              <div key={link.node} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)', width: '60px' }}>{link.node}</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  defaultValue={link.pct}
-                  style={{ flex: 1, accentColor: 'var(--color-strip)', height: '4px' }}
-                />
-                <span style={{ fontSize: '0.76rem', fontWeight: 700, width: '36px', textAlign: 'right' }}>
-                  {link.pct}%
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Outbox Pending Section */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
-            <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-              Outbox, {pendingIncidents.length || 3} pending
-            </div>
-
-            {[
-              { id: '1', title: 'Bridge crossing blocked', status: 'Pending', statusType: 'warn' },
-              { id: '2', title: 'Hazard H-2 reported', status: 'Pending', statusType: 'warn' },
-              { id: '3', title: 'Contact C-3 marker', status: 'Failed', statusType: 'crit' },
-            ].map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '6px 8px',
-                  border: '1px solid var(--color-line)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-paper)',
-                }}
-              >
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)' }}>{item.title}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span
-                    style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      padding: '1px 5px',
-                      border: `1px solid ${item.statusType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)'}`,
-                      color: item.statusType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)',
-                    }}
-                  >
-                    {item.status}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
+                    Active Incidents
                   </span>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() => handleRetryItem(item.id)}
-                    style={{ padding: '2px 8px', fontSize: '0.7rem' }}
-                  >
-                    Retry
-                  </button>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>
+                    {incidents.length} reported
+                  </span>
                 </div>
+
+                {incidents.length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--color-ink-2)', fontSize: '0.78rem' }}>
+                    No incident reports logged.
+                  </div>
+                ) : (
+                  incidents.map((inc) => (
+                    <div
+                      key={inc.id}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '4px',
+                        padding: '8px 10px',
+                        border: '1px solid var(--color-line)',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--color-paper)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-ink)' }}>
+                          {inc.title}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: '0.64rem',
+                            fontWeight: 700,
+                            padding: '1px 5px',
+                            borderRadius: '2px',
+                            border: `1px solid ${
+                              inc.priority === 'critical'
+                                ? 'var(--color-crit)'
+                                : inc.priority === 'high'
+                                ? 'var(--color-warn)'
+                                : 'var(--color-ok)'
+                            }`,
+                            color:
+                              inc.priority === 'critical'
+                                ? 'var(--color-crit)'
+                                : inc.priority === 'high'
+                                ? 'var(--color-warn)'
+                                : 'var(--color-ok)',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {inc.priority}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>
+                        {inc.notes}
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '3px' }}>
+                        <span
+                          className="numeral"
+                          style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', fontFamily: 'var(--font-numerals)' }}
+                        >
+                          {inc.location.lat.toFixed(4)} N, {Math.abs(inc.location.lng).toFixed(4)} W
+                        </span>
+                        <span
+                          className="numeral"
+                          style={{ fontSize: '0.66rem', color: 'var(--color-ink-2)', fontFamily: 'var(--font-numerals)' }}
+                        >
+                          {formatIST(inc.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            ))}
-
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onTriggerSync}
-              disabled={isSyncing || isOfflineMode}
-              style={{ marginTop: '6px', padding: '7px' }}
-            >
-              {isSyncing ? 'Syncing...' : 'Sync outbox'}
-            </button>
-
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '2px' }}>
-              Last sync 14:30:44 UTC, 2 sent, 0 conflicts. Newest record wins.
-            </div>
+            )}
           </div>
         </aside>
       </div>
 
-      {/* Bottom Replay Bar (Spec 03) */}
+      {/* Bottom Replay / Live Bar */}
       <footer
         style={{
           height: '36px',
@@ -542,76 +730,65 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
           zIndex: 30,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={onToggleSimulationPause}
             style={{ width: '24px', height: '24px', minWidth: '24px', padding: 0 }}
+            title={isSimPaused ? 'Resume simulation' : 'Pause simulation'}
           >
-            {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+            {isSimPaused ? <Play size={12} /> : <Pause size={12} />}
           </button>
 
-          <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-            {[1, 2, 5].map((speed) => (
-              <button
-                key={speed}
-                type="button"
-                onClick={() => setSimSpeed(speed)}
-                style={{
-                  background: simSpeed === speed ? 'var(--color-strip)' : 'transparent',
-                  color: simSpeed === speed ? '#FFFFFF' : 'var(--text-primary)',
-                  border: 'none',
-                  padding: '1px 6px',
-                  fontSize: '0.68rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {speed}x
-              </button>
-            ))}
-          </div>
-
-          <span style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', marginLeft: '6px' }}>Replay</span>
-
-          <div style={{ display: 'flex', alignItems: 'center', width: '320px', height: '8px', position: 'relative', margin: '0 12px' }}>
-            <div style={{ width: '100%', height: '2px', background: 'var(--color-line)' }} />
-            {[20, 40, 60, 80].map((pct, i) => (
-              <div
-                key={i}
-                style={{
-                  position: 'absolute',
-                  left: `${pct}%`,
-                  width: '2px',
-                  height: '8px',
-                  background: i === 1 ? 'var(--accent)' : 'var(--color-edge)',
-                }}
-              />
-            ))}
-            <div
+          {/* LIVE indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span
               style={{
-                position: 'absolute',
-                left: '40%',
-                transform: 'translateX(-50%)',
-                background: 'var(--color-strip)',
-                color: '#FFFFFF',
-                padding: '1px 4px',
-                fontSize: '0.62rem',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 700,
-                borderRadius: '1px',
-                top: '-16px',
+                display: 'inline-block',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: isSimPaused ? 'var(--color-warn)' : 'var(--color-crit)',
+                boxShadow: isSimPaused ? 'none' : '0 0 6px var(--color-crit)',
               }}
-            >
-              14:30:12
-            </div>
+            />
+            <span style={{ fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-ink)' }}>
+              {isSimPaused ? 'PAUSED' : 'LIVE'}
+            </span>
+          </div>
+
+          <div
+            className="numeral"
+            style={{
+              fontSize: '0.72rem',
+              color: 'var(--color-ink-2)',
+              fontFamily: 'var(--font-numerals)',
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            T+{Math.floor(simElapsedSeconds / 60).toString().padStart(2, '0')}:{(simElapsedSeconds % 60).toString().padStart(2, '0')}
           </div>
         </div>
 
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          Alpha to Command: contact east of bridge, 2 hops, 380 ms
-        </div>
+        {/* Dynamic Activity Ticker */}
+        {latestActivity && (
+          <div
+            style={{
+              color: 'var(--color-ink-2)',
+              fontSize: '0.72rem',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '500px',
+            }}
+          >
+            <span style={{ fontWeight: 700, color: 'var(--color-ink)', marginRight: '6px' }}>
+              [{latestActivity.module.toUpperCase()}]
+            </span>
+            <span>{latestActivity.description}</span>
+          </div>
+        )}
       </footer>
     </div>
   );

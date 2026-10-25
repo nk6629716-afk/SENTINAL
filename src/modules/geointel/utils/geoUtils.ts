@@ -17,7 +17,7 @@ export function convertToMGRS(lat: number, lng: number): string {
   const bandIndex = Math.floor((clampedLat + 80) / 8);
   const bandLetter = bands[Math.max(0, Math.min(bands.length - 1, bandIndex))] || 'S';
 
-  // Compute mock UTM projection Easting & Northing offsets for high-realism military grid
+  // Compute UTM projection Easting & Northing offsets for high-realism military grid
   const centralMeridian = (zoneNumber - 1) * 6 - 180 + 3;
   const dLng = (clampedLng - centralMeridian) * (Math.PI / 180);
   const radLat = clampedLat * (Math.PI / 180);
@@ -99,9 +99,10 @@ SENSOR PAIR METADATA:
 
 ${subline}
 2. ALGORITHMIC CHANGE EXTRACTION CONFIGURATION
-  - Sensitivity Threshold: ${report.analysisConfiguration.sensitivityThreshold}%
-  - Convolution Kernel:    ${report.analysisConfiguration.kernelSize}
-  - Noise Suppression:     ${report.analysisConfiguration.noiseSuppression ? 'ACTIVE (Wavelet Decomposition)' : 'BYPASS'}
+  - Algorithm:            ${report.analysisConfiguration.algorithmName}
+  - Sensitivity Threshold: Intensity Delta >= ${report.analysisConfiguration.sensitivityThreshold} / 255
+  - Minimum Cluster Area:  ${report.analysisConfiguration.minRegionSize} pixels
+  - Computation Time:      ${report.analysisConfiguration.executionTimeMs.toFixed(1)} ms
 
 3. SUMMARY OF DETECTIONS & HUMAN ANALYST VERIFICATION
   - Total Candidate Anomalies Detected: ${report.summaryStats.totalCandidates}
@@ -112,23 +113,27 @@ ${subline}
 
 ${subline}
 4. DETAILED CANDIDATE AUDIT TABLE
-${report.candidates
-  .map(
-    (c, idx) => `
+${
+  report.candidates.length === 0
+    ? '  [No candidate regions detected above threshold. Baseline and surveillance scenes match.]\n'
+    : report.candidates
+        .map(
+          (c, idx) => `
 [CANDIDATE #${idx + 1}] ID: ${c.id} | ${c.label.toUpperCase()}
   - Type / Class:       ${c.type.replace('_', ' ').toUpperCase()}
-  - Geolocation (MGRS): ${c.mgrs}
-  - Coordinates:        ${c.latLng.lat.toFixed(5)}°N, ${c.latLng.lng.toFixed(5)}°W
-  - Neural Confidence:  ${c.confidencePct.toFixed(1)}%
-  - Radiometric Delta:  ${c.diffScorePct.toFixed(1)}%
+  - Image Pixel Box:    X: ${c.pixelBox.x}, Y: ${c.pixelBox.y}, Width: ${c.pixelBox.width}, Height: ${c.pixelBox.height}
+  - Cluster Area:       ${c.areaPixels} pixels
+  - Projected Anchor:   ${c.latLng.lat.toFixed(5)}°N, ${c.latLng.lng.toFixed(5)}°W (${c.mgrs})
+  - Algorithmic Score:  ${c.diffScorePct.toFixed(1)}% (Confidence: ${c.confidencePct.toFixed(1)}%)
   - Review Status:      ${c.decision.replace('_', ' ').toUpperCase()}
   - Algorithmic Rationale:
       ${c.explanation}
   - Human Analyst Annotations:
       ${c.analystNotes || 'None logged during primary analysis pass.'}
 `
-  )
-  .join('')}
+        )
+        .join('')
+}
 
 ${subline}
 5. OVERALL OPERATIONAL ASSESSMENT
@@ -136,6 +141,8 @@ ${report.overallAnalystAssessment || 'Routine multi-temporal surveillance pass c
 
 6. MANDATORY STATUTORY & LIMITATION NOTICE
 ${report.limitationDisclaimer}
+
+NOTICE: All imagery and scenarios in this environment are synthetic training data.
 ${line}
 END OF TRANSMISSION // SENTINEL C4ISR PLATFORM
 `.trim();

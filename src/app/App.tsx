@@ -20,6 +20,8 @@ import { SkyWatchModule } from '../modules/skywatch/SkyWatchModule';
 import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
+import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
+import { Layers, Radio, Crosshair, Compass, HeartPulse } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute'>('dashboard');
@@ -304,11 +306,8 @@ export const App: React.FC = () => {
   const effectiveSidebarWidth = isSidebarCollapsed ? 76 : 240;
   const effectiveHeaderHeight = 48;
 
-  const pendingSyncCount = incidents.filter(
-    (i) => i.syncStatus === 'pending' || i.syncStatus === 'failed'
-  ).length;
-
-  const unackAlertsCount = alerts.filter((a) => !a.acknowledged).length;
+  const pendingSyncCount = selectPendingOutbox(incidents).length;
+  const unackAlertsCount = selectOpenAlerts(alerts).length;
 
   if (isLoading || !summary) {
     return (
@@ -439,6 +438,8 @@ export const App: React.FC = () => {
             onRefreshIncidents={refreshAllData}
             onTriggerSync={handleTriggerSync}
             isSyncing={isSyncing}
+            onToggleSimulationPause={handleToggleSimPause}
+            isSimPaused={isSimPaused}
           />
         )}
 
@@ -468,9 +469,87 @@ export const App: React.FC = () => {
             nodes={EVACUATION_NODES}
             onRefreshCasualties={refreshAllData}
             onRefreshHazards={refreshAllData}
+            onToggleSimulationPause={handleToggleSimPause}
+            isSimPaused={isSimPaused}
           />
         )}
       </main>
+
+      {/* Mobile Bottom Dock (< 768px) */}
+      <nav className="mobile-bottom-dock" aria-label="Mobile Navigation Dock">
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveModule('dashboard')}
+        >
+          <Layers size={18} />
+          <span>Overview</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'fieldlink' ? 'active' : ''}`}
+          onClick={() => setActiveModule('fieldlink')}
+          style={{ position: 'relative' }}
+        >
+          <Radio size={18} />
+          <span>FieldLink</span>
+          {pendingSyncCount > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: '4px',
+                right: '18px',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: 'var(--color-warn)',
+              }}
+            />
+          )}
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'skywatch' ? 'active' : ''}`}
+          onClick={() => setActiveModule('skywatch')}
+          style={{ position: 'relative' }}
+        >
+          <Crosshair size={18} />
+          <span>SkyWatch</span>
+          {unackAlertsCount > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: '4px',
+                right: '18px',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: 'var(--color-crit)',
+              }}
+            />
+          )}
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'geointel' ? 'active' : ''}`}
+          onClick={() => setActiveModule('geointel')}
+        >
+          <Compass size={18} />
+          <span>GeoIntel</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'mediroute' ? 'active' : ''}`}
+          onClick={() => setActiveModule('mediroute')}
+        >
+          <HeartPulse size={18} />
+          <span>MediRoute</span>
+        </button>
+      </nav>
     </div>
   );
 };

@@ -6,8 +6,10 @@ import {
   Sun,
   Moon,
   Menu,
+  MoreVertical,
 } from 'lucide-react';
 import { themeService, ThemeMode } from '../services/theme/themeService';
+import { getLiveIST } from '../utils/time';
 
 export interface CommandHeaderProps {
   activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
@@ -46,17 +48,14 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   realtimeStatus = 'disconnected',
   lastEventTimestamp = null,
 }) => {
-  const [utcTime, setUtcTime] = useState<string>('');
+  const [istTime, setIstTime] = useState<string>(() => getLiveIST());
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getMode());
+  const [isOverflowOpen, setIsOverflowOpen] = useState(false);
 
-  // Live UTC Clock
+  // Live IST Clock (ticking each second in Asia/Kolkata UTC+05:30)
   useEffect(() => {
     const update = () => {
-      const now = new Date();
-      const hours = String(now.getUTCHours()).padStart(2, '0');
-      const mins = String(now.getUTCMinutes()).padStart(2, '0');
-      const secs = String(now.getUTCSeconds()).padStart(2, '0');
-      setUtcTime(`${hours}:${mins}:${secs} UTC`);
+      setIstTime(getLiveIST());
     };
     update();
     const interval = setInterval(update, 1000);
@@ -179,10 +178,12 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
 
       {/* Right: Controls Strip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-        {/* UTC Clock */}
+        {/* Live IST Clock */}
         <div
+          className="clock-value"
           style={{
-            fontSize: '0.8rem',
+            fontSize: '0.82rem',
+            fontFamily: 'var(--font-numerals)',
             fontWeight: 700,
             color: '#FFFFFF',
             fontVariantNumeric: 'tabular-nums',
@@ -190,114 +191,140 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             marginRight: '2px',
           }}
         >
-          {utcTime || '14:32:07 UTC'}
+          {istTime}
         </div>
 
-        {/* 3-way Theme Control (Sun, Half-circle, Moon) */}
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(0, 0, 0, 0.25)',
-            padding: '1px',
-          }}
-          role="group"
-          aria-label="Theme mode switcher"
-        >
-          {/* Light: Sun */}
+        {/* Desktop-only action controls */}
+        <div className="header-actions-desktop" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          {/* 3-way Theme Control (Sun, Half-circle, Moon) */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(0, 0, 0, 0.25)',
+              padding: '1px',
+            }}
+            role="group"
+            aria-label="Theme mode switcher"
+          >
+            {/* Light: Sun */}
+            <button
+              type="button"
+              onClick={() => handleThemeChange('light')}
+              style={{
+                background: themeMode === 'light' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                color: themeMode === 'light' ? '#FFB35A' : '#8D9A8F',
+                border: 'none',
+                padding: '3px 6px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Light Theme"
+              aria-label="Light Theme"
+              aria-pressed={themeMode === 'light'}
+            >
+              <Sun size={13} />
+            </button>
+
+            {/* Auto/System: Half-circle */}
+            <button
+              type="button"
+              onClick={() => handleThemeChange('system')}
+              style={{
+                background: themeMode === 'system' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                color: themeMode === 'system' ? '#FFFFFF' : '#8D9A8F',
+                border: 'none',
+                padding: '3px 6px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Auto System Theme"
+              aria-label="Auto System Theme"
+              aria-pressed={themeMode === 'system'}
+            >
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 1 0 0 14V1z" />
+                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              </svg>
+            </button>
+
+            {/* Dark: Moon */}
+            <button
+              type="button"
+              onClick={() => handleThemeChange('dark')}
+              style={{
+                background: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                color: themeMode === 'dark' ? '#FF5A3C' : '#8D9A8F',
+                border: 'none',
+                padding: '3px 6px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              title="Dark Theme (Red light)"
+              aria-label="Dark Theme (Red light)"
+              aria-pressed={themeMode === 'dark'}
+            >
+              <Moon size={13} />
+            </button>
+          </div>
+
+          {/* Go Offline / Offline Mode Button */}
           <button
             type="button"
-            onClick={() => handleThemeChange('light')}
+            onClick={onToggleOffline}
             style={{
-              background: themeMode === 'light' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-              color: themeMode === 'light' ? '#FFB35A' : '#8D9A8F',
-              border: 'none',
-              padding: '3px 6px',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '5px',
+              padding: '3px 9px',
+              borderRadius: 'var(--radius-sm)',
+              border: isOfflineMode ? '1.2px solid #A61B1B' : '1px solid rgba(255, 255, 255, 0.25)',
+              background: isOfflineMode ? 'rgba(166, 27, 27, 0.25)' : 'transparent',
+              color: isOfflineMode ? '#FF9494' : '#FFFFFF',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              cursor: 'pointer',
             }}
-            title="Light Theme"
-            aria-label="Light Theme"
-            aria-pressed={themeMode === 'light'}
+            title={isOfflineMode ? 'Air-gap mode active (Click to restore online simulation)' : 'Simulate tactical radio blackout'}
           >
-            <Sun size={13} />
+            {isOfflineMode ? <WifiOff size={13} color="#FF9494" /> : <Wifi size={13} color="#8D9A8F" />}
+            <span>{isOfflineMode ? 'Offline Mode' : 'Go offline'}</span>
           </button>
 
-          {/* Auto/System: Half-circle */}
+          {/* Reset Scenario Button */}
           <button
             type="button"
-            onClick={() => handleThemeChange('system')}
+            onClick={onResetDemo}
             style={{
-              background: themeMode === 'system' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-              color: themeMode === 'system' ? '#FFFFFF' : '#8D9A8F',
-              border: 'none',
-              padding: '3px 6px',
-              borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            title="Auto System Theme"
-            aria-label="Auto System Theme"
-            aria-pressed={themeMode === 'system'}
-          >
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 1a7 7 0 1 0 0 14V1z" />
-              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            </svg>
-          </button>
-
-          {/* Dark: Moon */}
-          <button
-            type="button"
-            onClick={() => handleThemeChange('dark')}
-            style={{
-              background: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-              color: themeMode === 'dark' ? '#FF5A3C' : '#8D9A8F',
-              border: 'none',
-              padding: '3px 6px',
+              gap: '5px',
+              padding: '3px 9px',
               borderRadius: 'var(--radius-sm)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              background: 'transparent',
+              color: '#FFFFFF',
+              fontSize: '0.75rem',
+              fontWeight: 700,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
             }}
-            title="Dark Theme (Red light)"
-            aria-label="Dark Theme (Red light)"
-            aria-pressed={themeMode === 'dark'}
+            title="Reset scenario to deterministic baseline fixtures"
           >
-            <Moon size={13} />
+            <RotateCcw size={13} />
+            <span>Reset scenario</span>
           </button>
         </div>
-
-        {/* Go Offline / Offline Mode Button */}
-        <button
-          type="button"
-          onClick={onToggleOffline}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '3px 9px',
-            borderRadius: 'var(--radius-sm)',
-            border: isOfflineMode ? '1.2px solid #A61B1B' : '1px solid rgba(255, 255, 255, 0.25)',
-            background: isOfflineMode ? 'rgba(166, 27, 27, 0.25)' : 'transparent',
-            color: isOfflineMode ? '#FF9494' : '#FFFFFF',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-          title={isOfflineMode ? 'Air-gap mode active (Click to restore online simulation)' : 'Simulate tactical radio blackout'}
-        >
-          {isOfflineMode ? <WifiOff size={13} color="#FF9494" /> : <Wifi size={13} color="#8D9A8F" />}
-          <span>{isOfflineMode ? 'Offline Mode' : 'Go offline'}</span>
-        </button>
 
         {/* Sync Button */}
         <button
@@ -341,7 +368,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           )}
         </button>
 
-        {/* Live SSE Stream Status Indicator */}
+        {/* Live SSE / Command Link Status Indicator (Strictly aligned with sidebar health card) */}
         <div
           style={{
             display: 'flex',
@@ -353,66 +380,120 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             fontSize: '0.68rem',
             fontFamily: 'var(--font-heading)',
             fontWeight: 700,
-            color: isOfflineMode
-              ? '#FF9494'
-              : realtimeStatus === 'connected'
-              ? '#B4F0B4'
-              : realtimeStatus === 'reconnecting'
-              ? '#FFF08A'
-              : '#8D9A8F',
+            color: isOfflineMode ? '#FF9494' : '#B4F0B4',
             height: '24px',
             whiteSpace: 'nowrap',
             flexShrink: 0,
           }}
-          title={`Realtime Data Stream: ${isOfflineMode ? 'OFFLINE SIMULATION' : realtimeStatus.toUpperCase()}${lastEventTimestamp ? ` (Updated ${new Date(lastEventTimestamp).toLocaleTimeString()})` : ''}`}
+          title={
+            isOfflineMode
+              ? 'Telemetry Bus: Offline Simulation Active'
+              : 'Telemetry Bus: Command Link Active & Realtime Stream Synchronized'
+          }
         >
           <span
             style={{
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              background: isOfflineMode
-                ? '#FF9494'
-                : realtimeStatus === 'connected'
-                ? '#2D7A33'
-                : realtimeStatus === 'reconnecting'
-                ? '#B77700'
-                : '#556270',
+              background: isOfflineMode ? '#FF9494' : '#2D7A33',
             }}
           />
           <span>
-            {isOfflineMode
-              ? 'OFFLINE'
-              : realtimeStatus === 'connected'
-              ? 'LIVE SSE'
-              : realtimeStatus === 'reconnecting'
-              ? 'RECONNECT'
-              : 'DISCONNECTED'}
+            {isOfflineMode ? 'OFFLINE' : 'LINK ACTIVE'}
           </span>
         </div>
 
-        {/* Reset Scenario Button */}
-        <button
-          type="button"
-          onClick={onResetDemo}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '3px 9px',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            background: 'transparent',
-            color: '#FFFFFF',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-          title="Reset scenario to deterministic baseline fixtures"
-        >
-          <RotateCcw size={13} />
-          <span>Reset scenario</span>
-        </button>
+        {/* Mobile Overflow Menu Button (under 768px) */}
+        <div style={{ position: 'relative' }}>
+          <button
+            type="button"
+            className="btn btn-sm header-overflow-trigger"
+            onClick={() => setIsOverflowOpen(!isOverflowOpen)}
+            style={{
+              display: 'none',
+              background: 'transparent',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: '#FFFFFF',
+              padding: '4px 6px',
+            }}
+            title="More actions"
+            aria-label="More actions"
+          >
+            <MoreVertical size={14} />
+          </button>
+
+          {isOverflowOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 'calc(100% + 8px)',
+                right: 0,
+                background: 'var(--color-strip)',
+                border: '1px solid var(--color-edge)',
+                boxShadow: '0 6px 16px rgba(0,0,0,0.5)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '10px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                zIndex: 100,
+                minWidth: '180px',
+              }}
+              onClick={() => setIsOverflowOpen(false)}
+            >
+              <div style={{ fontSize: '0.72rem', color: '#8D9A8F', marginBottom: '2px' }}>Theme</div>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={(e) => { e.stopPropagation(); handleThemeChange('light'); }}
+                  style={{ flex: 1, padding: '4px' }}
+                >
+                  <Sun size={12} /> Light
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={(e) => { e.stopPropagation(); handleThemeChange('system'); }}
+                  style={{ flex: 1, padding: '4px' }}
+                >
+                  Auto
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={(e) => { e.stopPropagation(); handleThemeChange('dark'); }}
+                  style={{ flex: 1, padding: '4px' }}
+                >
+                  <Moon size={12} /> Dark
+                </button>
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '4px 0' }} />
+
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={(e) => { e.stopPropagation(); onToggleOffline(); }}
+                style={{ justifyContent: 'flex-start', padding: '6px 8px' }}
+              >
+                {isOfflineMode ? <Wifi size={13} /> : <WifiOff size={13} />}
+                <span>{isOfflineMode ? 'Switch to Online' : 'Go Offline'}</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={(e) => { e.stopPropagation(); onResetDemo(); }}
+                style={{ justifyContent: 'flex-start', padding: '6px 8px' }}
+              >
+                <RotateCcw size={13} />
+                <span>Reset scenario</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

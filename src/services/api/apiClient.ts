@@ -448,10 +448,11 @@ export class SentinelApiClient {
     const isOnline = await this.checkBackendAvailability();
     if (isOnline) {
       try {
+        const status = reviewed ? 'confirmed_candidate' : 'dismissed_false_positive';
         const res = await fetch(`${API_BASE_URL}/geointel/observations/${obsId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ candidateId, reviewed, analystNotes: notes }),
+          body: JSON.stringify({ candidateId, reviewed, reviewStatus: status, analystNotes: notes }),
         });
         if (res.ok) {
           const body = await res.json();
