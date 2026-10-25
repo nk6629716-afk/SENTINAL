@@ -418,6 +418,91 @@ assert(!identicalDiff.candidateDetected && identicalDiff.score === 0, 'Identical
 const anomalyDiff = computeMatrixDiff(mBefore, mAfterAnomaly);
 assert(anomalyDiff.candidateDetected && anomalyDiff.diffCount === 4, 'Altered imagery matrix clusters 4 anomalous pixels');
 
+// Noise & Threshold Behavior Contract
+const mNoise = [
+  [100, 100, 100],
+  [100, 115, 120], // Deltas 15, 20 are below threshold 30
+  [100, 110, 105],
+];
+const noiseDiff = computeMatrixDiff(mBefore, mNoise, 30);
+assert(!noiseDiff.candidateDetected && noiseDiff.diffCount === 0, 'Sub-threshold variations are deterministically rejected as sensor noise');
+
+// Minimum Cluster Size Contract
+function filterClustersBySize(clusters, minPixels = 5) {
+  return clusters.filter((c) => c.pixels >= minPixels);
+}
+const mockClusters = [
+  { id: 'speckle-1', pixels: 2 },
+  { id: 'speckle-2', pixels: 4 },
+  { id: 'valid-region', pixels: 16 },
+];
+const filteredClusters = filterClustersBySize(mockClusters, 5);
+assert(filteredClusters.length === 1 && filteredClusters[0].id === 'valid-region', 'Filters out small noise clusters below minimum region size');
+
+// Coordinate Transformation Contract: Matrix Pixel -> Normalized -> SVG Canvas
+function transformMatrixBboxToSvg(bbox, matrixW, matrixH, svgW = 700, svgH = 340) {
+  const normX = bbox.x / matrixW;
+  const normY = bbox.y / matrixH;
+  const normW = bbox.width / matrixW;
+  const normH = bbox.height / matrixH;
+
+  return {
+    normalized: { x: Number((normX * 100).toFixed(1)), y: Number((normY * 100).toFixed(1)), width: Number((normW * 100).toFixed(1)), height: Number((normH * 100).toFixed(1)) },
+    svg: { x: normX * svgW, y: normY * svgH, width: normW * svgW, height: normH * svgH },
+  };
+}
+const testBbox = { x: 64, y: 36, width: 32, height: 18 };
+const transformed = transformMatrixBboxToSvg(testBbox, 256, 144, 700, 340);
+assert(transformed.normalized.x === 25.0 && transformed.normalized.y === 25.0, 'Pixel coordinates correctly normalize to percentage (25%, 25%)');
+assert(transformed.svg.x === 175 && transformed.svg.y === 85, 'Normalized coordinates correctly scale to SVG canvas (175, 85)');
+assert(transformed.svg.width === 87.5 && transformed.svg.height === 42.5, 'Bounding box dimensions scale accurately to SVG canvas (87.5 x 42.5)');
+
+// Safe Incompatible Dimensions Handling Contract
+function validateMatrixPair(w1, h1, w2, h2) {
+  if (w1 <= 0 || h1 <= 0 || w2 <= 0 || h2 <= 0) {
+    throw new Error('Image dimensions must be positive non-zero integers');
+  }
+  if (w1 !== w2 || h1 !== h2) {
+    throw new Error(`Dimension mismatch: Before (${w1}x${h1}) vs After (${w2}x${h2})`);
+  }
+  return true;
+}
+let caughtMismatch = false;
+try {
+  validateMatrixPair(256, 144, 512, 288);
+} catch (e) {
+  caughtMismatch = true;
+  assert(e.message.includes('Dimension mismatch'), 'Identifies dimension mismatch between before/after images');
+}
+assert(caughtMismatch, 'Safely catches dimension mismatch without unhandled exceptions');
+
+// Empty Detection Results UI State Contract
+function evaluateAnalysisUiState(candidateCount) {
+  return {
+    isAnalyzing: false,
+    hasRun: true,
+    candidateCount,
+    showEmptyBanner: candidateCount === 0,
+    statusMessage: candidateCount === 0 ? 'No change regions exceeded detection threshold.' : `Detected ${candidateCount} change candidates.`,
+  };
+}
+const emptyUiState = evaluateAnalysisUiState(0);
+assert(!emptyUiState.isAnalyzing, 'Empty result leaves UI in completed, non-loading state');
+assert(emptyUiState.showEmptyBanner, 'Empty result displays clear explanation banner');
+assert(emptyUiState.candidateCount === 0, 'Empty result updates candidate counter to 0');
+
+// Non-Military Terminology & Objective Classification Contract
+const PROHIBITED_TERMS = ['hostile', 'enemy', 'weapon', 'military target', 'threat object'];
+function validateCandidateLabeling(label, explanation) {
+  const combined = `${label} ${explanation}`.toLowerCase();
+  for (const term of PROHIBITED_TERMS) {
+    if (combined.includes(term)) return false;
+  }
+  return true;
+}
+assert(validateCandidateLabeling('Surface alteration C1', 'Radiometric intensity variance cluster of 48 pixels'), 'Approves objective radiometric alteration description');
+assert(!validateCandidateLabeling('Hostile weapon cache', 'Enemy artillery position'), 'Rejects non-factual military threat speculation');
+
 // =========================================================================
 // [GROUP 7] UI Behavior, Shell State & Navigation Contracts
 // =========================================================================

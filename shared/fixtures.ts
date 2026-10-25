@@ -202,6 +202,8 @@ export const INITIAL_GEO_OBSERVATIONS: GeoIntelObservation[] = [
     samplePairId: 'PAIR-ALPHA-2026',
     beforeImageId: 'IMG-BASE-001',
     afterImageId: 'IMG-POST-001',
+    beforeImageUrl: '/assets/terrain-default.png',
+    afterImageUrl: '/assets/terrain-blue.png',
     captureDateBefore: '2026-10-18T08:00:00Z',
     captureDateAfter: '2026-10-25T07:45:00Z',
     coordinates: {
@@ -253,6 +255,8 @@ export const INITIAL_GEO_OBSERVATIONS: GeoIntelObservation[] = [
     samplePairId: 'PAIR-BRAVO-2026',
     beforeImageId: 'IMG-BASE-002',
     afterImageId: 'IMG-POST-002',
+    beforeImageUrl: '/assets/terrain-default.png',
+    afterImageUrl: '/assets/terrain-default.png',
     captureDateBefore: '2026-10-18T08:00:00Z',
     captureDateAfter: '2026-10-25T07:45:00Z',
     coordinates: {
