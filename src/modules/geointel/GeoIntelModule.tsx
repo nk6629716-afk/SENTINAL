@@ -442,11 +442,81 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                   >
                     {observations.map((obs, idx) => (
                       <option key={obs.id} value={idx}>
-                        {obs.id}: {obs.title} ({idx + 1} of {observations.length})
+                        {obs.id}: {obs.title} {(obs as any).syncStatus === 'pending' ? ' [PENDING SYNC]' : ''} ({idx + 1} of {observations.length})
                       </option>
                     ))}
                   </select>
                 )}
+
+                {(activeObs as any)?.syncStatus === 'pending' && (
+                  <span
+                    style={{
+                      background: 'rgba(217, 119, 6, 0.15)',
+                      border: '1px solid #D97706',
+                      color: '#D97706',
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      padding: '2px 6px',
+                      borderRadius: '2px',
+                    }}
+                  >
+                    PENDING SYNC
+                  </span>
+                )}
+
+                {/* Offline-First Intake Observation Button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = `GEO-LOCAL-${Date.now().toString(36).toUpperCase()}`;
+                    const now = new Date().toISOString();
+                    const newObs: GeoIntelObservation = {
+                      id,
+                      title: `Tactical Recon Intake - Sector 34`,
+                      zoneName: 'Target Surveillance Sector',
+                      samplePairId: 'PAIR-SURVEILLANCE-DEMO',
+                      beforeImageId: 'IMG-BEFORE',
+                      afterImageId: 'IMG-AFTER',
+                      captureDateBefore: now,
+                      captureDateAfter: now,
+                      coordinates: { lat: 34.0588, lng: -118.2391, name: 'Target Recon Point' },
+                      normalizedCoordinates: { x: 0.25, y: 0.25, width: 0.1, height: 0.1 },
+                      differenceScore: 0.88,
+                      algorithmSettings: { threshold: 30, minRegionSize: 4 },
+                      explanation: 'Field optical reconnaissance anomaly intake recorded by analyst.',
+                      reviewStatus: 'unreviewed',
+                      candidates: [
+                        {
+                          id: `CAN-${id}`,
+                          boundingBox: { x: 25, y: 25, width: 10, height: 10 },
+                          differenceScore: 0.88,
+                          label: 'Ground Surface Disturbance',
+                          anomalyType: 'terrain_disturbance',
+                          explanation: 'Field optical change candidate awaiting verification.',
+                          reviewed: false,
+                          confidence: 0.88,
+                        },
+                      ],
+                      createdAt: now,
+                      updatedAt: now,
+                      isSimulated: true,
+                    };
+
+                    await api.createGeoObservation(newObs);
+                    await onRefreshObservations();
+                    setStatusNotification(`Observation ${id} registered locally (Pending sync).`);
+                  }}
+                  className="btn btn-sm"
+                  style={{
+                    padding: '2px 8px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                  }}
+                  title="Record new tactical observation (Offline-first intake)"
+                >
+                  + Intake observation
+                </button>
+
                 {/* Custom File Upload Option */}
                 <label
                   style={{

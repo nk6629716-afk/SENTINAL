@@ -495,6 +495,102 @@ export class SentinelApiClient {
     return obs;
   }
 
+  public async createGeoObservation(observation: GeoIntelObservation): Promise<GeoIntelObservation> {
+    const isOnline = await this.checkBackendAvailability();
+    const obsWithSync = { ...observation };
+
+    if (!isOnline) {
+      (obsWithSync as any).syncStatus = 'pending';
+      await dbService.putGeoObservation(obsWithSync);
+      return obsWithSync;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/geointel/observations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          samplePairId: observation.samplePairId || 'PAIR-SURVEILLANCE-DEMO',
+          beforeImageId: observation.beforeImageId || 'IMG-BEFORE',
+          afterImageId: observation.afterImageId || 'IMG-AFTER',
+          normalizedCoordinates: observation.normalizedCoordinates || { x: 0.25, y: 0.25, width: 0.1, height: 0.1 },
+          geoCoordinates: observation.geoCoordinates || observation.coordinates,
+          differenceScore: observation.differenceScore || 0.85,
+          algorithmSettings: observation.algorithmSettings || { threshold: 30, minRegionSize: 4 },
+          explanation: observation.explanation || 'Satellite radiometric change detected by automated pipeline.',
+          analystNotes: observation.analystNotes || '',
+        }),
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        const created = body.data || body;
+        const normalized: GeoIntelObservation = {
+          ...observation,
+          id: created.id || observation.id,
+          reviewStatus: created.reviewStatus || observation.reviewStatus,
+        };
+        (normalized as any).syncStatus = 'synced';
+        await dbService.putGeoObservation(normalized);
+        return normalized;
+      }
+    } catch (err) {
+      console.warn('[ApiClient] Failed to post GeoObservation to server, saving locally with pending sync:', err);
+    }
+
+    // Fallback offline intake
+    (obsWithSync as any).syncStatus = 'pending';
+    await dbService.putGeoObservation(obsWithSync);
+    return obsWithSync;
+  }
+
+  public async syncPendingGeoObservations(): Promise<{ total: number; synced: number; failed: number }> {
+    const pending = await dbService.getPendingSyncGeoObservations();
+    if (pending.length === 0) {
+      return { total: 0, synced: 0, failed: 0 };
+    }
+
+    const isOnline = await this.checkBackendAvailability();
+    if (!isOnline) {
+      throw new Error('Offline Mode active: Cannot synchronize GeoIntel observations.');
+    }
+
+    let synced = 0;
+    let failed = 0;
+
+    for (const obs of pending) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/geointel/observations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            samplePairId: obs.samplePairId || 'PAIR-SURVEILLANCE-DEMO',
+            beforeImageId: obs.beforeImageId || 'IMG-BEFORE',
+            afterImageId: obs.afterImageId || 'IMG-AFTER',
+            normalizedCoordinates: obs.normalizedCoordinates || { x: 0.25, y: 0.25, width: 0.1, height: 0.1 },
+            geoCoordinates: obs.geoCoordinates || obs.coordinates,
+            differenceScore: obs.differenceScore || 0.85,
+            algorithmSettings: obs.algorithmSettings || { threshold: 30, minRegionSize: 4 },
+            explanation: obs.explanation || 'Satellite radiometric change detected.',
+            analystNotes: obs.analystNotes || '',
+          }),
+        });
+
+        if (res.ok) {
+          (obs as any).syncStatus = 'synced';
+          await dbService.putGeoObservation(obs);
+          synced++;
+        } else {
+          failed++;
+        }
+      } catch (err) {
+        failed++;
+      }
+    }
+
+    return { total: pending.length, synced, failed };
+  }
+
   // 5. MediRoute Casualties & Hazards
   public async getCasualties(): Promise<CasualtyRecord[]> {
     // Live simulation engine state; synced to DB for offline persistence

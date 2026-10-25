@@ -201,13 +201,25 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
     }
   };
 
-  // Metrics
-  const totalCasualties = casualties.length > 0 ? casualties.length : 6;
-  const immediateCasualties = casualties.filter((c) => c.triageCategory === 'immediate').length || 2;
+  // Metrics derived from actual state
+  const totalCasualties = casualties.length;
+  const immediateCasualties = casualties.filter(
+    (c) => c.triageCategory === 'immediate' || c.triageCategory === 'immediate_red'
+  ).length;
   const blockedRoadCount = hazards.filter((h) => h.blocked).length;
-  const meanEta = activeRoute?.estimatedMinutes ? `${activeRoute.estimatedMinutes} min` : '18 min';
+  const rerouteCount =
+    activeRoute?.avoidedHazardIds?.length ||
+    activeRoute?.hazardsAvoided?.length ||
+    activeRoute?.blockedEdgesAvoided?.length ||
+    (activeRoute?.alternativeFound ? 1 : 0) ||
+    (activeRoute?.hasActiveBlockage ? 1 : 0);
+  const meanEta = activeRoute?.estimatedMinutes
+    ? `${activeRoute.estimatedMinutes} min`
+    : activeRoute?.totalTimeMin
+    ? `${Math.round(activeRoute.totalTimeMin)} min`
+    : '18 min';
 
-  // Fallback casualty queue matching Mockup 05 if fewer than 4 casualties in state
+  // Fallback casualty queue matching Mockup 05 only if NO casualties exist
   const mockCasualties = [
     {
       id: 'CAS-03',
@@ -243,15 +255,34 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
     },
   ];
 
-  const displayCasualties = casualties.length >= 4
-    ? casualties.map((c, i) => ({
-        id: c.id,
-        name: c.patientCode,
-        vitals: `HR ${c.vitals?.respiratoryRate ? c.vitals.respiratoryRate * 4 : 110} RR ${c.vitals?.respiratoryRate || 24} SpO2 92`,
-        desc: c.triageReason,
-        category: c.triageCategory,
-        trend: c.triageCategory === 'immediate' ? (i === 0 ? 'worsening' : 'stable') : c.triageCategory === 'delayed' ? 'stable' : 'improving',
-      }))
+  // Ensure MediRoute displays every real casualty, even when fewer than four exist
+  const displayCasualties = casualties.length > 0
+    ? [...casualties]
+        .sort((a, b) => {
+          const rank = (cat: string) => {
+            if (cat.startsWith('immediate')) return 0;
+            if (cat.startsWith('delayed')) return 1;
+            if (cat.startsWith('minimal')) return 2;
+            return 3;
+          };
+          return rank(a.triageCategory) - rank(b.triageCategory);
+        })
+        .map((c, i) => {
+          const isImm = c.triageCategory === 'immediate' || c.triageCategory === 'immediate_red';
+          const isDel = c.triageCategory === 'delayed' || c.triageCategory === 'delayed_yellow';
+          const hr = c.vitals?.pulse || (c.vitals?.respiratoryRate ? c.vitals.respiratoryRate * 4 : (c.pulse || 104));
+          const rr = c.vitals?.respiratoryRate ?? c.respiratoryRate ?? 22;
+          const spo2 = c.spo2 || 94;
+
+          return {
+            id: c.id,
+            name: c.patientCode || c.fictionalName || `Casualty ${i + 1}`,
+            vitals: `HR ${hr} RR ${rr} SpO2 ${spo2}`,
+            desc: c.triageReason || 'Triage criteria verified',
+            category: c.triageCategory,
+            trend: c.trend || (isImm ? (i === 0 ? 'worsening' : 'stable') : isDel ? 'stable' : 'improving'),
+          };
+        })
     : mockCasualties;
 
   return (
@@ -314,7 +345,7 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
 
             <div style={{ borderLeft: '1.2px solid var(--color-line)', paddingLeft: '20px' }}>
               <div style={{ fontSize: '1.45rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)', lineHeight: 1.1 }}>
-                3
+                {rerouteCount}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>Reroutes</div>
             </div>
@@ -414,12 +445,12 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
             {/* Casualty Cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {displayCasualties.map((cas) => {
-                const isImm = cas.category === 'immediate';
-                const isDel = cas.category === 'delayed';
-                const isMin = cas.category === 'minimal';
+                const isImm = cas.category === 'immediate' || cas.category === 'immediate_red';
+                const isDel = cas.category === 'delayed' || cas.category === 'delayed_yellow';
+                const isExp = cas.category === 'expectant' || cas.category === 'expectant_black';
 
-                const badgeBg = isImm ? 'var(--color-crit)' : isDel ? '#D97706' : 'var(--color-ok)';
-                const badgeLetter = isImm ? 'I' : isDel ? 'D' : 'M';
+                const badgeBg = isImm ? 'var(--color-crit)' : isDel ? '#D97706' : isExp ? '#1E293B' : 'var(--color-ok)';
+                const badgeLetter = isImm ? 'I' : isDel ? 'D' : isExp ? 'E' : 'M';
 
                 return (
                   <div

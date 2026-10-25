@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   IncidentReport,
   IncidentType,
   PriorityLevel,
+  MeshNodeId,
+  MeshMessage,
 } from '@shared/types';
 import {
   Play,
@@ -10,9 +12,11 @@ import {
   Send,
   RefreshCw,
   AlertTriangle,
+  Radio,
 } from 'lucide-react';
 import { TacticalMap } from '../../components/TacticalMap';
 import { api } from '../../services/api/apiClient';
+import { meshService, NodeLinkQuality } from '../../services/mesh/meshService';
 
 interface FieldLinkModuleProps {
   incidents: IncidentReport[];
@@ -47,9 +51,54 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [simSpeed, setSimSpeed] = useState<number>(1);
 
+  // Mesh Comms Real State & Controlled Link Qualities
+  const [meshMessages, setMeshMessages] = useState<MeshMessage[]>(() => meshService.getMessages());
+  const [linkQualities, setLinkQualities] = useState<NodeLinkQuality>(() => meshService.getLinkQualities());
+
+  useEffect(() => {
+    const unsubscribe = meshService.subscribe((event) => {
+      if (event.type === 'MESSAGE') {
+        setMeshMessages(meshService.getMessages());
+      } else if (event.type === 'LINK_QUALITY') {
+        setLinkQualities(meshService.getLinkQualities());
+      }
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const pendingIncidents = incidents.filter(
     (i) => i.syncStatus === 'pending' || i.syncStatus === 'failed'
   );
+
+  // Dynamic delivery metrics
+  const deliveredLatencies = meshMessages
+    .filter((m) => m.state === 'delivered' && m.latencyMs > 0)
+    .map((m) => m.latencyMs)
+    .sort((a, b) => a - b);
+  const medianDeliveryMs =
+    deliveredLatencies.length > 0
+      ? deliveredLatencies[Math.floor(deliveredLatencies.length / 2)]
+      : 142;
+
+  const totalHops = meshMessages.reduce((sum, m) => sum + Math.max(1, m.hopPath.length - 1), 0);
+  const avgHops = meshMessages.length > 0 ? (totalHops / meshMessages.length).toFixed(1) : '1.5';
+
+  const handleSendChatMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!chatMessage.trim()) return;
+    const text = chatMessage.trim();
+    setChatMessage('');
+    const targetNode: MeshNodeId = meshService.getCurrentNode() === 'Alpha' ? 'Command' : 'Alpha';
+    await meshService.sendMessage('#tactical-alpha', text, targetNode);
+    setMeshMessages(meshService.getMessages());
+  };
+
+  const handleLinkQualityChange = (node: MeshNodeId, quality: number) => {
+    meshService.setLinkQuality(node, quality);
+    setLinkQualities(meshService.getLinkQualities());
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +192,7 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
 
             <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
               <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                {pendingIncidents.length || 4}
+                {pendingIncidents.length}
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Queued
@@ -152,7 +201,7 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
 
             <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
               <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                380 ms
+                {medianDeliveryMs} ms
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Median delivery
@@ -161,7 +210,7 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
 
             <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
               <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
-                2
+                {avgHops}
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Average hops
@@ -341,96 +390,108 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
             </button>
           </div>
 
-          {/* Team Transmission Stream */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {[
-              {
-                sender: 'Alpha',
-                time: '14:31:52 UTC',
-                text: 'Contact east of bridge, two vehicles.',
-                status: 'Delivered, 380 ms',
-                statusType: 'ok',
-                path: 'Alpha, Bravo, Command',
-              },
-              {
-                sender: 'Command',
-                time: '14:32:01 UTC',
-                text: 'Hold position. Medevac inbound.',
-                status: 'Relayed at Bravo',
-                statusType: 'info',
-                path: 'Command, Bravo, Alpha',
-              },
-              {
-                sender: 'Bravo',
-                time: '14:32:10 UTC',
-                text: 'Rally point RP-1 placed on the map.',
-                status: 'Queued, retry in 8 s',
-                statusType: 'warn',
-                path: 'Bravo, Command',
-              },
-            ].map((msg, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '3px',
-                  padding: '6px 8px',
-                  background: 'var(--color-paper)',
-                  border: '1px solid var(--color-line)',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                    {msg.sender}
-                  </span>
-                  <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{msg.time}</span>
-                </div>
-                <div style={{ fontSize: '0.76rem', color: 'var(--text-primary)' }}>{msg.text}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
-                  <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>Path: {msg.path}</span>
-                  <span
-                    style={{
-                      fontSize: '0.64rem',
-                      fontWeight: 700,
-                      padding: '1px 5px',
-                      borderRadius: '1px',
-                      border: `1px solid ${
-                        msg.statusType === 'ok' ? 'var(--color-ok)' : msg.statusType === 'warn' ? 'var(--color-warn)' : 'var(--color-info)'
-                      }`,
-                      color:
-                        msg.statusType === 'ok' ? 'var(--color-ok)' : msg.statusType === 'warn' ? 'var(--color-warn)' : 'var(--color-info)',
-                    }}
-                  >
-                    {msg.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-
-            {/* Quick message input */}
-            <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Message the team"
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                style={{ padding: '5px 8px', fontSize: '0.78rem' }}
-              />
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => setChatMessage('')}
-                style={{ padding: '5px 12px' }}
-              >
-                Send
-              </button>
-            </div>
+          {/* Simulated Mesh Transport Disclosure Banner */}
+          <div
+            style={{
+              padding: '6px 10px',
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.68rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.35,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Radio size={13} style={{ flexShrink: 0, color: 'var(--color-info)' }} />
+            <span>
+              <strong>Simulated Mesh Transport:</strong> BroadcastChannel provides same-origin browser tab relay for multi-node evaluation; not a physical RF radio network.
+            </span>
           </div>
 
-          {/* Link Quality Sliders */}
+          {/* Active Tab View: Channel Comms */}
+          {activeTab === 'channel' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {meshMessages.slice(0, 8).map((msg) => (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '3px',
+                      padding: '6px 8px',
+                      background: 'var(--color-paper)',
+                      border: '1px solid var(--color-line)',
+                      borderRadius: 'var(--radius-sm)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                        {msg.senderNode} → {msg.targetNode}
+                      </span>
+                      <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>
+                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-primary)' }}>{msg.content}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                      <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>
+                        Path: {msg.hopPath.join(' → ')}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.64rem',
+                          fontWeight: 700,
+                          padding: '1px 5px',
+                          borderRadius: '1px',
+                          border: `1px solid ${
+                            msg.state === 'delivered'
+                              ? 'var(--color-ok)'
+                              : msg.state === 'queued'
+                              ? 'var(--color-warn)'
+                              : 'var(--color-info)'
+                          }`,
+                          color:
+                            msg.state === 'delivered'
+                              ? 'var(--color-ok)'
+                              : msg.state === 'queued'
+                              ? 'var(--color-warn)'
+                              : 'var(--color-info)',
+                        }}
+                      >
+                        {msg.state.toUpperCase()}{msg.latencyMs > 0 ? `, ${msg.latencyMs} ms` : ''}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Message Input Form */}
+              <form onSubmit={handleSendChatMessage} style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Message the tactical mesh..."
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={!chatMessage.trim()}
+                  style={{ padding: '5px 12px' }}
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* Link Quality Sliders: Controlled inputs connected to actual mesh state */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
@@ -441,89 +502,139 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
               </span>
             </div>
 
-            {[
-              { node: 'Alpha', pct: 92 },
-              { node: 'Bravo', pct: 62 },
-              { node: 'Command', pct: 100 },
-            ].map((link) => (
-              <div key={link.node} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)', width: '60px' }}>{link.node}</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  defaultValue={link.pct}
-                  style={{ flex: 1, accentColor: 'var(--color-strip)', height: '4px' }}
-                />
-                <span style={{ fontSize: '0.76rem', fontWeight: 700, width: '36px', textAlign: 'right' }}>
-                  {link.pct}%
-                </span>
-              </div>
-            ))}
+            {(['Alpha', 'Bravo', 'Command'] as MeshNodeId[]).map((node) => {
+              const qualityVal = linkQualities[node] ?? 80;
+              return (
+                <div key={node} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)', width: '60px' }}>{node}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={qualityVal}
+                    onChange={(e) => handleLinkQualityChange(node, Number(e.target.value))}
+                    style={{ flex: 1, accentColor: 'var(--color-strip)', height: '4px' }}
+                    aria-label={`Link quality for node ${node}`}
+                  />
+                  <span style={{ fontSize: '0.76rem', fontWeight: 700, width: '36px', textAlign: 'right' }}>
+                    {qualityVal}%
+                  </span>
+                </div>
+              );
+            })}
           </div>
 
           {/* Outbox Pending Section */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
-            <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-              Outbox, {pendingIncidents.length || 3} pending
-            </div>
+          {activeTab === 'outbox' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
+              <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                Outbox, {pendingIncidents.length} pending
+              </div>
 
-            {[
-              { id: '1', title: 'Bridge crossing blocked', status: 'Pending', statusType: 'warn' },
-              { id: '2', title: 'Hazard H-2 reported', status: 'Pending', statusType: 'warn' },
-              { id: '3', title: 'Contact C-3 marker', status: 'Failed', statusType: 'crit' },
-            ].map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '6px 8px',
-                  border: '1px solid var(--color-line)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-paper)',
-                }}
-              >
-                <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)' }}>{item.title}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span
+              {pendingIncidents.length === 0 ? (
+                <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                  No pending reports in outbox. All incidents synchronized.
+                </div>
+              ) : (
+                pendingIncidents.map((item) => (
+                  <div
+                    key={item.id}
                     style={{
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      padding: '1px 5px',
-                      border: `1px solid ${item.statusType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)'}`,
-                      color: item.statusType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '6px 8px',
+                      border: '1px solid var(--color-line)',
+                      borderRadius: 'var(--radius-sm)',
+                      background: 'var(--color-paper)',
                     }}
                   >
-                    {item.status}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={() => handleRetryItem(item.id)}
-                    style={{ padding: '2px 8px', fontSize: '0.7rem' }}
-                  >
-                    Retry
-                  </button>
-                </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)', fontWeight: 600 }}>{item.title}</span>
+                      <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>Priority: {item.priority}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span
+                        style={{
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          padding: '1px 5px',
+                          border: `1px solid ${item.syncStatus === 'failed' ? 'var(--color-crit)' : 'var(--color-warn)'}`,
+                          color: item.syncStatus === 'failed' ? 'var(--color-crit)' : 'var(--color-warn)',
+                        }}
+                      >
+                        {item.syncStatus ? item.syncStatus.toUpperCase() : 'PENDING'}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => handleRetryItem(item.id)}
+                        style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={onTriggerSync}
+                disabled={isSyncing || isOfflineMode || pendingIncidents.length === 0}
+                style={{ marginTop: '6px', padding: '7px' }}
+              >
+                {isSyncing ? 'Syncing...' : 'Sync outbox'}
+              </button>
+
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '2px' }}>
+                Deterministic LWW conflict resolution on replay.
               </div>
-            ))}
-
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onTriggerSync}
-              disabled={isSyncing || isOfflineMode}
-              style={{ marginTop: '6px', padding: '7px' }}
-            >
-              {isSyncing ? 'Syncing...' : 'Sync outbox'}
-            </button>
-
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '2px' }}>
-              Last sync 14:30:44 UTC, 2 sent, 0 conflicts. Newest record wins.
             </div>
-          </div>
+          )}
+
+          {/* Incidents Tab: Complete Incident Registry */}
+          {activeTab === 'incidents' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
+              <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                Incident Registry ({incidents.length})
+              </div>
+              {incidents.slice(0, 10).map((inc) => (
+                <div
+                  key={inc.id}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    padding: '6px 8px',
+                    border: '1px solid var(--color-line)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-paper)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-primary)' }}>{inc.title}</span>
+                    <span
+                      style={{
+                        fontSize: '0.64rem',
+                        fontWeight: 700,
+                        padding: '1px 4px',
+                        borderRadius: '1px',
+                        border: `1px solid ${inc.syncStatus === 'synced' ? 'var(--color-ok)' : 'var(--color-warn)'}`,
+                        color: inc.syncStatus === 'synced' ? 'var(--color-ok)' : 'var(--color-warn)',
+                      }}
+                    >
+                      {inc.syncStatus?.toUpperCase() || 'SYNCED'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    {inc.notes}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </aside>
       </div>
 

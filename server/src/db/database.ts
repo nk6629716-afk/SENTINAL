@@ -163,8 +163,18 @@ export class Database {
     }
   }
 
-  public resetToBaseline(): void {
-    this.state = this.getDefaultState();
+  public resetToBaseline(preservePending: boolean = true): void {
+    const defaultState = this.getDefaultState();
+    if (preservePending && this.state) {
+      // Preserve pending offline reports awaiting synchronization
+      Object.values(this.state.incidents || {}).forEach((inc) => {
+        if (inc.syncStatus === 'pending' || inc.syncStatus === 'failed') {
+          defaultState.incidents[inc.id] = inc;
+        }
+      });
+    }
+
+    this.state = defaultState;
     this.persist();
   }
 

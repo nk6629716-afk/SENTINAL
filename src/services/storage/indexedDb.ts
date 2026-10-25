@@ -99,8 +99,39 @@ export class SentinelDatabase {
     }
   }
 
-  public async resetToDeterministicBaseline(): Promise<void> {
+  public async resetToDeterministicBaseline(preserveUserData = true): Promise<void> {
     const db = await this.initDB();
+
+    let preservedIncidents: IncidentReport[] = [];
+    let preservedGeo: GeoIntelObservation[] = [];
+
+    if (preserveUserData) {
+      try {
+        const readTx = db.transaction(['incidents', 'geointel'], 'readonly');
+        const getIncReq = readTx.objectStore('incidents').getAll();
+        const getGeoReq = readTx.objectStore('geointel').getAll();
+
+        await new Promise<void>((resolve) => {
+          readTx.oncomplete = () => {
+            const allInc = (getIncReq.result || []) as IncidentReport[];
+            preservedIncidents = allInc.filter(
+              (inc) => inc.syncStatus === 'pending' || inc.syncStatus === 'failed'
+            );
+
+            const allGeo = (getGeoReq.result || []) as GeoIntelObservation[];
+            preservedGeo = allGeo.filter(
+              (geo) => (geo as any).syncStatus === 'pending' || (geo as any).syncStatus === 'failed'
+            );
+
+            resolve();
+          };
+          readTx.onerror = () => resolve();
+        });
+      } catch (err) {
+        console.warn('[IndexedDB] Could not read pending records prior to reset:', err);
+      }
+    }
+
     const tx = db.transaction(['incidents', 'alerts', 'geointel', 'casualties', 'hazards'], 'readwrite');
 
     // Clear all stores
@@ -113,12 +144,14 @@ export class SentinelDatabase {
     // Populate baseline fixtures
     const incStore = tx.objectStore('incidents');
     for (const inc of INITIAL_INCIDENTS) incStore.put(inc);
+    for (const inc of preservedIncidents) incStore.put(inc);
 
     const alertStore = tx.objectStore('alerts');
     for (const alt of INITIAL_ALERTS) alertStore.put(alt);
 
     const geoStore = tx.objectStore('geointel');
     for (const geo of INITIAL_GEO_OBSERVATIONS) geoStore.put(geo);
+    for (const geo of preservedGeo) geoStore.put(geo);
 
     const casStore = tx.objectStore('casualties');
     for (const cas of INITIAL_CASUALTIES) casStore.put(cas);
@@ -214,6 +247,11 @@ export class SentinelDatabase {
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
+  }
+
+  public async getPendingSyncGeoObservations(): Promise<GeoIntelObservation[]> {
+    const list = await this.getGeoObservations();
+    return list.filter((geo) => (geo as any).syncStatus === 'pending' || (geo as any).syncStatus === 'failed');
   }
 
   // Casualties Store

@@ -20,6 +20,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { TacticalMap } from '../components/TacticalMap';
+import { api } from '../services/api/apiClient';
+import { meshService } from '../services/mesh/meshService';
 
 interface DashboardProps {
   summary: DashboardSummary;
@@ -77,8 +79,45 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [simSpeed, setSimSpeed] = useState<number>(1);
 
   const pendingIncidents = incidents.filter((i) => i.syncStatus === 'pending' || i.syncStatus === 'failed');
+  const syncedReportsCount = incidents.filter((i) => i.syncStatus === 'synced').length;
   const activeAlerts = alerts.filter((a) => !a.acknowledged);
   const criticalIncident = incidents.find((i) => i.priority === 'critical') || incidents[0];
+
+  // Dynamic Domain Summaries
+  const pendingGeoReviewsCount = observations.filter(
+    (o) => o.reviewStatus === 'unreviewed' || o.reviewStatus === 'pending' || o.reviewStatus === 'pending_review'
+  ).length;
+  const confirmedGeoThreatsCount = observations.filter(
+    (o) => o.reviewStatus === 'confirmed' || o.reviewStatus === 'confirmed_candidate'
+  ).length;
+
+  const immediateCasualtiesCount = casualties.filter(
+    (c) => c.triageCategory === 'immediate' || c.triageCategory === 'immediate_red'
+  ).length;
+  const delayedCasualtiesCount = casualties.filter(
+    (c) => c.triageCategory === 'delayed' || c.triageCategory === 'delayed_yellow'
+  ).length;
+  const minimalCasualtiesCount = casualties.filter(
+    (c) => c.triageCategory === 'minimal' || c.triageCategory === 'minimal_green'
+  ).length;
+  const expectantCasualtiesCount = casualties.filter(
+    (c) => c.triageCategory === 'expectant' || c.triageCategory === 'expectant_black'
+  ).length;
+  const blockedRoadCount = hazards.filter((h) => h.blocked).length;
+
+  // Realtime Telemetry Staleness & Backend Storage Mode
+  const telemetryAgeSeconds = lastEventTimestamp
+    ? Math.max(0, Math.round((Date.now() - new Date(lastEventTimestamp).getTime()) / 1000))
+    : null;
+  const isTelemetryStale =
+    realtimeStatus === 'stale' || (telemetryAgeSeconds !== null && telemetryAgeSeconds > 25);
+  const effectiveStorageMode = isOfflineMode
+    ? 'IndexedDB (Offline PWA)'
+    : backendHealth?.storageMode === 'file'
+    ? 'Disk Store (sentinel_store.json)'
+    : backendHealth?.storageMode === 'memory'
+    ? 'In-Memory Store'
+    : 'Local Storage / Disk';
 
   const missionSteps = [
     {
@@ -118,46 +157,154 @@ export const Dashboard: React.FC<DashboardProps> = ({
     },
   ];
 
-  const handleNextStep = () => {
+  const [isRunningScenario, setIsRunningScenario] = useState<boolean>(false);
+  const [scenarioStatusMsg, setScenarioStatusMsg] = useState<string>('');
+
+  const executeScenarioStep = async (step: number) => {
+    setScenarioStatusMsg(`Executing Step ${step}...`);
+    try {
+      if (step === 1) {
+        // Step 1: FieldLink Ground Report Filed & Relayed
+        await api.createIncident({
+          id: `INC-STEP1-01`,
+          sourceModule: 'fieldlink',
+          type: 'road_blockage',
+          priority: 'critical',
+          title: 'Bridge Segment 04-East Structural Fracture',
+          notes: 'Flash flood debris impact on main span; road impassable. Tactical mesh alert broadcast.',
+          location: { name: 'Bridge Segment 04-East (Highway 9)', lat: 34.0620, lng: -118.2310 },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          status: 'active',
+          isSimulated: true,
+          clientId: `client-step1-ground`,
+          syncStatus: isOfflineMode ? 'pending' : 'synced',
+        });
+        await meshService.sendMessage(
+          '#tactical-alpha',
+          'Flash flooding observed at Bridge Highway Alpha. Debris impact on main span; road impassable.',
+          'Command'
+        );
+        setScenarioStatusMsg('Step 1 complete: Ground report filed & relayed.');
+      } else if (step === 2) {
+        // Step 2: SkyWatch Airspace Incursion Alert Triggered
+        if (onStepSimulation) {
+          await onStepSimulation();
+        } else {
+          await api.stepSimulation();
+        }
+        setScenarioStatusMsg('Step 2 complete: Airspace surveillance anomaly evaluated.');
+      } else if (step === 3) {
+        // Step 3: GeoIntel Satellite Matrix Difference Flagged
+        const obs: GeoIntelObservation = {
+          id: `GEO-STEP3-01`,
+          title: 'Satellite Change Candidate (Sector Bravo Overpass)',
+          zoneName: 'Sector Bravo Overpass',
+          coordinates: { lat: 34.0620, lng: -118.2310 },
+          captureDateBefore: new Date(Date.now() - 3600000).toISOString(),
+          captureDateAfter: new Date().toISOString(),
+          reviewStatus: 'pending',
+          candidates: [
+            {
+              id: 'CAND-01',
+              boundingBox: { x: 42, y: 38, width: 24, height: 18 },
+              differenceScore: 0.94,
+              label: 'Structural alteration on bridge deck',
+              anomalyType: 'structure_alteration',
+              explanation: 'Radiometric pixel cluster anomaly',
+              reviewed: false,
+              confidence: 0.94,
+            },
+          ],
+          algorithmSettings: { threshold: 30, minRegionSize: 4 },
+          createdAt: new Date().toISOString(),
+          isSimulated: true,
+        };
+        await api.createGeoObservation(obs);
+        setScenarioStatusMsg('Step 3 complete: Satellite difference flagged for analyst review.');
+      } else if (step === 4) {
+        // Step 4: MediRoute Casualties Triaged
+        const casualty: CasualtyRecord = {
+          id: `CAS-STEP4-01`,
+          patientCode: 'CAS-01',
+          fictionalName: 'Casualty Alpha (Bridge Sector)',
+          location: { name: 'Bridge Segment 04-East', lat: 34.0620, lng: -118.2310 },
+          triageCategory: 'immediate',
+          ruleVersion: 'START-v2',
+          triageReason: 'Respiratory rate > 30 and altered mental status',
+          status: 'assessed',
+          workflowStatus: 'assessed',
+          vitals: {
+            canWalk: false,
+            respiratoryRate: 32,
+            radialPulsePresent: true,
+            mentalStatus: 'unresponsive',
+          },
+          createdAt: new Date().toISOString(),
+          isSimulated: true,
+        };
+        await api.createCasualty(casualty);
+        setScenarioStatusMsg('Step 4 complete: Casualty triaged (Immediate - Red).');
+      } else if (step === 5) {
+        // Step 5: Road Hazard Blocked & Evacuation Route Rerouted
+        await api.toggleRoadBlockage('EDGE-1', true);
+        await api.calculateRoute('EVAC-1', 'HOSP-1', true);
+        setScenarioStatusMsg('Step 5 complete: Road blocked & evacuation rerouted around hazard.');
+      }
+    } catch (err: any) {
+      console.warn('Scenario step error:', err);
+      setScenarioStatusMsg(`Step ${step} executed: ${err.message || 'Updated'}`);
+    }
+  };
+
+  const handleNextStep = async () => {
     const next = crossModuleStep < 5 ? crossModuleStep + 1 : 1;
     setCrossModuleStep(next);
+    await executeScenarioStep(next);
     const targetModule = missionSteps.find((s) => s.step === next)?.module;
     if (targetModule) {
       onNavigate(targetModule as any);
     }
   };
 
-  // Threat queue contacts ranked by score
-  const threatContacts = [
-    {
-      id: 'Track 07',
-      label: 'Track 07',
-      desc: 'Heading to Restricted R-2',
-      score: 92,
-      type: 'hostile',
-    },
-    {
-      id: 'Swarm U1',
-      label: 'Swarm U1 to U3',
-      desc: 'Loitering, no transponder',
-      score: 74,
-      type: 'unknown',
-    },
-    {
-      id: 'Track 11',
-      label: 'Track 11',
-      desc: 'Closing on sector 33',
-      score: 51,
-      type: 'unknown',
-    },
-    {
-      id: 'Airliner AC-48',
-      label: 'Airliner AC-48',
-      desc: 'Passing, outside zones',
-      score: 12,
-      type: 'neutral',
-    },
-  ];
+  const handleRunAllSteps = async () => {
+    if (isRunningScenario) return;
+    setIsRunningScenario(true);
+    for (let s = 1; s <= 5; s++) {
+      setCrossModuleStep(s);
+      await executeScenarioStep(s);
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    setIsRunningScenario(false);
+  };
+
+  // Derive threat queue dynamically from actual telemetry tracks sorted by threat score
+  const threatContacts = [...tracks]
+    .sort((a, b) => (b.threatScore ?? 0) - (a.threatScore ?? 0))
+    .slice(0, 5)
+    .map((trk) => {
+      const speedKts = trk.speedKts !== undefined ? trk.speedKts : Math.round(trk.speed * 1.94384);
+      let desc = `Speed ${Math.round(speedKts)} kts | Alt ${Math.round(trk.altitude)}m`;
+      if (trk.anomalyFlags && trk.anomalyFlags.length > 0) {
+        desc = trk.anomalyFlags[0].replace(/_/g, ' ');
+      } else if (trk.predictedCPA && trk.predictedCPA.distanceMeters < 5000) {
+        desc = `Incursion vector (${(trk.predictedCPA.distanceMeters / 1000).toFixed(1)} km to ${trk.predictedCPA.zoneName || 'zone'})`;
+      } else if (trk.status === 'hostile') {
+        desc = 'Approaching restricted perimeter';
+      }
+
+      const score = Math.round(trk.threatScore ?? 0);
+      const isHostile = trk.status === 'hostile' || score >= 75;
+      const isNeutral = trk.status === 'tracking' && score < 30;
+
+      return {
+        id: trk.id,
+        label: trk.callsign || trk.id,
+        desc,
+        score,
+        type: isHostile ? 'hostile' : isNeutral ? 'neutral' : 'unknown',
+      };
+    });
 
   return (
     <div
@@ -227,7 +374,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   fontSize: '1.4rem',
                   fontFamily: 'var(--font-heading)',
                   fontWeight: 800,
-                  color: 'var(--text-primary)',
+                  color: activeAlerts.length > 0 ? 'var(--color-crit)' : 'var(--text-primary)',
                   lineHeight: 1,
                 }}
               >
@@ -244,14 +391,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   fontSize: '1.4rem',
                   fontFamily: 'var(--font-heading)',
                   fontWeight: 800,
-                  color: 'var(--text-primary)',
+                  color: pendingGeoReviewsCount > 0 ? 'var(--color-warn)' : 'var(--text-primary)',
                   lineHeight: 1,
                 }}
               >
-                142 ms
+                {pendingGeoReviewsCount}
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Alert latency
+                Geo reviews
+              </div>
+            </div>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  color: immediateCasualtiesCount > 0 ? 'var(--color-crit)' : 'var(--text-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                {immediateCasualtiesCount}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Immediate evac
+              </div>
+            </div>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  color: blockedRoadCount > 0 ? 'var(--color-warn)' : 'var(--text-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                {blockedRoadCount}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Road blockages
               </div>
             </div>
 
@@ -265,28 +446,139 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   lineHeight: 1,
                 }}
               >
-                38 m
-              </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                Prediction error
-              </div>
-            </div>
-
-            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
-              <div
-                style={{
-                  fontSize: '1.4rem',
-                  fontFamily: 'var(--font-heading)',
-                  fontWeight: 800,
-                  color: 'var(--text-primary)',
-                  lineHeight: 1,
-                }}
-              >
-                {incidents.filter((i) => i.syncStatus === 'synced').length || 12}
+                {syncedReportsCount}
               </div>
               <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 Reports synced
               </div>
+            </div>
+          </div>
+
+          {/* Connection, Telemetry Staleness, and Storage Mode HUD Badge */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '68px',
+              left: '16px',
+              zIndex: 20,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              pointerEvents: 'auto',
+            }}
+          >
+            {/* Realtime Connection State */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 8px',
+                background: 'var(--color-sheet)',
+                border: '1px solid var(--color-edge)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+              }}
+            >
+              <span
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background:
+                    isOfflineMode
+                      ? 'var(--color-warn)'
+                      : realtimeStatus === 'connected'
+                      ? 'var(--color-ok)'
+                      : realtimeStatus === 'stale'
+                      ? 'var(--color-warn)'
+                      : 'var(--color-crit)',
+                }}
+              />
+              <span style={{ color: 'var(--text-primary)' }}>
+                {isOfflineMode
+                  ? 'OFFLINE CACHE'
+                  : realtimeStatus === 'connected'
+                  ? 'LIVE SSE'
+                  : realtimeStatus === 'stale'
+                  ? 'STALE SSE'
+                  : realtimeStatus.toUpperCase()}
+              </span>
+            </div>
+
+            {/* Telemetry Staleness Warning */}
+            {isTelemetryStale ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 8px',
+                  background: 'rgba(217, 119, 6, 0.15)',
+                  border: '1px solid var(--color-warn)',
+                  color: 'var(--color-warn)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                }}
+              >
+                <span>⚠ Telemetry Stale</span>
+                {telemetryAgeSeconds !== null && <span>({telemetryAgeSeconds}s delay)</span>}
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '3px 8px',
+                  background: 'var(--color-sheet)',
+                  border: '1px solid var(--color-edge)',
+                  color: 'var(--text-secondary)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
+                }}
+              >
+                <span>Telemetry: Fresh</span>
+                {telemetryAgeSeconds !== null && <span>({telemetryAgeSeconds}s ago)</span>}
+              </div>
+            )}
+
+            {/* Backend Storage Mode Indicator */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 8px',
+                background: 'var(--color-sheet)',
+                border: '1px solid var(--color-edge)',
+                color: 'var(--text-secondary)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.68rem',
+                fontWeight: 600,
+              }}
+            >
+              <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>Store:</span>
+              <span>{effectiveStorageMode}</span>
+            </div>
+
+            {/* Honest Simulation Disclaimer Badge */}
+            <div
+              style={{
+                padding: '3px 8px',
+                background: 'var(--color-sheet)',
+                border: '1px dashed var(--color-edge)',
+                color: 'var(--text-secondary)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+              }}
+            >
+              SIMULATED DEFENSE EXERCISE DATA
             </div>
           </div>
 
@@ -422,45 +714,199 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </button>
           </div>
 
-          {/* Command Link Status Card */}
+          {/* Command Link & System Status Card */}
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              gap: '3px',
-              paddingBottom: '6px',
-              borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
+              gap: '6px',
+              padding: '8px 10px',
+              border: 'var(--border-width, 1.2px) solid var(--color-line)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-paper)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span
                   style={{
-                    width: '7px',
-                    height: '7px',
-                    backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: isOfflineMode
+                      ? 'var(--color-warn)'
+                      : realtimeStatus === 'connected'
+                      ? 'var(--color-ok)'
+                      : 'var(--color-crit)',
                     flexShrink: 0,
                   }}
                 />
-                <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                  {isOfflineMode ? 'Air-gap queue active' : 'Command link synchronized'}
+                <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                  {isOfflineMode
+                    ? 'Offline PWA Cache (IndexedDB)'
+                    : realtimeStatus === 'connected'
+                    ? 'SSE Command Stream Active'
+                    : realtimeStatus === 'stale'
+                    ? 'Telemetry Connection Stale'
+                    : 'Command Stream Disconnected'}
                 </span>
               </div>
               <span
                 style={{
-                  border: '1px solid var(--color-ok)',
-                  color: 'var(--color-ok)',
-                  fontSize: '0.65rem',
+                  border: '1px solid var(--color-edge)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.62rem',
                   fontWeight: 700,
                   padding: '1px 5px',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
-                ■ Live
+                {effectiveStorageMode}
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', paddingLeft: '13px' }}>
-              Telemetry streaming: {tracks.length} tracks, {incidents.length} incidents, {casualties.length} evacuation records.
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+              {isTelemetryStale ? (
+                <span style={{ color: 'var(--color-warn)', fontWeight: 600 }}>
+                  ⚠ Last telemetry update was {telemetryAgeSeconds ?? '>30'}s ago. Stream heartbeat degraded.
+                </span>
+              ) : (
+                <span>
+                  Telemetry nominal: {tracks.length} tracks, {activeAlerts.length} active alerts, {syncedReportsCount} synced reports.
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Dynamic Cross-Module Intelligence Summaries */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            {/* GeoIntel Card */}
+            <div
+              onClick={() => onNavigate('geointel')}
+              style={{
+                cursor: 'pointer',
+                padding: '8px 10px',
+                border: '1px solid var(--color-line)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-paper)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+              }}
+              title="Open GeoIntel module"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  GEOINTEL
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.62rem',
+                    fontWeight: 700,
+                    color: pendingGeoReviewsCount > 0 ? 'var(--color-warn)' : 'var(--color-ok)',
+                  }}
+                >
+                  {pendingGeoReviewsCount} pending
+                </span>
+              </div>
+              <div style={{ fontSize: '1.05rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {observations.length}{' '}
+                <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                  changes
+                </span>
+              </div>
+              <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>
+                {confirmedGeoThreatsCount} confirmed threat vectors
+              </div>
+            </div>
+
+            {/* MediRoute Card */}
+            <div
+              onClick={() => onNavigate('mediroute')}
+              style={{
+                cursor: 'pointer',
+                padding: '8px 10px',
+                border: '1px solid var(--color-line)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-paper)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
+              }}
+              title="Open MediRoute module"
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                  MEDIROUTE
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.62rem',
+                    fontWeight: 700,
+                    color: immediateCasualtiesCount > 0 ? 'var(--color-crit)' : 'var(--color-ok)',
+                  }}
+                >
+                  {immediateCasualtiesCount} immediate
+                </span>
+              </div>
+              <div style={{ fontSize: '1.05rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)' }}>
+                {casualties.length}{' '}
+                <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                  casualties
+                </span>
+              </div>
+              {/* Triage mini breakdown */}
+              <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                <span
+                  style={{
+                    fontSize: '0.6rem',
+                    fontWeight: 700,
+                    padding: '0 4px',
+                    background: 'var(--color-crit)',
+                    color: '#fff',
+                    borderRadius: '2px',
+                  }}
+                >
+                  I:{immediateCasualtiesCount}
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.6rem',
+                    fontWeight: 700,
+                    padding: '0 4px',
+                    background: '#D97706',
+                    color: '#fff',
+                    borderRadius: '2px',
+                  }}
+                >
+                  D:{delayedCasualtiesCount}
+                </span>
+                <span
+                  style={{
+                    fontSize: '0.6rem',
+                    fontWeight: 700,
+                    padding: '0 4px',
+                    background: 'var(--color-ok)',
+                    color: '#fff',
+                    borderRadius: '2px',
+                  }}
+                >
+                  M:{minimalCasualtiesCount}
+                </span>
+                {expectantCasualtiesCount > 0 && (
+                  <span
+                    style={{
+                      fontSize: '0.6rem',
+                      fontWeight: 700,
+                      padding: '0 4px',
+                      background: '#1E293B',
+                      color: '#fff',
+                      borderRadius: '2px',
+                    }}
+                  >
+                    E:{expectantCasualtiesCount}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -607,18 +1053,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   Step {crossModuleStep} of 5
                 </span>
               </div>
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={handleNextStep}
-                style={{ padding: '3px 8px', fontSize: '0.72rem' }}
-              >
-                Next step
-              </button>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={handleRunAllSteps}
+                  disabled={isRunningScenario}
+                  style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                  title="Automatically execute all 5 steps sequentially"
+                  aria-label="Auto replay five-step cross-module scenario"
+                >
+                  {isRunningScenario ? 'Replaying...' : 'Auto replay'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={handleNextStep}
+                  disabled={isRunningScenario}
+                  style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+                  title="Execute next scenario step"
+                  aria-label="Execute next mission step"
+                >
+                  Next step
+                </button>
+              </div>
             </div>
 
             {/* Vertical Stepper List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }} role="list">
               {missionSteps.map((s, idx) => {
                 const isStepActive = crossModuleStep === s.step;
                 const isStepCompleted = crossModuleStep > s.step;
@@ -626,17 +1088,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 return (
                   <div
                     key={s.step}
-                    onClick={() => {
+                    role="button"
+                    tabIndex={0}
+                    onClick={async () => {
                       setCrossModuleStep(s.step);
+                      await executeScenarioStep(s.step);
                       onNavigate(s.module as any);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setCrossModuleStep(s.step);
+                        executeScenarioStep(s.step);
+                        onNavigate(s.module as any);
+                      }
                     }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       cursor: 'pointer',
-                      padding: '2px 0',
+                      padding: '4px 6px',
+                      borderRadius: 'var(--radius-sm)',
+                      background: isStepActive ? 'rgba(232, 89, 12, 0.08)' : 'transparent',
+                      border: isStepActive ? '1px solid var(--accent)' : '1px solid transparent',
+                      transition: 'all 0.12s ease',
                     }}
+                    aria-label={`Step ${s.step}: ${s.title} (${s.statusText})`}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       {/* Step Status Icon */}
@@ -712,6 +1190,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 );
               })}
             </div>
+
+            {/* Scenario Execution Status Feedback */}
+            {scenarioStatusMsg && (
+              <div
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-paper)',
+                  border: '1px solid var(--color-line)',
+                  fontSize: '0.68rem',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.3,
+                }}
+              >
+                {scenarioStatusMsg}
+              </div>
+            )}
           </div>
         </aside>
       </div>

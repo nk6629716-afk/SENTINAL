@@ -1,0 +1,17 @@
+{
+  "name": "SENTINEL Tactical Operations Platform",
+  "short_name": "SENTINEL",
+  "description": "Tactical Operations & Common Operational Picture Platform with offline air-gap capabilities",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B101B",
+  "theme_color": "#0B101B",
+  "orientation": "landscape-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234669a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

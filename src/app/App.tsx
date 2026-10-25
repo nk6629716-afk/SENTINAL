@@ -218,6 +218,9 @@ export const App: React.FC = () => {
     const unsubGeo = realtimeService.onGeoIntel((obs) => {
       setObservations((prev) => prev.map((o) => (o.id === obs.id ? obs : o)));
     });
+    const unsubPatient = realtimeService.onPatient((cas) => {
+      setCasualties((prev) => [cas, ...prev.filter((c) => c.id !== cas.id)]);
+    });
     const unsubReset = realtimeService.onReset(() => {
       refreshAllData();
     });
@@ -230,6 +233,7 @@ export const App: React.FC = () => {
       unsubIncident();
       unsubHazard();
       unsubGeo();
+      unsubPatient();
       unsubReset();
     };
   }, [isOfflineMode, refreshAllData]);
@@ -300,9 +304,10 @@ export const App: React.FC = () => {
     if (isOfflineMode) return;
     setIsSyncing(true);
     try {
-      await api.syncPendingQueue();
+      await Promise.all([api.syncPendingQueue(), api.syncPendingGeoObservations()]);
       await refreshAllData();
     } catch (err: any) {
+      console.warn('Sync issue:', err);
       alert(`Sync failed: ${err.message}`);
     } finally {
       setIsSyncing(false);
