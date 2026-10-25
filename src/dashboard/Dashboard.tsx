@@ -11,19 +11,11 @@ import {
   EvacuationNode,
 } from '@shared/types';
 import {
-  Radio,
-  Crosshair,
-  Compass,
-  HeartPulse,
+  Play,
+  Pause,
+  Check,
+  Circle,
   ExternalLink,
-  RotateCcw,
-  AlertTriangle,
-  Layers,
-  ArrowRight,
-  Shield,
-  Activity,
-  CheckCircle,
-  Clock,
   MapPin,
   ChevronRight,
 } from 'lucide-react';
@@ -78,56 +70,51 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onToggleSimulationPause,
   isSimPaused = false,
 }) => {
-  const [crossModuleStep, setCrossModuleStep] = useState<number>(1);
+  const [crossModuleStep, setCrossModuleStep] = useState<number>(3);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'alerts' | 'reports' | 'activity'>('alerts');
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [simSpeed, setSimSpeed] = useState<number>(1);
 
   const pendingIncidents = incidents.filter((i) => i.syncStatus === 'pending' || i.syncStatus === 'failed');
   const activeAlerts = alerts.filter((a) => !a.acknowledged);
-  const criticalCasualties = casualties.filter((c) => c.triageCategory === 'immediate' && c.status !== 'evacuated');
-  const blockedHazards = hazards.filter((h) => h.blocked);
-
-  const primaryIncident = incidents.find((i) => i.priority === 'critical') || incidents[0];
+  const criticalIncident = incidents.find((i) => i.priority === 'critical') || incidents[0];
 
   const missionSteps = [
     {
       step: 1,
-      num: '01',
-      title: 'FieldLink Offline Intake',
+      title: 'Ground report filed',
+      statusText: 'Verified',
+      isCompleted: true,
       module: 'fieldlink',
-      desc: 'Ground unit logs bridge collapse into local IndexedDB queue during remote radio blackout.',
-      tag: 'GROUND',
     },
     {
       step: 2,
-      num: '02',
-      title: 'Road Network Blockage',
-      module: 'mediroute',
-      desc: 'Highway 9 corridor flagged as impassable due to structural debris and high-water hazards.',
-      tag: 'LOGISTICS',
+      title: 'Airspace checked',
+      statusText: 'Verified',
+      isCompleted: true,
+      module: 'skywatch',
     },
     {
       step: 3,
-      num: '03',
-      title: 'Dijkstra Hazard Reroute',
-      module: 'mediroute',
-      desc: 'Routing engine calculates diversion via North Ridgeline Bypass (+1.1 km) avoiding blocked segment.',
-      tag: 'EVACUATION',
+      title: 'Imagery compared',
+      statusText: 'Active now',
+      isActive: true,
+      module: 'geointel',
     },
     {
       step: 4,
-      num: '04',
-      title: 'SkyWatch Airspace Incursion',
-      module: 'skywatch',
-      desc: 'Synthetic radar tracks drone DRONE-UAV-7 entering General Hospital No-Fly Geofence Zone.',
-      tag: 'AIR DEFENSE',
+      title: 'Casualties triaged',
+      statusText: 'Medical',
+      isFuture: true,
+      module: 'mediroute',
     },
     {
       step: 5,
-      num: '05',
-      title: 'GeoIntel Satellite Recon',
-      module: 'geointel',
-      desc: 'Multi-temporal satellite difference analysis validates candidate anomaly at River Crossing.',
-      tag: 'IMAGERY',
+      title: 'Route cleared',
+      statusText: 'Logistics',
+      isFuture: true,
+      module: 'mediroute',
     },
   ];
 
@@ -140,533 +127,697 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  // Threat queue contacts ranked by score
+  const threatContacts = [
+    {
+      id: 'Track 07',
+      label: 'Track 07',
+      desc: 'Heading to Restricted R-2',
+      score: 92,
+      type: 'hostile',
+    },
+    {
+      id: 'Swarm U1',
+      label: 'Swarm U1 to U3',
+      desc: 'Loitering, no transponder',
+      score: 74,
+      type: 'unknown',
+    },
+    {
+      id: 'Track 11',
+      label: 'Track 11',
+      desc: 'Closing on sector 33',
+      score: 51,
+      type: 'unknown',
+    },
+    {
+      id: 'Airliner AC-48',
+      label: 'Airliner AC-48',
+      desc: 'Passing, outside zones',
+      score: 12,
+      type: 'neutral',
+    },
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1440px', margin: '0 auto', width: '100%' }}>
-      {/* 1. Asymmetrical Situation Indicators (Operational Readiness Banner + Technical Telemetry) */}
-      <div className="grid grid-cols-3" style={{ alignItems: 'stretch' }}>
-        {/* Left Column (2 spans): Primary Readiness Masthead */}
-        <div
-          className="neu-card"
-          style={{
-            gridColumn: 'span 2',
-            padding: '20px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                TELEMETRY NETWORK & READINESS STATE
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-                <span
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: isOfflineMode ? 'var(--critical)' : 'var(--healthy)',
-                    boxShadow: isOfflineMode ? '0 0 8px var(--critical)' : '0 0 8px var(--healthy)',
-                  }}
-                />
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                  {isOfflineMode ? 'OFFLINE AIR-GAP BUFFER' : 'COMMAND LINK SYNCHRONIZED'}
-                </h2>
-              </div>
-            </div>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 48px)',
+        width: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Upper Area: Map (with floating metric panels) + Right Intel Pane */}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+        {/* Center / Left: Full Area Tactical Map */}
+        <div style={{ flex: 1, position: 'relative', minWidth: 0, height: '100%' }}>
+          <TacticalMap
+            incidents={incidents}
+            tracks={tracks}
+            zones={zones}
+            nodes={nodes}
+            edges={hazards}
+            selectedEntityId={selectedEntity?.id}
+            onSelectEntity={setSelectedEntity}
+            height="100%"
+            showRadarSweep={true}
+            initialMode="chart"
+          />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span className={`badge-neu ${isOfflineMode ? 'badge-neu-crit' : realtimeStatus === 'connected' ? 'badge-neu-ok' : 'badge-neu-warn'}`}>
-                {isOfflineMode
-                  ? 'OFFLINE BUFFER'
-                  : realtimeStatus === 'connected'
-                  ? 'LIVE SSE STREAM'
-                  : realtimeStatus === 'reconnecting'
-                  ? 'RECONNECTING...'
-                  : realtimeStatus === 'stale'
-                  ? 'STALE CONNECTION'
-                  : 'DISCONNECTED'}
-              </span>
-
-              <span className="badge-neu badge-neu-neutral" title="Configured backend persistence adapter">
-                STORAGE: {isOfflineMode ? 'LOCAL INDEXEDDB' : (backendHealth?.storageMode ? backendHealth.storageMode.toUpperCase() : 'FILE PERSISTENCE')}
-              </span>
-
-              {/* Simulation Quick Controls */}
-              {onToggleSimulationPause && (
-                <button
-                  className={`btn-neu btn-neu-sm ${isSimPaused ? 'btn-neu-primary' : ''}`}
-                  onClick={onToggleSimulationPause}
-                  title={isSimPaused ? 'Resume simulated telemetry feed' : 'Pause simulated telemetry feed'}
-                  style={{ padding: '3px 8px', fontSize: '0.70rem' }}
-                >
-                  {isSimPaused ? '▶ Resume Sim' : '⏸ Pause Sim'}
-                </button>
-              )}
-
-              {onStepSimulation && (
-                <button
-                  className="btn-neu btn-neu-sm"
-                  onClick={onStepSimulation}
-                  title="Step deterministic simulation forward by 1 tick"
-                  style={{ padding: '3px 8px', fontSize: '0.70rem' }}
-                >
-                  ⚡ Step 1s
-                </button>
-              )}
-            </div>
-          </div>
-
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, maxWidth: '780px', lineHeight: 1.45 }}>
-            {isOfflineMode
-              ? 'Tactical radio blackout simulated. Field reports and vitals are persistently queued locally in browser IndexedDB with zero telemetry loss. Reconnect to sync.'
-              : 'Real-time Server-Sent Events (SSE) telemetry bus active. Cross-module data synthesizes ground reports, airspace tracks, geospatial candidate changes, and evacuation routing.'}
-          </p>
-
+          {/* Floating Top-Left Metrics Panel (Spec 01) */}
           <div
             style={{
+              position: 'absolute',
+              top: '12px',
+              left: '16px',
+              zIndex: 20,
+              background: 'var(--color-sheet)',
+              border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+              boxShadow: 'var(--shadow-flat)',
+              borderRadius: 'var(--radius-sm)',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderTop: '1px solid var(--border-subtle)',
-              paddingTop: '12px',
-              flexWrap: 'wrap',
-              gap: '12px',
-              fontSize: '0.78rem',
-              color: 'var(--text-secondary)',
+              padding: '8px 16px',
+              gap: '24px',
+              pointerEvents: 'auto',
             }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-              <div>
-                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{tracks.length}</strong> Airspace Tracks
-              </div>
-              <span>•</span>
-              <div>
-                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{incidents.length}</strong> Ground Incidents
-              </div>
-              <span>•</span>
-              <div>
-                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{casualties.length}</strong> Evacuation Records
-              </div>
-              <span>•</span>
-              <div>
-                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{hazards.length}</strong> Road Segments
-              </div>
-            </div>
-
-            {/* Data Freshness Indicator */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '0.72rem' }}>
-              <Clock size={12} color={realtimeStatus === 'stale' ? 'var(--warning)' : 'var(--accent)'} />
-              <span>
-                {lastEventTimestamp
-                  ? `Telemetry Updated: ${new Date(lastEventTimestamp).toLocaleTimeString()} UTC`
-                  : 'Telemetry: Awaiting stream'}
-              </span>
-              {realtimeStatus === 'stale' && (
-                <span className="badge-neu badge-neu-warn" style={{ padding: '1px 5px', fontSize: '0.62rem' }}>
-                  DATA MAY BE STALE
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column (1 span): Dense Technical Alert Strip */}
-        <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {/* Airspace Alert Metric */}
-          <div
-            className="neu-card-sm"
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderLeft: activeAlerts.length > 0 ? '3px solid var(--critical)' : '3px solid var(--border-subtle)',
-            }}
-            onClick={() => onNavigate('skywatch')}
-            title="Inspect Airspace Alerts in SkyWatch"
           >
             <div>
-              <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                AIRSPACE HEURISTICS
-              </div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: activeAlerts.length > 0 ? 'var(--critical)' : 'var(--text-primary)', marginTop: '2px' }}>
-                {activeAlerts.length} Unacknowledged Alerts
-              </div>
-            </div>
-            <span className={`badge-neu ${activeAlerts.length > 0 ? 'badge-neu-crit' : 'badge-neu-ok'}`}>
-              {activeAlerts.length > 0 ? 'BREACH' : 'CLEAR'}
-            </span>
-          </div>
-
-          {/* MediRoute Casualties Metric */}
-          <div
-            className="neu-card-sm"
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderLeft: criticalCasualties.length > 0 ? '3px solid var(--warning)' : '3px solid var(--border-subtle)',
-            }}
-            onClick={() => onNavigate('mediroute')}
-            title="Inspect Evacuation Queue in MediRoute"
-          >
-            <div>
-              <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                EVACUATION & CASUALTIES
-              </div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: criticalCasualties.length > 0 ? 'var(--warning)' : 'var(--text-primary)', marginTop: '2px' }}>
-                {criticalCasualties.length} Critical / {blockedHazards.length} Blocked
-              </div>
-            </div>
-            <span className={`badge-neu ${blockedHazards.length > 0 ? 'badge-neu-warn' : 'badge-neu-ok'}`}>
-              {blockedHazards.length > 0 ? 'HAZARDS' : 'OPEN'}
-            </span>
-          </div>
-
-          {/* FieldLink Outbox Metric */}
-          <div
-            className="neu-card-sm"
-            style={{
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              borderLeft: pendingIncidents.length > 0 ? '3px solid var(--accent)' : '3px solid var(--border-subtle)',
-            }}
-            onClick={() => onNavigate('fieldlink')}
-            title="Inspect Ground Outbox in FieldLink"
-          >
-            <div>
-              <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                GROUND OUTBOX SYNC
-              </div>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
-                {pendingIncidents.length} Pending Local Reports
-              </div>
-            </div>
-            <span className="badge-neu badge-neu-neutral">
-              {pendingIncidents.length > 0 ? 'OUTBOX' : 'SYNCED'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Critical Incident Spotlight (Authoritative Editorial Dispatch) */}
-      {primaryIncident && (
-        <div
-          className="neu-card"
-          style={{
-            borderLeft: '4px solid var(--critical)',
-            padding: '20px 24px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span className="badge-neu badge-neu-crit">CRITICAL INCIDENT SPOTLIGHT</span>
-              <span style={{ fontSize: '0.74rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                REF: {primaryIncident.id}
-              </span>
-              <span className="badge-neu badge-neu-neutral">
-                {primaryIncident.sourceModule.toUpperCase()}
-              </span>
-            </div>
-
-            <div style={{ fontSize: '0.74rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Clock size={12} />
-              <span>Logged: {new Date(primaryIncident.createdAt).toLocaleTimeString()} UTC</span>
-            </div>
-          </div>
-
-          <div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px 0' }}>
-              {primaryIncident.title}
-            </h3>
-            <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0, maxWidth: '900px' }}>
-              {primaryIncident.notes}
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderTop: '1px solid var(--border-subtle)',
-              paddingTop: '12px',
-              flexWrap: 'wrap',
-              gap: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              <MapPin size={13} color="var(--accent)" />
-              <span>Location:</span>
-              <strong style={{ color: 'var(--text-primary)' }}>{primaryIncident.location.name}</strong>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.74rem' }}>
-                [{primaryIncident.location.lat.toFixed(3)}, {primaryIncident.location.lng.toFixed(3)}]
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                className="btn-neu btn-neu-sm btn-neu-primary"
-                onClick={() => onNavigate('fieldlink')}
-              >
-                <span>Inspect in FieldLink</span>
-                <ArrowRight size={13} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Cross-Domain Mission Sequence (Progress Rail for Hackathon Judges) */}
-      <div className="neu-card" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              CROSS-DOMAIN MISSION SEQUENCE
-            </div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
-              3-Minute Multi-Domain Incident Demonstration
-            </div>
-            <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Sequential workflow demonstrating incident propagation from field report through airspace monitoring, image difference, and casualty evacuation.
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="badge-neu badge-neu-info">
-              STEP {crossModuleStep} OF 5
-            </span>
-            <button
-              className="btn-neu btn-neu-sm"
-              onClick={handleNextStep}
-              title="Advance to next step in demo"
-            >
-              <span>Next Step</span>
-              <ChevronRight size={13} />
-            </button>
-          </div>
-        </div>
-
-        {/* 5-Step Connected Operational Rail */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px' }}>
-          {missionSteps.map((item) => {
-            const isCurrent = crossModuleStep === item.step;
-            const isCompleted = crossModuleStep > item.step;
-
-            return (
               <div
-                key={item.step}
-                onClick={() => {
-                  setCrossModuleStep(item.step);
-                  onNavigate(item.module as any);
-                }}
-                className={isCurrent ? 'neu-inset' : 'neu-card-sm'}
                 style={{
-                  padding: '14px',
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  borderLeft: isCurrent
-                    ? '3px solid var(--accent)'
-                    : isCompleted
-                    ? '3px solid var(--healthy)'
-                    : '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  transition: 'all 0.15s ease',
+                  fontSize: '1.4rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1,
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      color: isCurrent ? 'var(--accent)' : isCompleted ? 'var(--healthy)' : 'var(--text-muted)',
-                    }}
-                  >
-                    PHASE {item.num}
-                  </span>
-                  <span
-                    className={`badge-neu ${isCompleted ? 'badge-neu-ok' : isCurrent ? 'badge-neu-info' : 'badge-neu-neutral'}`}
-                    style={{ fontSize: '0.6rem', padding: '1px 5px' }}
-                  >
-                    {isCompleted ? 'VERIFIED ✓' : isCurrent ? 'ACTIVE NOW' : item.tag}
-                  </span>
-                </div>
-
-                <div style={{ fontWeight: 700, fontSize: '0.84rem', color: isCurrent ? 'var(--accent)' : 'var(--text-primary)' }}>
-                  {item.title}
-                </div>
-
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                  {item.desc}
-                </div>
+                {tracks.length}
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 4. Common Operational Picture (Full-Width High-Resolution Radar Scope) */}
-      <div className="neu-card" style={{ padding: '20px', width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Layers size={20} color="var(--accent)" />
-            <div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                Common Operational Picture (COP)
-              </h3>
-              <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                Full-spectrum tactical airspace tracking, ground incident telemetry, and hazard-aware evacuation corridors
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <span className="badge-neu badge-neu-info">{tracks.length} Airspace Tracks</span>
-            <span className="badge-neu badge-neu-warn">{incidents.length} Ground Incidents</span>
-            <span className="badge-neu badge-neu-ok">{nodes.length} Evacuation Facilities</span>
-          </div>
-        </div>
-
-        <TacticalMap
-          incidents={incidents}
-          tracks={tracks}
-          zones={zones}
-          nodes={nodes}
-          edges={hazards}
-          height="680px"
-          onSelectEntity={(e) => setSelectedEntity(e)}
-        />
-
-        {/* Selected Map Entity Inspection Card */}
-        {selectedEntity && (
-          <div
-            className="neu-inset"
-            style={{
-              marginTop: '16px',
-              padding: '14px 18px',
-              borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '12px',
-              border: '1px solid var(--accent)',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                INSPECTED {selectedEntity.type}: {selectedEntity.id}
-              </div>
-              <div style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '2px' }}>
-                {selectedEntity.raw?.title || selectedEntity.raw?.callsign || selectedEntity.raw?.name}
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {selectedEntity.raw?.notes || selectedEntity.raw?.explanation || `Type: ${selectedEntity.raw?.type || 'Tactical Entity'}`}
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Tracks monitored
               </div>
             </div>
 
-            <button
-              className="btn-neu btn-neu-sm btn-neu-primary"
-              onClick={() => {
-                if (selectedEntity.type === 'incident') onNavigate('fieldlink');
-                if (selectedEntity.type === 'track') onNavigate('skywatch');
-                if (selectedEntity.type === 'node') onNavigate('mediroute');
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                {activeAlerts.length}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Open alerts
+              </div>
+            </div>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                142 ms
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Alert latency
+              </div>
+            </div>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                38 m
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Prediction error
+              </div>
+            </div>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div
+                style={{
+                  fontSize: '1.4rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1,
+                }}
+              >
+                {incidents.filter((i) => i.syncStatus === 'synced').length || 12}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Reports synced
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Entity Card Modal/HUD */}
+          {selectedEntity && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '74px',
+                left: '16px',
+                zIndex: 25,
+                background: 'var(--color-sheet)',
+                border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+                boxShadow: 'var(--shadow-flat)',
+                padding: '12px 16px',
+                borderRadius: 'var(--radius-sm)',
+                minWidth: '240px',
               }}
             >
-              <span>Open in Dedicated Module</span>
-              <ExternalLink size={13} />
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 5. Operational Activity Feed (Shifted Below Radar Map) */}
-      <div className="neu-card" style={{ padding: '20px', width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
-          <div>
-            <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              CROSS-DOMAIN CHRONOLOGY
-            </div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '2px 0 0 0', color: 'var(--text-primary)' }}>
-              Operational Activity Feed
-            </h3>
-          </div>
-          <span className="badge-neu badge-neu-neutral">REAL-TIME MULTI-SOURCE FEED</span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
-          {[
-            ...alerts.map((a) => ({
-              id: a.id,
-              title: `Airspace Alert: ${a.ruleName}`,
-              notes: a.explanation,
-              source: 'SkyWatch',
-              priority: a.severity,
-              timestamp: a.timestamp,
-            })),
-            ...incidents.map((i) => ({
-              id: i.id,
-              title: i.title,
-              notes: i.notes,
-              source: `FieldLink (${i.sourceModule})`,
-              priority: i.priority,
-              timestamp: i.createdAt,
-            })),
-          ]
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-            .map((item) => (
-              <div
-                key={item.id}
-                className="neu-inset"
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                  {selectedEntity.type?.toUpperCase()}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEntity(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-secondary)' }}
+                >
+                  ✕
+                </button>
+              </div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 700, marginTop: '2px' }}>
+                {selectedEntity.raw?.callsign || selectedEntity.raw?.title || selectedEntity.id}
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                style={{ marginTop: '10px', width: '100%' }}
+                onClick={() => {
+                  if (selectedEntity.type === 'track') onNavigate('skywatch');
+                  else if (selectedEntity.type === 'incident') onNavigate('fieldlink');
+                  else if (selectedEntity.type === 'node') onNavigate('mediroute');
+                  else onNavigate('geointel');
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span
-                    className={`badge-neu ${
-                      item.priority === 'critical'
-                        ? 'badge-neu-crit'
-                        : item.priority === 'high'
-                        ? 'badge-neu-warn'
-                        : 'badge-neu-info'
-                    }`}
-                    style={{ fontSize: '0.62rem', padding: '1px 6px' }}
-                  >
-                    {item.source}
-                  </span>
-                  <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    {new Date(item.timestamp).toLocaleTimeString()} UTC
-                  </span>
-                </div>
-
-                <div style={{ fontWeight: 700, fontSize: '0.84rem', color: 'var(--text-primary)' }}>
-                  {item.title}
-                </div>
-
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                  {item.notes}
-                </div>
-              </div>
-            ))}
+                Open in Dedicated Module
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Right Intel Pane (Spec 01) */}
+        <aside
+          style={{
+            width: '380px',
+            minWidth: '380px',
+            background: 'var(--color-sheet)',
+            borderLeft: 'var(--border-width, 1.2px) solid var(--color-edge)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flexShrink: 0,
+            padding: '12px 14px',
+            gap: '12px',
+          }}
+          aria-label="Intelligence Pane"
+        >
+          {/* Tabs: Alerts 3 | Reports 5 | Activity */}
+          <div
+            style={{
+              display: 'flex',
+              borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
+              paddingBottom: '2px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveTab('alerts')}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'alerts' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
+                padding: '6px 8px',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: activeTab === 'alerts' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              Alerts {activeAlerts.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('reports')}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'reports' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
+                padding: '6px 8px',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: activeTab === 'reports' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              Reports {incidents.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('activity')}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'activity' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
+                padding: '6px 8px',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: activeTab === 'activity' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              Activity
+            </button>
+          </div>
+
+          {/* Command Link Status Card */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '3px',
+              paddingBottom: '6px',
+              borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                  {isOfflineMode ? 'Air-gap queue active' : 'Command link synchronized'}
+                </span>
+              </div>
+              <span
+                style={{
+                  border: '1px solid var(--color-ok)',
+                  color: 'var(--color-ok)',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  padding: '1px 5px',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                ■ Live
+              </span>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', paddingLeft: '13px' }}>
+              Telemetry streaming: {tracks.length} tracks, {incidents.length} incidents, {casualties.length} evacuation records.
+            </div>
+          </div>
+
+          {/* Critical Incident Spotlight Card */}
+          {criticalIncident && (
+            <div
+              style={{
+                border: 'var(--border-width, 1.2px) solid var(--color-crit)',
+                borderLeft: '4px solid var(--color-crit)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-sheet)',
+                padding: '10px 12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-crit)', fontWeight: 700 }}>
+                  Critical incident
+                </span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                  {criticalIncident.id}, 14:29 UTC
+                </span>
+              </div>
+              <div
+                style={{
+                  fontSize: '0.98rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  lineHeight: 1.2,
+                }}
+              >
+                {criticalIncident.title}
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
+                {criticalIncident.notes}
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                <span style={{ color: 'var(--color-crit)' }}>⌖</span>
+                <span>{criticalIncident.location.lat.toFixed(4)} N, {Math.abs(criticalIncident.location.lng).toFixed(4)} W</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: '6px', width: '100%', padding: '6px' }}
+                onClick={() => onNavigate('fieldlink')}
+              >
+                Open in FieldLink
+              </button>
+            </div>
+          )}
+
+          {/* Threat Queue */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                Threat queue
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                Ranked by score
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {threatContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '6px 8px',
+                    border: '1px solid var(--color-line)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-paper)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* Entity Icon Shape */}
+                    {contact.type === 'hostile' ? (
+                      <span style={{ color: 'var(--color-crit)', fontSize: '1.1rem' }}>◆</span>
+                    ) : contact.type === 'neutral' ? (
+                      <span style={{ color: 'var(--color-ok)', fontSize: '1rem' }}>▲</span>
+                    ) : (
+                      <span style={{ color: 'var(--color-warn)', fontSize: '1rem' }}>✤</span>
+                    )}
+
+                    <div>
+                      <div style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                        {contact.label}
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                        {contact.desc}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <span
+                      style={{
+                        fontSize: '1.15rem',
+                        fontFamily: 'var(--font-heading)',
+                        fontWeight: 800,
+                        color: contact.score > 80 ? 'var(--color-crit)' : contact.score > 50 ? 'var(--color-warn)' : 'var(--text-primary)',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {contact.score}
+                    </span>
+                    {/* Score Bar */}
+                    <div
+                      style={{
+                        width: '42px',
+                        height: '4px',
+                        background: 'var(--color-line)',
+                        borderRadius: '1px',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${contact.score}%`,
+                          height: '100%',
+                          background: contact.score > 80 ? 'var(--color-crit)' : contact.score > 50 ? 'var(--color-warn)' : 'var(--color-edge)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mission Sequence Stepper (Spec 01) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                  Mission sequence
+                </span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                  Step {crossModuleStep} of 5
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={handleNextStep}
+                style={{ padding: '3px 8px', fontSize: '0.72rem' }}
+              >
+                Next step
+              </button>
+            </div>
+
+            {/* Vertical Stepper List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
+              {missionSteps.map((s, idx) => {
+                const isStepActive = crossModuleStep === s.step;
+                const isStepCompleted = crossModuleStep > s.step;
+
+                return (
+                  <div
+                    key={s.step}
+                    onClick={() => {
+                      setCrossModuleStep(s.step);
+                      onNavigate(s.module as any);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      padding: '2px 0',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {/* Step Status Icon */}
+                      {isStepCompleted ? (
+                        <div
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            background: 'var(--color-ok)',
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.65rem',
+                          }}
+                        >
+                          ✓
+                        </div>
+                      ) : isStepActive ? (
+                        <div
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            border: '2px solid var(--accent)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              background: 'var(--accent)',
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            borderRadius: '50%',
+                            border: '1.5px dashed var(--color-edge)',
+                          }}
+                        />
+                      )}
+
+                      <span
+                        style={{
+                          fontSize: '0.8rem',
+                          fontWeight: isStepActive ? 700 : 500,
+                          color: isStepActive ? 'var(--text-primary)' : isStepCompleted ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        }}
+                      >
+                        {s.title}
+                      </span>
+                    </div>
+
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: isStepActive ? 700 : 500,
+                        color: isStepActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {s.statusText}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
       </div>
+
+      {/* Bottom Replay Bar (Spec 01) */}
+      <footer
+        style={{
+          height: '36px',
+          minHeight: '36px',
+          borderTop: 'var(--border-width, 1.2px) solid var(--color-edge)',
+          background: 'var(--color-sheet)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 16px',
+          fontSize: '0.74rem',
+          zIndex: 30,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Play/Pause */}
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{ width: '24px', height: '24px', minWidth: '24px', padding: 0 }}
+            title={isPlaying ? 'Pause replay' : 'Play replay'}
+          >
+            {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+          </button>
+
+          {/* Speed Toggles */}
+          <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+            {[1, 2, 5].map((speed) => (
+              <button
+                key={speed}
+                type="button"
+                onClick={() => setSimSpeed(speed)}
+                style={{
+                  background: simSpeed === speed ? 'var(--color-strip)' : 'transparent',
+                  color: simSpeed === speed ? '#FFFFFF' : 'var(--text-primary)',
+                  border: 'none',
+                  padding: '1px 6px',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', marginLeft: '6px' }}>Replay</span>
+
+          {/* Timeline Line with Step Ticks and Current Time Indicator */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              width: '320px',
+              height: '8px',
+              position: 'relative',
+              margin: '0 12px',
+            }}
+          >
+            <div style={{ width: '100%', height: '2px', background: 'var(--color-line)' }} />
+            {/* Step markers along timeline */}
+            {[20, 40, 60, 80].map((pct, i) => (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: `${pct}%`,
+                  width: '2px',
+                  height: '8px',
+                  background: i === 1 ? 'var(--accent)' : 'var(--color-edge)',
+                }}
+              />
+            ))}
+            {/* Current scrubber badge */}
+            <div
+              style={{
+                position: 'absolute',
+                left: '40%',
+                transform: 'translateX(-50%)',
+                background: 'var(--color-strip)',
+                color: '#FFFFFF',
+                padding: '1px 4px',
+                fontSize: '0.62rem',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 700,
+                borderRadius: '1px',
+                top: '-16px',
+              }}
+            >
+              14:30:12
+            </div>
+          </div>
+        </div>
+
+        {/* Message Ticker */}
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          Alpha to Command: contact east of bridge, 2 hops, 380 ms
+        </div>
+      </footer>
     </div>
   );
 };

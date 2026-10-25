@@ -1,0 +1,195 @@
+/* ==========================================================================
+   SENTINEL v2.6 — Design Tokens (Tactical Plotting Table System)
+   Pure Flat Instrumental Interface: Hard 4px 4px 0 Shadows, 1.2px Borders,
+   Barlow Semi Condensed Headings, Atkinson Hyperlegible Body & Tabular Numerals.
+   Day: Paper & Ink Tactical Chart | Night: Deep Red-Light Command Station
+   ========================================================================== */
+
+:root,
+:root[data-theme="light"] {
+  /* Day (Light) Base Tokens */
+  --color-paper: #E3E8DF;
+  --color-sheet: #F6F8F3;
+  --color-ink: #16202E;
+  --color-ink-2: #556270;
+  --color-edge: #8D9A8F;
+  --color-line: #C3CCC1;
+  --color-accent: #E8590C;
+  --color-map: #EDF0E6;
+  --color-water: #BFDCE8;
+  --color-forest: #D5E5C9;
+  --color-contour: #C2AE86;
+  --color-grid: #6F93AB;
+  --color-strip: #16202E;
+
+  /* Status Colors */
+  --color-ok: #2D7A33;
+  --color-warn: #B77700;
+  --color-crit: #A61B1B;
+  --color-info: #0B5D82;
+
+  /* Entity Symbols (Day) */
+  --entity-friendly-fill: #80E0FF;
+  --entity-friendly-stroke: #0B5D82;
+  --entity-hostile-fill: #FF9494;
+  --entity-hostile-stroke: #A61B1B;
+  --entity-neutral-fill: #B4F0B4;
+  --entity-neutral-stroke: #2D7A33;
+  --entity-unknown-fill: #FFF08A;
+  --entity-unknown-stroke: #7D6B00;
+  --entity-incident: #A61B1B;
+  --entity-hospital: #2D7A33;
+
+  /* Surfaces & Mappings for app backwards-compatibility */
+  --surface: var(--color-paper);
+  --surface-raised: var(--color-sheet);
+  --surface-elevated: var(--color-sheet);
+  --surface-inset: var(--color-paper);
+  --surface-card: var(--color-sheet);
+  --surface-strip: var(--color-strip);
+  --map-canvas: var(--color-map);
+
+  /* Text Mappings */
+  --text-primary: var(--color-ink);
+  --text-secondary: var(--color-ink-2);
+  --text-muted: var(--color-ink-2);
+
+  /* Border & Line */
+  --border-subtle: var(--color-line);
+  --border-edge: var(--color-edge);
+
+  /* Accents & Status */
+  --accent: var(--color-accent);
+  --accent-light: #FFECE0;
+  --healthy: var(--color-ok);
+  --healthy-bg: #EAF4EA;
+  --warning: var(--color-warn);
+  --warning-bg: #FFF8E6;
+  --critical: var(--color-crit);
+  --critical-bg: #FDE8E8;
+  --informational: var(--color-info);
+  --informational-bg: #E5F3F9;
+
+  /* Hard Offset Shadow (No blur, no glow) */
+  --shadow-flat: 4px 4px 0 rgba(22, 32, 46, 0.14);
+  --shadow-flat-sm: 2px 2px 0 rgba(22, 32, 46, 0.14);
+  --shadow-raised: 4px 4px 0 rgba(22, 32, 46, 0.14);
+  --shadow-raised-sm: 2px 2px 0 rgba(22, 32, 46, 0.14);
+  --shadow-raised-hover: 4px 4px 0 rgba(22, 32, 46, 0.22);
+  --shadow-inset: none;
+  --shadow-inset-sm: none;
+  --shadow-sidebar: none;
+
+  /* Radar Beam & Trail */
+  --radar-beam: #E8590C;
+  --radar-glow: rgba(232, 89, 12, 0.4);
+  --radar-sweep: rgba(232, 89, 12, 0.15);
+  --radar-grid: var(--color-grid);
+  --radar-ring: #8D9A8F;
+}
+
+:root[data-theme="dark"] {
+  /* Night (Dark, red light) Base Tokens */
+  --color-paper: #120707;
+  --color-sheet: #1D0D0C;
+  --color-ink: #FFB3A3;
+  --color-ink-2: #B8665A;
+  --color-edge: #7A2F28;
+  --color-line: #3B1816;
+  --color-accent: #FF5A3C;
+  --color-map: #170909;
+  --color-water: #281110;
+  --color-forest: #230E0E;
+  --color-contour: #54221C;
+  --color-grid: #8C3A31;
+  --color-strip: #0A0303;
+
+  /* Status Colors in Night Red/Amber palette */
+  --color-ok: #FF9A6C;
+  --color-warn: #FFB35A;
+  --color-crit: #FF5A3C;
+  --color-info: #FF9486;
+
+  /* Entity Symbols (Night) */
+  --entity-friendly-fill: #FF9A86;
+  --entity-friendly-stroke: #7A2F28;
+  --entity-hostile-fill: #FFD9D0;
+  --entity-hostile-stroke: #FF5A3C;
+  --entity-neutral-fill: #FFC0B0;
+  --entity-neutral-stroke: #8C3A31;
+  --entity-unknown-fill: #FFC77A;
+  --entity-unknown-stroke: #B8665A;
+  --entity-incident: #FF5A3C;
+  --entity-hospital: #FF9A6C;
+
+  /* Surfaces & Mappings */
+  --surface: var(--color-paper);
+  --surface-raised: var(--color-sheet);
+  --surface-elevated: var(--color-sheet);
+  --surface-inset: var(--color-paper);
+  --surface-card: var(--color-sheet);
+  --surface-strip: var(--color-strip);
+  --map-canvas: var(--color-map);
+
+  /* Text Mappings */
+  --text-primary: var(--color-ink);
+  --text-secondary: var(--color-ink-2);
+  --text-muted: var(--color-ink-2);
+
+  /* Border & Line */
+  --border-subtle: var(--color-line);
+  --border-edge: var(--color-edge);
+
+  /* Accents & Status */
+  --accent: var(--color-accent);
+  --accent-light: rgba(255, 90, 60, 0.18);
+  --healthy: var(--color-ok);
+  --healthy-bg: rgba(255, 154, 108, 0.15);
+  --warning: var(--color-warn);
+  --warning-bg: rgba(255, 179, 90, 0.15);
+  --critical: var(--color-crit);
+  --critical-bg: rgba(255, 90, 60, 0.2);
+  --informational: var(--color-info);
+  --informational-bg: rgba(255, 148, 134, 0.15);
+
+  /* Hard Offset Shadow for Night (No blur, no glow) */
+  --shadow-flat: 4px 4px 0 rgba(0, 0, 0, 0.6);
+  --shadow-flat-sm: 2px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-raised: 4px 4px 0 rgba(0, 0, 0, 0.6);
+  --shadow-raised-sm: 2px 2px 0 rgba(0, 0, 0, 0.6);
+  --shadow-raised-hover: 4px 4px 0 rgba(0, 0, 0, 0.85);
+  --shadow-inset: none;
+  --shadow-inset-sm: none;
+  --shadow-sidebar: none;
+
+  /* Radar Scope Tokens (Night) */
+  --radar-beam: #FF5A3C;
+  --radar-glow: rgba(255, 90, 60, 0.4);
+  --radar-sweep: rgba(255, 90, 60, 0.18);
+  --radar-grid: var(--color-grid);
+  --radar-ring: #7A2F28;
+}
+
+/* Common System Dimensions & Typography */
+:root {
+  --radius-none: 0px;
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+  --radius-pill: 2px; /* Redesign spec: radius 0 to 2px, flat panels */
+
+  --border-width: 1.2px;
+
+  /* Typography Stacks */
+  --font-heading: 'Barlow Semi Condensed', -apple-system, sans-serif;
+  --font-body: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Atkinson Hyperlegible', monospace;
+
+  /* App Dimensions */
+  --header-height: 48px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 76px;
+}
