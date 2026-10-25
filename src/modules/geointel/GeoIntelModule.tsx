@@ -11,13 +11,9 @@ import {
   AlertTriangle,
   FileDown,
   Play,
-  RotateCcw,
   Eye,
   Info,
-  Calendar,
   MapPin,
-  ChevronRight,
-  Maximize2,
 } from 'lucide-react';
 import { api } from '../../services/api/apiClient';
 
@@ -123,40 +119,58 @@ and do not constitute validated combat identification or clinical/legal evidence
   const activeCandidate = currentObs?.candidates.find((c) => c.id === selectedCandidateId) || currentObs?.candidates[0];
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+    <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header Banner */}
       <div
-        className="card"
+        className="neu-card"
         style={{
-          marginBottom: '1.5rem',
-          borderLeft: '4px solid var(--accent-cyan)',
-          background: 'linear-gradient(90deg, rgba(14, 20, 36, 0.9) 0%, rgba(10, 16, 28, 0.8) 100%)',
+          borderLeft: '4px solid var(--informational)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Compass size={22} color="var(--accent-cyan)" />
-              <h2 style={{ fontSize: '1.25rem' }}>GeoIntel Geospatial Reconnaissance & Change Detection</h2>
-              <span className="badge badge-simulated">SYNTHETIC SATELLITE IMAGERY</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--surface-inset)',
+                  boxShadow: 'var(--shadow-inset-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--informational)',
+                }}
+              >
+                <Compass size={20} />
+              </div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                GeoIntel Reconnaissance & Change Detection
+              </h2>
+              <span className="badge-neu badge-neu-warn">SYNTHETIC SATELLITE IMAGERY</span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '6px', fontSize: '0.84rem', margin: '6px 0 0 0' }}>
               Multi-temporal reconnaissance imagery comparison with candidate change detection, anomaly classification,
               and analyst review workflow. Outputs are candidate regions requiring analyst confirmation.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button
-              className="btn btn-secondary btn-sm"
+              className="btn-neu btn-neu-sm"
               onClick={() => setComparisonMode(comparisonMode === 'slider' ? 'side-by-side' : 'slider')}
+              title="Toggle split view mode"
             >
               <Layers size={14} />
               <span>Mode: {comparisonMode === 'slider' ? 'Swipe Split' : 'Side-by-Side'}</span>
             </button>
 
             <button
-              className="btn btn-primary btn-sm"
+              className="btn-neu btn-neu-primary btn-neu-sm"
               onClick={handleRunAnalysis}
               disabled={isAnalyzing}
             >
@@ -165,7 +179,7 @@ and do not constitute validated combat identification or clinical/legal evidence
             </button>
 
             <button
-              className="btn btn-secondary btn-sm"
+              className="btn-neu btn-neu-sm"
               onClick={handleExportReport}
               title="Export structured intelligence debrief"
             >
@@ -177,72 +191,91 @@ and do not constitute validated combat identification or clinical/legal evidence
 
         {exportNotice && (
           <div
+            className="neu-inset"
             style={{
-              marginTop: '0.75rem',
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid var(--status-nominal)',
-              color: '#86efac',
-              fontSize: '0.78rem',
+              padding: '8px 14px',
+              color: 'var(--healthy)',
+              fontSize: '0.82rem',
+              fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '8px',
             }}
           >
-            <CheckCircle size={14} />
+            <CheckCircle size={15} />
             <span>{exportNotice}</span>
           </div>
         )}
       </div>
 
       {/* Main Grid: Left Viewer (2 spans), Right Candidate Inspector (1 span) */}
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-3" style={{ alignItems: 'start' }}>
         {/* Left Column: Image Comparison Viewer */}
-        <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div className="card" style={{ padding: '1rem' }}>
+        <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="neu-card" style={{ padding: '1.25rem' }}>
             {/* Viewer Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
               <div>
-                <h3 style={{ fontSize: '1rem', color: '#ffffff' }}>{currentObs.title}</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '2px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <MapPin size={12} color="var(--accent-cyan)" />
+                <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                  {currentObs.title}
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '4px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, color: 'var(--accent)' }}>
+                    <MapPin size={13} />
                     {currentObs.zoneName}
                   </span>
                   <span>•</span>
-                  <span>Resolution: {currentObs.resolutionMeters}m/pixel</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>Res: {currentObs.resolutionMeters}m/px</span>
                   <span>•</span>
-                  <span style={{ color: currentObs.reviewStatus === 'reviewed' ? 'var(--status-nominal)' : 'var(--status-warning)' }}>
-                    Status: {currentObs.reviewStatus.toUpperCase()}
+                  <span className={`badge-neu ${currentObs.reviewStatus === 'reviewed' ? 'badge-neu-ok' : 'badge-neu-warn'}`}>
+                    {currentObs.reviewStatus.toUpperCase()}
                   </span>
                 </div>
               </div>
 
               {/* Sensitivity Slider */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem' }}>
-                <Sliders size={14} color="var(--accent-cyan)" />
-                <span style={{ color: 'var(--text-secondary)' }}>Threshold: {sensitivity}%</span>
+              <div
+                className="neu-inset"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '6px 12px',
+                  borderRadius: 'var(--radius-pill)',
+                  fontSize: '0.76rem',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                <Sliders size={14} color="var(--accent)" />
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Threshold: {sensitivity}%</span>
                 <input
                   type="range"
                   min="30"
                   max="90"
                   value={sensitivity}
                   onChange={(e) => setSensitivity(Number(e.target.value))}
-                  style={{ width: '80px', accentColor: '#00f2fe' }}
+                  style={{ width: '85px', accentColor: 'var(--accent)', cursor: 'pointer' }}
                 />
               </div>
             </div>
 
             {/* Analysis Progress Bar */}
             {isAnalyzing && (
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--accent-cyan)', marginBottom: '4px' }}>
+              <div style={{ marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '4px' }}>
                   <span>ALIGNING MULTI-SPECTRAL BANDS & RUNNING CONVOLUTION DIFFERENCE...</span>
-                  <span>{analysisProgress}%</span>
+                  <span style={{ fontFamily: 'var(--font-mono)' }}>{analysisProgress}%</span>
                 </div>
-                <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${analysisProgress}%`, background: 'var(--accent-cyan)', transition: 'width 0.15s ease' }} />
+                <div className="neu-inset" style={{ height: '8px', padding: '1px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${analysisProgress}%`,
+                      background: 'var(--accent)',
+                      borderRadius: 'var(--radius-pill)',
+                      transition: 'width 0.15s ease',
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -250,17 +283,17 @@ and do not constitute validated combat identification or clinical/legal evidence
             {/* Interactive Image Split / Comparison Container */}
             {comparisonMode === 'slider' ? (
               <div
+                className="neu-inset"
                 style={{
                   position: 'relative',
-                  height: '420px',
+                  height: '440px',
                   width: '100%',
-                  borderRadius: 'var(--radius-md)',
+                  borderRadius: 'var(--radius-lg)',
                   overflow: 'hidden',
-                  border: '1px solid var(--border-subtle)',
-                  background: '#070a12',
+                  background: '#1A202C',
                 }}
               >
-                {/* Background Layer: After Image */}
+                {/* Background Layer: Surveillance Image */}
                 <div
                   style={{
                     position: 'absolute',
@@ -275,20 +308,21 @@ and do not constitute validated combat identification or clinical/legal evidence
                       position: 'absolute',
                       top: '12px',
                       right: '12px',
-                      background: 'rgba(10, 16, 28, 0.85)',
-                      padding: '4px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.7rem',
+                      background: 'rgba(232, 235, 240, 0.92)',
+                      padding: '4px 10px',
+                      borderRadius: 'var(--radius-pill)',
+                      fontSize: '0.72rem',
                       fontFamily: 'var(--font-mono)',
-                      color: 'var(--accent-cyan)',
-                      border: '1px solid var(--border-subtle)',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                      boxShadow: 'var(--shadow-raised-sm)',
                     }}
                   >
                     SURVEILLANCE: {new Date(currentObs.captureDateAfter).toLocaleDateString()}
                   </div>
                 </div>
 
-                {/* Foreground Layer: Before Image (Clipped by slider position) */}
+                {/* Foreground Layer: Baseline Image (Clipped by slider position) */}
                 <div
                   style={{
                     position: 'absolute',
@@ -304,20 +338,21 @@ and do not constitute validated combat identification or clinical/legal evidence
                       position: 'absolute',
                       top: '12px',
                       left: '12px',
-                      background: 'rgba(10, 16, 28, 0.85)',
-                      padding: '4px 8px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.7rem',
+                      background: 'rgba(232, 235, 240, 0.92)',
+                      padding: '4px 10px',
+                      borderRadius: 'var(--radius-pill)',
+                      fontSize: '0.72rem',
                       fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
                       color: 'var(--text-secondary)',
-                      border: '1px solid var(--border-subtle)',
+                      boxShadow: 'var(--shadow-raised-sm)',
                     }}
                   >
                     BASELINE: {new Date(currentObs.captureDateBefore).toLocaleDateString()}
                   </div>
                 </div>
 
-                {/* Vertical Divider Line */}
+                {/* Vertical Divider Line with Tactile Neumorphic Handle */}
                 <div
                   style={{
                     position: 'absolute',
@@ -325,8 +360,8 @@ and do not constitute validated combat identification or clinical/legal evidence
                     bottom: 0,
                     left: `${sliderPosition}%`,
                     width: '3px',
-                    background: 'var(--accent-cyan)',
-                    boxShadow: '0 0 12px var(--accent-cyan)',
+                    background: 'var(--accent)',
+                    boxShadow: '0 0 10px rgba(70, 105, 168, 0.6)',
                     cursor: 'ew-resize',
                     zIndex: 20,
                   }}
@@ -337,16 +372,19 @@ and do not constitute validated combat identification or clinical/legal evidence
                       top: '50%',
                       left: '50%',
                       transform: 'translate(-50%, -50%)',
-                      width: '28px',
-                      height: '28px',
+                      width: '32px',
+                      height: '32px',
                       borderRadius: '50%',
-                      background: 'var(--accent-cyan)',
+                      background: 'var(--surface-raised)',
+                      boxShadow: 'var(--shadow-raised)',
+                      border: '2px solid var(--accent)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#070a12',
-                      fontSize: '11px',
+                      color: 'var(--accent)',
+                      fontSize: '12px',
                       fontWeight: 800,
+                      userSelect: 'none',
                     }}
                   >
                     ⇄
@@ -368,8 +406,8 @@ and do not constitute validated combat identification or clinical/legal evidence
                         top: `${y}%`,
                         width: `${width}%`,
                         height: `${height}%`,
-                        border: isSelected ? '2px solid var(--accent-cyan)' : '2px dashed #f59e0b',
-                        background: isSelected ? 'rgba(0, 242, 254, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+                        border: isSelected ? '2px solid #4669A8' : '2px dashed #A86B12',
+                        background: isSelected ? 'rgba(70, 105, 168, 0.3)' : 'rgba(168, 107, 18, 0.2)',
                         cursor: 'pointer',
                         zIndex: 15,
                         transition: 'all 0.15s ease',
@@ -379,16 +417,17 @@ and do not constitute validated combat identification or clinical/legal evidence
                       <div
                         style={{
                           position: 'absolute',
-                          top: '-20px',
+                          top: '-22px',
                           left: 0,
-                          background: isSelected ? 'var(--accent-cyan)' : '#f59e0b',
-                          color: '#070a12',
+                          background: isSelected ? 'var(--accent)' : 'var(--warning)',
+                          color: '#FFFFFF',
                           padding: '1px 6px',
-                          fontSize: '0.65rem',
+                          fontSize: '0.66rem',
                           fontFamily: 'var(--font-mono)',
-                          fontWeight: 800,
+                          fontWeight: 700,
                           whiteSpace: 'nowrap',
-                          borderRadius: '2px',
+                          borderRadius: 'var(--radius-sm)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
                         }}
                       >
                         {candidate.id} [{(candidate.differenceScore * 100).toFixed(0)}%]
@@ -409,7 +448,7 @@ and do not constitute validated combat identification or clinical/legal evidence
                     bottom: '12px',
                     left: '20%',
                     width: '60%',
-                    accentColor: '#00f2fe',
+                    accentColor: 'var(--accent)',
                     zIndex: 25,
                     cursor: 'ew-resize',
                   }}
@@ -417,13 +456,13 @@ and do not constitute validated combat identification or clinical/legal evidence
               </div>
             ) : (
               /* Side-by-Side Mode */
-              <div className="grid grid-cols-2" style={{ height: '420px' }}>
+              <div className="grid grid-cols-2" style={{ height: '440px', gap: '12px' }}>
                 <div
+                  className="neu-inset"
                   style={{
                     position: 'relative',
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: 'var(--radius-lg)',
                     overflow: 'hidden',
-                    border: '1px solid var(--border-subtle)',
                     backgroundImage: `url(${currentObs.beforeImageUrl})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
@@ -434,12 +473,14 @@ and do not constitute validated combat identification or clinical/legal evidence
                       position: 'absolute',
                       top: '12px',
                       left: '12px',
-                      background: 'rgba(10, 16, 28, 0.85)',
-                      padding: '4px 8px',
-                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(232, 235, 240, 0.92)',
+                      padding: '4px 10px',
+                      borderRadius: 'var(--radius-pill)',
                       fontSize: '0.72rem',
                       fontFamily: 'var(--font-mono)',
+                      fontWeight: 700,
                       color: 'var(--text-secondary)',
+                      boxShadow: 'var(--shadow-raised-sm)',
                     }}
                   >
                     BASELINE: {new Date(currentObs.captureDateBefore).toLocaleDateString()}
@@ -447,11 +488,11 @@ and do not constitute validated combat identification or clinical/legal evidence
                 </div>
 
                 <div
+                  className="neu-inset"
                   style={{
                     position: 'relative',
-                    borderRadius: 'var(--radius-md)',
+                    borderRadius: 'var(--radius-lg)',
                     overflow: 'hidden',
-                    border: '1px solid var(--border-subtle)',
                     backgroundImage: `url(${currentObs.afterImageUrl})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
@@ -462,12 +503,14 @@ and do not constitute validated combat identification or clinical/legal evidence
                       position: 'absolute',
                       top: '12px',
                       left: '12px',
-                      background: 'rgba(10, 16, 28, 0.85)',
-                      padding: '4px 8px',
-                      borderRadius: 'var(--radius-sm)',
+                      background: 'rgba(232, 235, 240, 0.92)',
+                      padding: '4px 10px',
+                      borderRadius: 'var(--radius-pill)',
                       fontSize: '0.72rem',
                       fontFamily: 'var(--font-mono)',
-                      color: 'var(--accent-cyan)',
+                      fontWeight: 700,
+                      color: 'var(--accent)',
+                      boxShadow: 'var(--shadow-raised-sm)',
                     }}
                   >
                     SURVEILLANCE: {new Date(currentObs.captureDateAfter).toLocaleDateString()}
@@ -487,8 +530,8 @@ and do not constitute validated combat identification or clinical/legal evidence
                           top: `${y}%`,
                           width: `${width}%`,
                           height: `${height}%`,
-                          border: isSelected ? '2px solid var(--accent-cyan)' : '2px dashed #f59e0b',
-                          background: isSelected ? 'rgba(0, 242, 254, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+                          border: isSelected ? '2px solid #4669A8' : '2px dashed #A86B12',
+                          background: isSelected ? 'rgba(70, 105, 168, 0.3)' : 'rgba(168, 107, 18, 0.2)',
                           cursor: 'pointer',
                         }}
                       />
@@ -500,56 +543,52 @@ and do not constitute validated combat identification or clinical/legal evidence
 
             {/* Explanatory Disclaimer footer */}
             <div
+              className="neu-inset"
               style={{
-                marginTop: '12px',
-                fontSize: '0.72rem',
-                color: 'var(--text-muted)',
+                marginTop: '14px',
+                padding: '8px 12px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.76rem',
+                color: 'var(--text-secondary)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: '8px',
               }}
             >
-              <Info size={14} color="var(--accent-cyan)" />
+              <Info size={16} color="var(--informational)" style={{ flexShrink: 0 }} />
               <span>
                 Pixel differences may stem from lighting changes, atmospheric distortion, shadows, or sensor angle.
-                Detections are candidate anomalies requiring human verification.
+                Detections are candidate anomalies requiring human analyst confirmation.
               </span>
             </div>
           </div>
         </div>
 
         {/* Right Column: Candidate Inspector & Analyst Review Drawer */}
-        <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <Eye size={18} color="var(--accent-cyan)" />
+        <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="neu-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                <Eye size={18} color="var(--accent)" />
                 <span>Candidate Inspector</span>
               </div>
-              <span className="badge badge-warning">
+              <span className="badge-neu badge-neu-warn">
                 {currentObs.candidates.filter((c) => !c.reviewed).length} UNREVIEWED
               </span>
             </div>
 
             {/* Candidate Selector Tabs */}
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', overflowX: 'auto', paddingBottom: '4px' }}>
               {currentObs.candidates.map((can) => {
                 const isSelected = activeCandidate?.id === can.id;
                 return (
                   <button
                     key={can.id}
                     onClick={() => setSelectedCandidateId(can.id)}
+                    className={`btn-neu btn-neu-sm ${isSelected ? 'btn-neu-primary' : ''}`}
                     style={{
-                      padding: '4px 10px',
-                      borderRadius: 'var(--radius-sm)',
-                      background: isSelected ? 'var(--accent-cyan)' : 'rgba(21, 30, 52, 0.8)',
-                      color: isSelected ? '#070a12' : 'var(--text-secondary)',
-                      border: '1px solid var(--border-subtle)',
-                      fontSize: '0.75rem',
                       fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
+                      fontSize: '0.72rem',
                     }}
                   >
                     {can.id} {can.reviewed ? '✓' : ''}
@@ -559,12 +598,12 @@ and do not constitute validated combat identification or clinical/legal evidence
             </div>
 
             {activeCandidate ? (
-              <div>
-                <div style={{ marginBottom: '10px' }}>
-                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: '#ffffff' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div>
+                  <div style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {activeCandidate.label}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-cyan)', textTransform: 'uppercase', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--accent)', textTransform: 'uppercase', marginTop: '2px', fontWeight: 600 }}>
                     Type: {activeCandidate.anomalyType.replace('_', ' ')}
                   </div>
                 </div>
@@ -574,38 +613,49 @@ and do not constitute validated combat identification or clinical/legal evidence
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
-                    gap: '8px',
-                    marginBottom: '12px',
+                    gap: '10px',
                     fontFamily: 'var(--font-mono)',
                   }}
                 >
-                  <div style={{ padding: '8px', background: 'rgba(7, 10, 18, 0.7)', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>DIFF SCORE</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f59e0b' }}>
+                  <div className="neu-inset" style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600 }}>DIFF SCORE</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--warning)', marginTop: '2px' }}>
                       {(activeCandidate.differenceScore * 100).toFixed(0)}%
                     </div>
                   </div>
-                  <div style={{ padding: '8px', background: 'rgba(7, 10, 18, 0.7)', borderRadius: 'var(--radius-sm)' }}>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>CONFIDENCE</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--accent-cyan)' }}>
+                  <div className="neu-inset" style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', fontWeight: 600 }}>CONFIDENCE</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent)', marginTop: '2px' }}>
                       {(activeCandidate.confidence * 100).toFixed(0)}%
                     </div>
                   </div>
                 </div>
 
                 {/* Explanation */}
-                <div style={{ marginBottom: '12px' }}>
-                  <div className="form-label">Algorithm Explanation</div>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                    Algorithm Explanation
+                  </div>
+                  <div
+                    className="neu-inset"
+                    style={{
+                      padding: '10px 12px',
+                      fontSize: '0.78rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.45,
+                    }}
+                  >
                     {activeCandidate.explanation}
-                  </p>
+                  </div>
                 </div>
 
                 {/* Analyst Notes Field */}
-                <div className="form-group">
-                  <label className="form-label">Analyst Assessment Notes</label>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                    Analyst Assessment Notes
+                  </label>
                   <textarea
-                    className="form-control"
+                    className="input-neu"
                     rows={3}
                     placeholder="Enter tactical confirmation notes, verification sources, or escalation requests..."
                     value={analystNotes}
@@ -616,17 +666,17 @@ and do not constitute validated combat identification or clinical/legal evidence
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
-                    className={`btn btn-sm ${activeCandidate.reviewed ? 'btn-secondary' : 'btn-primary'}`}
+                    className={`btn-neu ${activeCandidate.reviewed ? '' : 'btn-neu-primary'}`}
                     style={{ flex: 1 }}
                     onClick={() => handleCandidateReview(activeCandidate.id, !activeCandidate.reviewed)}
                   >
-                    <CheckCircle size={14} />
+                    <CheckCircle size={15} />
                     <span>{activeCandidate.reviewed ? 'Mark Unreviewed' : 'Confirm & Review'}</span>
                   </button>
                 </div>
               </div>
             ) : (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', textAlign: 'center', padding: '1.5rem' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', textAlign: 'center', padding: '1.5rem' }}>
                 Select a candidate bounding box above to inspect anomaly details.
               </div>
             )}
