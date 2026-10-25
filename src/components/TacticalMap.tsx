@@ -12,13 +12,12 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  Compass,
-  Radio,
-  Eye,
+  Maximize2,
+  Minimize2,
   Crosshair,
   ShieldAlert,
   Activity,
-  Maximize2,
+  Radio,
 } from 'lucide-react';
 
 interface TacticalMapProps {
@@ -43,7 +42,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   activeRoute = null,
   selectedEntityId = null,
   onSelectEntity,
-  height = '520px',
+  height = '680px',
   showRadarSweep = true,
 }) => {
   const [zoom, setZoom] = useState(1);
@@ -52,6 +51,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [sweepActive, setSweepActive] = useState(showRadarSweep);
   const [radarMode, setRadarMode] = useState<'ppi' | 'flir' | 'topo'>('ppi');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [mouseCoord, setMouseCoord] = useState<{ lat: string; lng: string; elev: string }>({
     lat: '34.0600° N',
     lng: '118.2450° W',
@@ -71,20 +71,35 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Wheel Scrolling Zoom Handler (Smooth zooming on mouse wheel)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.14 : 0.88;
+      setZoom((z) => Math.min(Math.max(Number((z * zoomFactor).toFixed(3)), 0.4), 4.5));
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // Center coordinate around Los Angeles Tactical Sector Demo: ~34.060, -118.245
   const centerLat = 34.060;
   const centerLng = -118.245;
-  const scale = 9500 * zoom;
+  const scale = 11000 * zoom;
 
   const project = (lat: number, lng: number) => {
-    const x = 400 + (lng - centerLng) * scale + pan.x;
-    const y = 300 - (lat - centerLat) * scale + pan.y;
+    const x = 500 + (lng - centerLng) * scale + pan.x;
+    const y = 350 - (lat - centerLat) * scale + pan.y;
     return { x, y };
   };
 
   const unproject = (x: number, y: number) => {
-    const lng = centerLng + (x - 400 - pan.x) / scale;
-    const lat = centerLat - (y - 300 - pan.y) / scale;
+    const lng = centerLng + (x - 500 - pan.x) / scale;
+    const lat = centerLat - (y - 350 - pan.y) / scale;
     return { lat, lng };
   };
 
@@ -97,8 +112,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const svgX = ((e.clientX - rect.left) / rect.width) * 800;
-      const svgY = ((e.clientY - rect.top) / rect.height) * 600;
+      const svgX = ((e.clientX - rect.left) / rect.width) * 1000;
+      const svgY = ((e.clientY - rect.top) / rect.height) * 680;
       const geo = unproject(svgX, svgY);
       setMouseCoord({
         lat: `${geo.lat.toFixed(4)}° N`,
@@ -121,8 +136,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     setActiveLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
   };
 
-  const centerPt = { x: 400 + pan.x, y: 300 + pan.y };
-  const scopeRadius = 265 * zoom;
+  const centerPt = { x: 500 + pan.x, y: 350 + pan.y };
+  const scopeRadius = 275 * zoom;
 
   // Generate SVG path for an angular phosphor sweep wedge (angle in degrees)
   const createSweepWedgePath = (cx: number, cy: number, r: number, angleDeg: number) => {
@@ -132,29 +147,32 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     return `M ${cx},${cy} L ${cx},${cy - r} A ${r},${r} 0 0,0 ${x2},${y2} Z`;
   };
 
+  const computedHeight = isFullscreen ? 'calc(100vh - 120px)' : height;
+
   return (
     <div
       ref={containerRef}
       style={{
         position: 'relative',
-        height,
+        height: computedHeight,
         width: '100%',
         backgroundColor: '#04070D',
         borderRadius: 'var(--radius-lg)',
-        boxShadow: 'inset 0 0 50px rgba(0, 0, 0, 0.85), 0 8px 30px rgba(0, 0, 0, 0.6)',
+        boxShadow: 'inset 0 0 60px rgba(0, 0, 0, 0.85), 0 10px 32px rgba(0, 0, 0, 0.6)',
         border: '1px solid rgba(56, 189, 248, 0.25)',
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none',
         display: 'flex',
         flexDirection: 'column',
+        transition: 'height 0.25s ease',
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* 1. Tactical HUD Header Telemetry Bar (Top) */}
+      {/* 1. Slim Tactical Telemetry Header (Top Bezel) */}
       <div
         style={{
           position: 'absolute',
@@ -162,12 +180,12 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           left: 0,
           right: 0,
           zIndex: 25,
-          padding: '8px 16px',
-          background: 'linear-gradient(180deg, rgba(4, 7, 13, 0.95) 0%, rgba(4, 7, 13, 0.7) 70%, transparent 100%)',
+          padding: '6px 18px',
+          background: 'linear-gradient(180deg, rgba(4, 7, 13, 0.96) 0%, rgba(4, 7, 13, 0.8) 75%, transparent 100%)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          fontSize: '0.68rem',
+          fontSize: '0.67rem',
           fontFamily: 'var(--font-mono)',
           color: '#94A3B8',
           borderBottom: '1px solid rgba(56, 189, 248, 0.15)',
@@ -179,19 +197,19 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#00F2FE', boxShadow: '0 0 8px #00F2FE' }} />
             <span>RADAR SCOPE // AN/TPS-77 3D C4ISR</span>
           </div>
-          <span style={{ color: '#64748B' }}>•</span>
+          <span style={{ color: '#475569' }}>•</span>
           <span>FREQ: 9.41 GHz [X-BAND]</span>
-          <span style={{ color: '#64748B' }}>•</span>
+          <span style={{ color: '#475569' }}>•</span>
           <span>PRF: 1200 Hz</span>
-          <span style={{ color: '#64748B' }}>•</span>
+          <span style={{ color: '#475569' }}>•</span>
           <span>RPM: 15.0</span>
-          <span style={{ color: '#64748B' }}>•</span>
+          <span style={{ color: '#475569' }}>•</span>
           <span style={{ color: '#10B981', fontWeight: 700 }}>STC/FTC: ACTIVE</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <span style={{ color: '#E2E8F0', fontWeight: 700 }}>
-            POS: <span style={{ color: '#00F2FE' }}>{mouseCoord.lat} {mouseCoord.lng}</span>
+            CURSOR: <span style={{ color: '#00F2FE' }}>{mouseCoord.lat} {mouseCoord.lng}</span>
           </span>
           <span style={{ color: '#E2E8F0', fontWeight: 700 }}>
             ELEV: <span style={{ color: '#F59E0B' }}>{mouseCoord.elev}</span>
@@ -199,11 +217,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         </div>
       </div>
 
-      {/* 2. Interactive Tactical Controls Overlay */}
+      {/* 2. Sleek, Unified Tactical Controls Strip (Non-intrusive) */}
       <div
         style={{
           position: 'absolute',
-          top: '40px',
+          top: '36px',
           left: '16px',
           right: '16px',
           zIndex: 20,
@@ -213,86 +231,181 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           pointerEvents: 'none',
         }}
       >
-        {/* Layer Filters Strip */}
+        {/* Left: Sleek Tactical Layer Buttons (No clunky checkboxes!) */}
         <div
           style={{
             background: 'rgba(9, 14, 24, 0.92)',
-            backdropFilter: 'blur(10px)',
+            backdropFilter: 'blur(12px)',
             borderRadius: 'var(--radius-pill)',
             border: '1px solid rgba(56, 189, 248, 0.25)',
-            padding: '5px 14px',
+            padding: '3px 6px',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            fontSize: '0.72rem',
+            gap: '4px',
             boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
             pointerEvents: 'auto',
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 800, color: '#00F2FE' }}>
-            <Layers size={13} />
-            <span>LAYERS:</span>
+          <div style={{ padding: '0 8px', fontSize: '0.66rem', fontFamily: 'var(--font-mono)', fontWeight: 800, color: '#00F2FE', letterSpacing: '0.04em' }}>
+            LAYERS:
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#F1F5F9' }}>
-            <input
-              type="checkbox"
-              checked={activeLayers.airspace}
-              onChange={() => toggleLayer('airspace')}
-              style={{ accentColor: '#00F2FE', cursor: 'pointer' }}
+          {/* Air Layer Toggle */}
+          <button
+            onClick={() => toggleLayer('airspace')}
+            style={{
+              background: activeLayers.airspace ? 'rgba(0, 242, 254, 0.16)' : 'transparent',
+              border: activeLayers.airspace ? '1px solid #00F2FE' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: activeLayers.airspace ? '#F1F5F9' : '#94A3B8',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 10px',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: activeLayers.airspace ? '#00F2FE' : '#475569',
+                boxShadow: activeLayers.airspace ? '0 0 6px #00F2FE' : 'none',
+              }}
             />
             Air ({tracks.length})
-          </label>
+          </button>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#F1F5F9' }}>
-            <input
-              type="checkbox"
-              checked={activeLayers.incidents}
-              onChange={() => toggleLayer('incidents')}
-              style={{ accentColor: '#00F2FE', cursor: 'pointer' }}
+          {/* Ground Layer Toggle */}
+          <button
+            onClick={() => toggleLayer('incidents')}
+            style={{
+              background: activeLayers.incidents ? 'rgba(245, 158, 11, 0.16)' : 'transparent',
+              border: activeLayers.incidents ? '1px solid #F59E0B' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: activeLayers.incidents ? '#F1F5F9' : '#94A3B8',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 10px',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: activeLayers.incidents ? '#F59E0B' : '#475569',
+                boxShadow: activeLayers.incidents ? '0 0 6px #F59E0B' : 'none',
+              }}
             />
             Ground ({incidents.length})
-          </label>
+          </button>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#F1F5F9' }}>
-            <input
-              type="checkbox"
-              checked={activeLayers.routes}
-              onChange={() => toggleLayer('routes')}
-              style={{ accentColor: '#00F2FE', cursor: 'pointer' }}
+          {/* Corridors Layer Toggle */}
+          <button
+            onClick={() => toggleLayer('routes')}
+            style={{
+              background: activeLayers.routes ? 'rgba(16, 185, 129, 0.16)' : 'transparent',
+              border: activeLayers.routes ? '1px solid #10B981' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: activeLayers.routes ? '#F1F5F9' : '#94A3B8',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 10px',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: activeLayers.routes ? '#10B981' : '#475569',
+                boxShadow: activeLayers.routes ? '0 0 6px #10B981' : 'none',
+              }}
             />
             Corridors ({nodes.length})
-          </label>
+          </button>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#F1F5F9' }}>
-            <input
-              type="checkbox"
-              checked={activeLayers.zones}
-              onChange={() => toggleLayer('zones')}
-              style={{ accentColor: '#00F2FE', cursor: 'pointer' }}
+          {/* Geofences Layer Toggle */}
+          <button
+            onClick={() => toggleLayer('zones')}
+            style={{
+              background: activeLayers.zones ? 'rgba(239, 68, 68, 0.16)' : 'transparent',
+              border: activeLayers.zones ? '1px solid #EF4444' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: activeLayers.zones ? '#F1F5F9' : '#94A3B8',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 10px',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: activeLayers.zones ? '#EF4444' : '#475569',
+                boxShadow: activeLayers.zones ? '0 0 6px #EF4444' : 'none',
+              }}
             />
             Geofences ({zones.length})
-          </label>
+          </button>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: '#F1F5F9' }}>
-            <input
-              type="checkbox"
-              checked={sweepActive}
-              onChange={(e) => setSweepActive(e.target.checked)}
-              style={{ accentColor: '#00F2FE', cursor: 'pointer' }}
-            />
-            Radar Sweep
-          </label>
+          {/* Radar Sweep Toggle */}
+          <button
+            onClick={() => setSweepActive(!sweepActive)}
+            style={{
+              background: sweepActive ? 'rgba(0, 242, 254, 0.16)' : 'transparent',
+              border: sweepActive ? '1px solid #00F2FE' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: sweepActive ? '#00F2FE' : '#94A3B8',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 10px',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Radio size={11} color={sweepActive ? '#00F2FE' : '#64748B'} />
+            Sweep Beam
+          </button>
         </div>
 
-        {/* View Mode & Zoom Navigation Controls */}
+        {/* Center/Right: View Modes & Sleek Zoom Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', pointerEvents: 'auto' }}>
-          {/* Radar Mode Selector */}
+          {/* Tactical Scope Mode Segmented Switch */}
           <div
             style={{
               background: 'rgba(9, 14, 24, 0.92)',
-              backdropFilter: 'blur(10px)',
+              backdropFilter: 'blur(12px)',
               borderRadius: 'var(--radius-pill)',
               border: '1px solid rgba(56, 189, 248, 0.25)',
               padding: '3px 4px',
@@ -308,11 +421,12 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 color: radarMode === 'ppi' ? '#00F2FE' : '#94A3B8',
                 border: radarMode === 'ppi' ? '1px solid #00F2FE' : '1px solid transparent',
                 borderRadius: 'var(--radius-pill)',
-                padding: '3px 10px',
+                padding: '4px 11px',
                 fontSize: '0.68rem',
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 700,
                 cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               PPI SCOPE
@@ -324,11 +438,12 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 color: radarMode === 'flir' ? '#EF4444' : '#94A3B8',
                 border: radarMode === 'flir' ? '1px solid #EF4444' : '1px solid transparent',
                 borderRadius: 'var(--radius-pill)',
-                padding: '3px 10px',
+                padding: '4px 11px',
                 fontSize: '0.68rem',
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 700,
                 cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               IR / FLIR
@@ -340,102 +455,129 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 color: radarMode === 'topo' ? '#10B981' : '#94A3B8',
                 border: radarMode === 'topo' ? '1px solid #10B981' : '1px solid transparent',
                 borderRadius: 'var(--radius-pill)',
-                padding: '3px 10px',
+                padding: '4px 11px',
                 fontSize: '0.68rem',
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 700,
                 cursor: 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               TERRAIN
             </button>
           </div>
 
-          {/* Zoom Buttons */}
+          {/* Normal, Sleek Zoom & Expansion Action Buttons */}
           <div
             style={{
               background: 'rgba(9, 14, 24, 0.92)',
-              backdropFilter: 'blur(10px)',
+              backdropFilter: 'blur(12px)',
               borderRadius: 'var(--radius-pill)',
               border: '1px solid rgba(56, 189, 248, 0.25)',
-              padding: '3px 6px',
+              padding: '3px 5px',
               display: 'flex',
+              alignItems: 'center',
               gap: '4px',
               boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
             }}
           >
             <button
               style={{
-                width: '28px',
-                height: '28px',
+                width: '30px',
+                height: '30px',
                 borderRadius: '50%',
-                border: 'none',
-                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.05)',
                 color: '#F1F5F9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
+                transition: 'background 0.15s ease',
               }}
-              title="Zoom In"
-              onClick={() => setZoom((z) => Math.min(z * 1.25, 3.5))}
+              title="Zoom In (or Scroll Wheel Up)"
+              onClick={() => setZoom((z) => Math.min(Number((z * 1.25).toFixed(3)), 4.5))}
             >
-              <ZoomIn size={13} />
+              <ZoomIn size={14} />
             </button>
+
             <button
               style={{
-                width: '28px',
-                height: '28px',
+                width: '30px',
+                height: '30px',
                 borderRadius: '50%',
-                border: 'none',
-                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.05)',
                 color: '#F1F5F9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
+                transition: 'background 0.15s ease',
               }}
-              title="Zoom Out"
-              onClick={() => setZoom((z) => Math.max(z * 0.8, 0.5))}
+              title="Zoom Out (or Scroll Wheel Down)"
+              onClick={() => setZoom((z) => Math.max(Number((z * 0.8).toFixed(3)), 0.4))}
             >
-              <ZoomOut size={13} />
+              <ZoomOut size={14} />
             </button>
+
             <button
               style={{
-                width: '28px',
-                height: '28px',
+                width: '30px',
+                height: '30px',
                 borderRadius: '50%',
-                border: 'none',
-                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.05)',
                 color: '#F1F5F9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
+                transition: 'background 0.15s ease',
               }}
-              title="Center Radar Scope"
+              title="Recenter Radar Scope"
               onClick={() => {
                 setZoom(1);
                 setPan({ x: 0, y: 0 });
               }}
             >
-              <RotateCcw size={12} />
+              <RotateCcw size={13} />
+            </button>
+
+            <button
+              style={{
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: isFullscreen ? 'rgba(0, 242, 254, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                color: isFullscreen ? '#00F2FE' : '#F1F5F9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+              }}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Expand Radar Scope'}
+              onClick={() => setIsFullscreen(!isFullscreen)}
+            >
+              {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Authentic Plan Position Indicator (PPI) SVG Canvas */}
+      {/* 3. Spacious, Authentic Plan Position Indicator (PPI) SVG Canvas */}
       <svg
         width="100%"
         height="100%"
-        viewBox="0 0 800 600"
+        viewBox="0 0 1000 680"
         style={{ display: 'block', flex: 1 }}
       >
         <defs>
           {/* Tactical Phosphor Glow Filters */}
           <filter id="radar-glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
             <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur2" />
             <feMerge>
               <feMergeNode in="blur1" />
@@ -445,7 +587,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </filter>
 
           <filter id="radar-glow-red" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur1" />
             <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur2" />
             <feMerge>
               <feMergeNode in="blur1" />
@@ -455,7 +597,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </filter>
 
           <filter id="radar-glow-amber" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -498,7 +640,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         {/* 4. Scope Outer Housing Bezel & Instrument Rim */}
         <g pointerEvents="none">
           {/* Subtle Outer Enclosure Frame */}
-          <rect width="800" height="600" fill="url(#radar-drafting-grid)" />
+          <rect width="1000" height="680" fill="url(#radar-drafting-grid)" />
 
           {/* Dark Matte Scope Bezel Housing Ring */}
           <circle
@@ -574,7 +716,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 x={x}
                 y={y}
                 fill={color}
-                fontSize={isCardinal ? '9.5' : '7.5'}
+                fontSize={isCardinal ? '10' : '8'}
                 fontFamily="var(--font-mono)"
                 fontWeight={isCardinal ? '800' : '600'}
                 textAnchor="middle"
@@ -610,21 +752,21 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <g opacity={radarMode === 'flir' ? 0.25 : 0.16} pointerEvents="none">
               {/* Regional River / Ridge Topo Contours */}
               <path
-                d="M 120,380 Q 240,320 380,340 T 540,280 T 680,260 T 790,290"
+                d="M 160,420 Q 320,360 480,380 T 680,320 T 840,300 T 960,330"
                 fill="none"
                 stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'}
                 strokeWidth="1.2"
                 strokeDasharray="6,4"
               />
               <path
-                d="M 80,450 Q 220,410 390,440 T 580,380 T 760,420"
+                d="M 120,500 Q 300,450 510,480 T 740,420 T 920,460"
                 fill="none"
                 stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'}
                 strokeWidth="1"
                 strokeDasharray="4,6"
               />
               <path
-                d="M 220,160 Q 340,120 480,150 T 680,130"
+                d="M 280,200 Q 440,150 620,180 T 840,160"
                 fill="none"
                 stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'}
                 strokeWidth="0.8"
@@ -659,7 +801,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                       x={centerPt.x + r + 5}
                       y={centerPt.y - 4}
                       fill={radarMode === 'flir' ? '#FCA5A5' : '#7DD3FC'}
-                      fontSize="8"
+                      fontSize="8.5"
                       fontFamily="var(--font-mono)"
                       fontWeight="700"
                     >
@@ -671,7 +813,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                       x={centerPt.x - r - 5}
                       y={centerPt.y - 4}
                       fill={radarMode === 'flir' ? '#FCA5A5' : '#7DD3FC'}
-                      fontSize="8"
+                      fontSize="8.5"
                       fontFamily="var(--font-mono)"
                       fontWeight="700"
                       textAnchor="end"
@@ -701,7 +843,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               />
 
               {/* Mil-Dot Graduation Ticks along Axes */}
-              {[-200, -150, -100, -50, 50, 100, 150, 200].map((offset) => (
+              {[-220, -165, -110, -55, 55, 110, 165, 220].map((offset) => (
                 <g key={`mil-${offset}`}>
                   <line
                     x1={centerPt.x + offset}
@@ -769,7 +911,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                     x={pos.x}
                     y={pos.y - radiusPx - 6}
                     fill={isNoFly ? '#FCA5A5' : '#7DD3FC'}
-                    fontSize="8"
+                    fontSize="8.5"
                     fontFamily="var(--font-mono)"
                     fontWeight="800"
                     textAnchor="middle"
@@ -882,18 +1024,18 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                     <rect
                       x="0"
                       y="0"
-                      width="68"
-                      height="15"
+                      width="72"
+                      height="16"
                       rx="3"
-                      fill="rgba(9, 14, 24, 0.85)"
+                      fill="rgba(9, 14, 24, 0.88)"
                       stroke="rgba(255,255,255,0.2)"
                       strokeWidth="0.8"
                     />
                     <text
-                      x="34"
-                      y="11"
+                      x="36"
+                      y="11.5"
                       fill="#E2E8F0"
-                      fontSize="7.5"
+                      fontSize="8"
                       fontFamily="var(--font-mono)"
                       fontWeight="700"
                       textAnchor="middle"
@@ -933,7 +1075,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   {/* Pulsing Tactical Ring for Critical Incidents */}
                   {isCritical && (
                     <circle
-                      r="19"
+                      r="20"
                       fill="none"
                       stroke="#EF4444"
                       strokeWidth="1.5"
@@ -944,7 +1086,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
                   {/* Tactical Incident Diamond */}
                   <polygon
-                    points="0,-10 10,0 0,10 -10,0"
+                    points="0,-11 11,0 0,11 -11,0"
                     fill={isCritical ? '#DC2626' : '#D97706'}
                     stroke="#FFFFFF"
                     strokeWidth={isSelected ? 2.5 : 1.5}
@@ -952,22 +1094,22 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   />
 
                   {/* High-Contrast Offset Data Tag with Fine Leader Line */}
-                  <line x1="8" y1="-8" x2="22" y2="-18" stroke="rgba(255,255,255,0.6)" strokeWidth="0.8" />
+                  <line x1="9" y1="-9" x2="24" y2="-20" stroke="rgba(255,255,255,0.6)" strokeWidth="0.8" />
                   <rect
-                    x="22"
-                    y="-27"
-                    width="70"
-                    height="18"
+                    x="24"
+                    y="-30"
+                    width="74"
+                    height="20"
                     rx="3"
                     fill="rgba(9, 14, 24, 0.95)"
                     stroke={isCritical ? '#EF4444' : '#F59E0B'}
                     strokeWidth="1.2"
                   />
                   <text
-                    x="57"
-                    y="-15"
+                    x="61"
+                    y="-16"
                     fill="#FFFFFF"
-                    fontSize="8.5"
+                    fontSize="9"
                     fontFamily="var(--font-mono)"
                     fontWeight="800"
                     textAnchor="middle"
@@ -986,7 +1128,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               const isHostile = track.status === 'hostile' || track.status === 'suspicious';
 
               // Velocity Vector Line projecting 30 seconds ahead
-              const vectorLength = Math.max(18, track.speed * 0.45 * zoom);
+              const vectorLength = Math.max(20, track.speed * 0.45 * zoom);
               const headingRad = (track.heading * Math.PI) / 180;
               const vectorX = Math.sin(headingRad) * vectorLength;
               const vectorY = -Math.cos(headingRad) * vectorLength;
@@ -1001,7 +1143,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                         key={`hist-${hIdx}`}
                         cx={hPos.x}
                         cy={hPos.y}
-                        r="2.2"
+                        r="2.4"
                         fill={isHostile ? '#EF4444' : '#00F2FE'}
                         opacity={0.2 + hIdx * 0.22}
                       />
@@ -1027,7 +1169,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                     {/* Hostile Target Acquisition Reticle Brackets */}
                     {isHostile && (
                       <g filter="url(#radar-glow-red)">
-                        <circle r="18" fill="none" stroke="#EF4444" strokeWidth="1.2" strokeDasharray="4,4" className="radar-blip-pulse" />
+                        <circle r="19" fill="none" stroke="#EF4444" strokeWidth="1.2" strokeDasharray="4,4" className="radar-blip-pulse" />
                         {/* 4 Corner Acquisition Brackets */}
                         <path d="M -16,-10 L -16,-16 L -10,-16" fill="none" stroke="#EF4444" strokeWidth="1.8" />
                         <path d="M 16,-10 L 16,-16 L 10,-16" fill="none" stroke="#EF4444" strokeWidth="1.8" />
@@ -1050,7 +1192,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                     {/* Swept Aircraft Delta Symbol Oriented to True Heading */}
                     <g transform={`rotate(${track.heading})`}>
                       <polygon
-                        points="0,-11 7,7 0,3.5 -7,7"
+                        points="0,-12 7.5,7.5 0,4 -7.5,7.5"
                         fill={isHostile ? '#EF4444' : '#00F2FE'}
                         stroke="#FFFFFF"
                         strokeWidth={isSelected ? 2 : 1}
@@ -1059,15 +1201,15 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                     </g>
 
                     {/* Standard Military/ATC Target Data Block (FDB) with 45° Leader Dogleg */}
-                    <line x1="8" y1="-8" x2="20" y2="-20" stroke="rgba(255,255,255,0.7)" strokeWidth="0.9" />
-                    <line x1="20" y1="-20" x2="30" y2="-20" stroke="rgba(255,255,255,0.7)" strokeWidth="0.9" />
+                    <line x1="9" y1="-9" x2="22" y2="-22" stroke="rgba(255,255,255,0.7)" strokeWidth="0.9" />
+                    <line x1="22" y1="-22" x2="32" y2="-22" stroke="rgba(255,255,255,0.7)" strokeWidth="0.9" />
 
-                    <g transform="translate(30, -32)">
+                    <g transform="translate(32, -35)">
                       <rect
                         x="0"
                         y="0"
-                        width="92"
-                        height="26"
+                        width="96"
+                        height="28"
                         rx="3"
                         fill="rgba(9, 14, 24, 0.95)"
                         stroke={isHostile ? '#EF4444' : '#00F2FE'}
@@ -1076,9 +1218,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                       {/* Row 1: Callsign */}
                       <text
                         x="6"
-                        y="10"
+                        y="11"
                         fill={isHostile ? '#FCA5A5' : '#7DD3FC'}
-                        fontSize="8.5"
+                        fontSize="9"
                         fontFamily="var(--font-mono)"
                         fontWeight="800"
                       >
@@ -1087,9 +1229,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                       {/* Row 2: Altitude + Speed */}
                       <text
                         x="6"
-                        y="20"
+                        y="22"
                         fill="#CBD5E1"
-                        fontSize="7"
+                        fontSize="7.5"
                         fontFamily="var(--font-mono)"
                         fontWeight="600"
                       >
@@ -1168,8 +1310,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           left: 0,
           right: 0,
           zIndex: 25,
-          padding: '7px 16px',
-          background: 'linear-gradient(0deg, rgba(4, 7, 13, 0.95) 0%, rgba(4, 7, 13, 0.7) 70%, transparent 100%)',
+          padding: '7px 18px',
+          background: 'linear-gradient(0deg, rgba(4, 7, 13, 0.96) 0%, rgba(4, 7, 13, 0.75) 70%, transparent 100%)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -1182,7 +1324,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span>CONTACTS: <strong style={{ color: '#00F2FE' }}>{tracks.length} AIR</strong> / <strong style={{ color: '#F59E0B' }}>{incidents.length} GROUND</strong></span>
-          <span style={{ color: '#64748B' }}>•</span>
+          <span style={{ color: '#475569' }}>•</span>
           <span style={{ color: activeRoute?.hasActiveBlockage ? '#EF4444' : '#10B981', fontWeight: 700 }}>
             CORRIDOR: {activeRoute?.hasActiveBlockage ? 'HAZARD DIVERTED' : 'ALL PATHS OPEN'}
           </span>
@@ -1190,8 +1332,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <span>RANGE SCALE: <strong style={{ color: '#E2E8F0' }}>20 KM / 10.8 NM</strong></span>
-          <span style={{ color: '#64748B' }}>•</span>
-          <span style={{ color: '#00F2FE', fontWeight: 800 }}>ZOOM: {zoom.toFixed(2)}x</span>
+          <span style={{ color: '#475569' }}>•</span>
+          <span style={{ color: '#00F2FE', fontWeight: 800 }}>ZOOM: {zoom.toFixed(2)}x (SCROLL TO ZOOM)</span>
         </div>
       </div>
 
