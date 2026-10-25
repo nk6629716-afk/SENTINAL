@@ -8,6 +8,8 @@ import {
   CasualtyRecord,
   RoadHazardEdge,
   DashboardSummary,
+  SharedMapMarker,
+  SimulationMeasurableMetrics,
 } from '@shared/types';
 import { api } from '../services/api/apiClient';
 import { dbService } from '../services/storage/indexedDb';
@@ -23,8 +25,55 @@ import { realtimeService, RealtimeState } from '../services/api/realtimeService'
 import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
 import { Layers, Radio, Crosshair, Compass, HeartPulse } from 'lucide-react';
 
+export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
+
+export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute'] as const;
+
+export function parseModuleFromHash(hash: string): ModuleId {
+  const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  if ((VALID_MODULES as readonly string[]).includes(clean)) {
+    return clean as ModuleId;
+  }
+  return 'dashboard';
+}
+
 export const App: React.FC = () => {
-  const [activeModule, setActiveModule] = useState<'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute'>('dashboard');
+  const [activeModule, setActiveModuleState] = useState<ModuleId>(() => {
+    if (typeof window !== 'undefined') {
+      return parseModuleFromHash(window.location.hash);
+    }
+    return 'dashboard';
+  });
+
+  const handleNavigate = useCallback((mod: ModuleId) => {
+    setActiveModuleState(mod);
+    if (typeof window !== 'undefined') {
+      if (window.location.hash !== `#${mod}`) {
+        window.location.hash = `#${mod}`;
+      }
+    }
+  }, []);
+
+  // Listen to hash changes (browser back/forward or manual hash changes)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const parsed = parseModuleFromHash(window.location.hash);
+      setActiveModuleState(parsed);
+      const clean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+      if (!(VALID_MODULES as readonly string[]).includes(clean)) {
+        window.history.replaceState(null, '', '#dashboard');
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    const initialClean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+    if (!(VALID_MODULES as readonly string[]).includes(initialClean)) {
+      window.history.replaceState(null, '', '#dashboard');
+    }
+
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -70,7 +119,34 @@ export const App: React.FC = () => {
   const [hazards, setHazards] = useState<RoadHazardEdge[]>([]);
   const [realtimeState, setRealtimeState] = useState<RealtimeState>(() => realtimeService.getState());
   const [backendHealth, setBackendHealth] = useState<any>(null);
+  const [markers, setMarkers] = useState<SharedMapMarker[]>([]);
+  const [simMetrics, setSimMetrics] = useState<SimulationMeasurableMetrics | null>(null);
+  const [simSpeed, setSimSpeed] = useState<1 | 2 | 5>(1);
   const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
+
+  // Realtime Simulation Bus (Phase 1)
+  useEffect(() => {
+    api.resumeSimulation();
+    const unsubscribe = api.subscribeSimulation((simState) => {
+      setTracks(simState.tracks);
+      setCasualties(simState.casualties);
+      setHazards(simState.hazards);
+      setMarkers(simState.markers);
+      setSimMetrics(simState.metrics);
+      setIsSimPaused(simState.isPaused);
+      setSimSpeed(simState.speed);
+    });
+
+    return () => {
+      unsubscribe();
+      api.pauseSimulation();
+    };
+  }, []);
+
+  const handleSetSimSpeed = (speed: 1 | 2 | 5) => {
+    setSimSpeed(speed);
+    api.setSimulationSpeed(speed);
+  };
 
   // 1. Initial Database Seed & Load
   const refreshAllData = useCallback(async () => {
@@ -376,7 +452,7 @@ export const App: React.FC = () => {
       {/* 1. Neumorphic Sidebar Navigation */}
       <Sidebar
         activeModule={activeModule}
-        onNavigate={setActiveModule}
+        onNavigate={handleNavigate}
         pendingSyncCount={pendingSyncCount}
         unackAlertsCount={unackAlertsCount}
         isOfflineMode={isOfflineMode}
@@ -395,6 +471,10 @@ export const App: React.FC = () => {
         onTriggerSync={handleTriggerSync}
         onResetDemo={handleResetDemo}
         isSyncing={isSyncing}
+        simSpeed={simSpeed}
+        isSimPaused={isSimPaused}
+        onSetSimSpeed={handleSetSimSpeed}
+        onToggleSimPause={handleToggleSimPause}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebarCollapse={handleToggleSidebarCollapse}
@@ -419,7 +499,7 @@ export const App: React.FC = () => {
             casualties={casualties}
             hazards={hazards}
             nodes={EVACUATION_NODES}
-            onNavigate={setActiveModule}
+            onNavigate={handleNavigate}
             onResetDemo={handleResetDemo}
             isOfflineMode={isOfflineMode}
             realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}
@@ -480,7 +560,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`mobile-dock-item ${activeModule === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveModule('dashboard')}
+          onClick={() => handleNavigate('dashboard')}
         >
           <Layers size={18} />
           <span>Overview</span>
@@ -489,7 +569,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`mobile-dock-item ${activeModule === 'fieldlink' ? 'active' : ''}`}
-          onClick={() => setActiveModule('fieldlink')}
+          onClick={() => handleNavigate('fieldlink')}
           style={{ position: 'relative' }}
         >
           <Radio size={18} />
@@ -512,7 +592,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`mobile-dock-item ${activeModule === 'skywatch' ? 'active' : ''}`}
-          onClick={() => setActiveModule('skywatch')}
+          onClick={() => handleNavigate('skywatch')}
           style={{ position: 'relative' }}
         >
           <Crosshair size={18} />
@@ -535,7 +615,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`mobile-dock-item ${activeModule === 'geointel' ? 'active' : ''}`}
-          onClick={() => setActiveModule('geointel')}
+          onClick={() => handleNavigate('geointel')}
         >
           <Compass size={18} />
           <span>GeoIntel</span>
@@ -544,7 +624,7 @@ export const App: React.FC = () => {
         <button
           type="button"
           className={`mobile-dock-item ${activeModule === 'mediroute' ? 'active' : ''}`}
-          onClick={() => setActiveModule('mediroute')}
+          onClick={() => handleNavigate('mediroute')}
         >
           <HeartPulse size={18} />
           <span>MediRoute</span>

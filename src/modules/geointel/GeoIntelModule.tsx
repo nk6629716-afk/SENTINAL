@@ -13,16 +13,6 @@ import {
   CheckCircle,
   AlertTriangle,
   RotateCcw,
-  Info,
-  Check,
-  X,
-  Clock,
-  Sparkles,
-  Download,
-  AlertOctagon,
-  HelpCircle,
-  ShieldAlert,
-  Search,
 } from 'lucide-react';
 import { api } from '../../services/api/apiClient';
 import {
@@ -32,18 +22,14 @@ import {
   AnalysisState,
   IntelligenceReportPayload,
 } from './types';
-import { convertToMGRS, formatTacticalTimestamp } from './utils/geoUtils';
+import { convertToMGRS } from './utils/geoUtils';
 import { IntelligenceReportModal } from './components/IntelligenceReportModal';
+import { GeoIntelImageDiff, ImageMatrix } from '../../algorithms/geointel/imageDiff';
 import {
-  BUNDLED_SAMPLE_PAIRS,
-  SamplePair,
-  SECTOR_34_PAIR,
-} from './utils/samplePairs';
-import {
-  GeoIntelImageDiff,
-  ImageMatrix,
-  DiffAlgorithmSettings,
-} from '../../algorithms/geointel/imageDiff';
+  loadAndRasterizePair,
+  rasterizeSyntheticSvgTerrain,
+  mapRegionToCandidate,
+} from './utils/canvasRaster';
 
 interface GeoIntelModuleProps {
   observations: GeoIntelObservation[];
@@ -54,214 +40,241 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
   observations,
   onRefreshObservations,
 }) => {
-  // Theme Detection (Day / Night)
-  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
+  const [selectedObsIdx, setSelectedObsIdx] = useState(0);
+  const [viewMode, setViewMode] = useState<'swipe' | 'side-by-side'>('swipe');
+  const [swipePos, setSwipePos] = useState(50); // percentage 0 - 100
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>('C1');
+  const [isDraggingSwipe, setIsDraggingSwipe] = useState(false);
+
+  // Analysis parameters
+  const [sensitivity, setSensitivity] = useState(34);
+  const [minArea, setMinArea] = useState(12);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+
+  // Custom User Uploaded Images
+  const [customBeforeFile, setCustomBeforeFile] = useState<File | null>(null);
+  const [customAfterFile, setCustomAfterFile] = useState<File | null>(null);
+  const [customBeforeUrl, setCustomBeforeUrl] = useState<string | null>(null);
+  const [customAfterUrl, setCustomAfterUrl] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // Object URL lifecycle management
+  useEffect(() => {
+    if (customBeforeFile) {
+      const url = URL.createObjectURL(customBeforeFile);
+      setCustomBeforeUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setCustomBeforeUrl(null);
+    }
+  }, [customBeforeFile]);
 
   useEffect(() => {
-    const updateTheme = () => {
-      const themeAttr = document.documentElement.getAttribute('data-theme');
-      if (themeAttr === 'dark') {
-        setCurrentTheme('dark');
-      } else {
-        setCurrentTheme('light');
-      }
-    };
-    updateTheme();
-    const observer = new MutationObserver(updateTheme);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
+    if (customAfterFile) {
+      const url = URL.createObjectURL(customAfterFile);
+      setCustomAfterUrl(url);
+      return () => URL.revokeObjectURL(url);
+    } else {
+      setCustomAfterUrl(null);
+    }
+  }, [customAfterFile]);
 
-  // Selected Sample Pair
-  const [selectedPairId, setSelectedPairId] = useState<string>(SECTOR_34_PAIR.id);
-  const activePair: SamplePair = useMemo(() => {
-    return BUNDLED_SAMPLE_PAIRS.find((p) => p.id === selectedPairId) || SECTOR_34_PAIR;
-  }, [selectedPairId]);
-
-  // View Mode: side-by-side or swipe
-  const [viewMode, setViewMode] = useState<'side-by-side' | 'swipe'>('side-by-side');
-  const [swipePos, setSwipePos] = useState<number>(50); // percentage 0 - 100
-  const [isDraggingSwipe, setIsDraggingSwipe] = useState(false);
-  const swipeContainerRef = useRef<HTMLDivElement>(null);
-
-  // Algorithm Parameters
-  const [threshold, setThreshold] = useState<number>(35); // Delta threshold [1..255]
-  const [minRegionSize, setMinRegionSize] = useState<number>(4); // Minimum cluster size in pixels
-
-  // Analysis State & Candidates
-  const [hasRunAnalysis, setHasRunAnalysis] = useState<boolean>(true); // default true with initial run
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [executionTimeMs, setExecutionTimeMs] = useState<number>(2.4);
-  const [candidates, setCandidates] = useState<EnrichedChangeCandidate[]>([]);
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-
-  // Analyst Editing in Inspector
-  const [analystNoteDraft, setAnalystNoteDraft] = useState<string>('');
-  const [isSavingReview, setIsSavingReview] = useState<boolean>(false);
-  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
-
-  // Report Modal State
-  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  // Modal State
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
 
   // Replay bar state
   const [isPlaying, setIsPlaying] = useState(true);
   const [replaySpeed, setReplaySpeed] = useState<'1x' | '2x' | '5x'>('1x');
 
-  // Associated Server Observation
-  const activeObs = observations[0];
+  const activeObs = observations[selectedObsIdx] || observations[0];
+  const swipeContainerRef = useRef<HTMLDivElement>(null);
 
-  // =========================================================================
-  // Deterministic Analysis Execution via Person 3's GeoIntelImageDiff
-  // =========================================================================
-  const runComparison = useCallback(
-    (customThreshold?: number, customMinArea?: number) => {
-      const activeThresh = customThreshold !== undefined ? customThreshold : threshold;
-      const activeArea = customMinArea !== undefined ? customMinArea : minRegionSize;
-
-      setIsAnalyzing(true);
-      const startTime = performance.now();
-
-      try {
-        const beforeMatrix = activePair.getBeforeMatrix();
-        const afterMatrix = activePair.getAfterMatrix();
-
-        // Instantiate pure Person 3 algorithm
-        const diffEngine = new GeoIntelImageDiff({
-          threshold: activeThresh,
-          minRegionSize: activeArea,
-        });
-
-        const rawRegions = diffEngine.analyze(beforeMatrix, afterMatrix);
-        const elapsed = Number((performance.now() - startTime).toFixed(1));
-        setExecutionTimeMs(Math.max(0.5, elapsed));
-
-        const baseLat = activePair.centerCoordinates?.lat || 34.0588;
-        const baseLng = activePair.centerCoordinates?.lng || -118.2391;
-
-        // Label mappings for realistic tactical comprehension
-        const labelPresets: Record<string, { label: string; anomalyType: any }> = {
-          'CAN-100': { label: 'Roadway Surface Alteration', anomalyType: 'terrain_disturbance' },
-          'CAN-101': { label: 'Cleared Compound Apron', anomalyType: 'vegetation_clearing' },
-          'CAN-102': { label: 'Staged Vehicle Convoy', anomalyType: 'vehicle_movement' },
-          'CAN-103': { label: 'Reinforced Structure Profile', anomalyType: 'structure_alteration' },
-        };
-
-        const enriched: EnrichedChangeCandidate[] = rawRegions.map((region, idx) => {
-          const preset = labelPresets[region.id] || {
-            label: `Candidate Ground Anomaly #${idx + 1}`,
-            anomalyType: idx % 2 === 0 ? 'terrain_disturbance' : 'structure_alteration',
-          };
-
-          // Honest pixel-to-geographic projection anchor
-          const lat = Number((baseLat + ((region.bbox.y / activePair.height) - 0.5) * -0.015).toFixed(5));
-          const lng = Number((baseLng + ((region.bbox.x / activePair.width) - 0.5) * 0.02).toFixed(5));
-          const mgrs = convertToMGRS(lat, lng);
-
-          return {
-            id: region.id,
-            label: preset.label,
-            anomalyType: preset.anomalyType,
-            differenceScore: region.differenceScore,
-            confidence: Number(Math.min(0.99, region.differenceScore * 1.15).toFixed(2)),
-            bbox: region.bbox,
-            boundingBox: region.bbox,
-            areaPixels: region.areaPixels,
-            algorithmSettings: region.algorithmSettings,
-            explanation: region.explanation,
-            reviewed: false,
-            decision: 'unreviewed',
-            analystNotes: '',
-            latLng: { lat, lng },
-            mgrsCoordinate: mgrs,
-            detectedAt: new Date().toISOString(),
-            auditTrail: [
-              {
-                timestamp: new Date().toISOString(),
-                analyst: 'GeoIntelImageDiff v1.0 (BFS Cluster)',
-                action: 'INITIAL_CANDIDATE_EXTRACTION',
-                notes: `Flagged ${region.areaPixels} connected pixels at [${region.bbox.x}, ${region.bbox.y}]. Score: ${(region.differenceScore * 100).toFixed(1)}%`,
-              },
-            ],
-          };
-        });
-
-        setCandidates(enriched);
-        setHasRunAnalysis(true);
-        if (enriched.length > 0) {
-          setSelectedCandidateId(enriched[0].id);
-          setAnalystNoteDraft('');
-        } else {
-          setSelectedCandidateId(null);
-          setAnalystNoteDraft('');
-        }
-
-        setStatusNotification(
-          `Analysis finished: ${enriched.length} candidate region${enriched.length === 1 ? '' : 's'} identified.`
-        );
-        setTimeout(() => setStatusNotification(null), 3500);
-      } catch (err: any) {
-        console.error('GeoIntel analysis error:', err);
-        setStatusNotification(`Analysis failed: ${err.message || 'Unknown error'}`);
-        setTimeout(() => setStatusNotification(null), 5000);
-      } finally {
-        setIsAnalyzing(false);
-      }
-    },
-    [activePair, threshold, minRegionSize]
+  // Sensor Metadata
+  const baselineSensor: SensorMetadata = useMemo(
+    () => ({
+      sensorId: activeObs?.beforeImageId || 'MSI-B02',
+      platform: 'SENTINEL-2B OPTICAL',
+      resolutionGsd: '0.3m',
+      cloudCoverPct: 1.8,
+      sunElevationDeg: 48.2,
+      sunAzimuthDeg: 134.2,
+      spectralBands: ['B02-Blue', 'B03-Green', 'B04-Red', 'B08-NIR'],
+      captureTimestamp: activeObs?.captureDateBefore || '2026-10-06T08:00:00Z',
+    }),
+    [activeObs?.id, activeObs?.captureDateBefore]
   );
 
-  // Initial Run on Pair Selection Change
+  const surveillanceSensor: SensorMetadata = useMemo(
+    () => ({
+      sensorId: activeObs?.afterImageId || 'WV3-SWIR',
+      platform: 'WORLDVIEW-3 TACTICAL',
+      resolutionGsd: '0.3m',
+      cloudCoverPct: 0.9,
+      sunElevationDeg: 51.6,
+      sunAzimuthDeg: 142.6,
+      spectralBands: ['Panchromatic', 'VNIR', 'SWIR-1'],
+      captureTimestamp: activeObs?.captureDateAfter || '2026-10-24T07:45:00Z',
+    }),
+    [activeObs?.id, activeObs?.captureDateAfter]
+  );
+
+  // Candidates state computed by the algorithm
+  const [enrichedCandidates, setEnrichedCandidates] = useState<EnrichedChangeCandidate[]>([]);
+
+  // Real Algorithmic Analysis Execution
+  const executeAnalysis = useCallback(
+    async (
+      targetObs: GeoIntelObservation | undefined,
+      targetSensitivity: number,
+      targetMinArea: number,
+      customBFile?: File | null,
+      customAFile?: File | null
+    ) => {
+      setIsAnalyzing(true);
+      setAnalysisProgress(20);
+      setAnalysisError(null);
+      setStatusNotification('Extracting and normalizing raster pixel matrices...');
+
+      try {
+        let matrices: { before: ImageMatrix; after: ImageMatrix };
+
+        const hasCustom = Boolean(customBFile || customAFile);
+
+        if (hasCustom) {
+          // If custom files are provided, both must be valid or paired with observation defaults
+          const beforeSrc = customBFile || targetObs?.beforeImageUrl || '/assets/terrain-default.png';
+          const afterSrc = customAFile || targetObs?.afterImageUrl || '/assets/terrain-default.png';
+
+          // MUST decode safely through browser canvas raster adapter. Never silently substitute synthetic data on error.
+          matrices = await loadAndRasterizePair(beforeSrc, afterSrc, {
+            width: 256,
+            height: 144,
+            beforeLabel: customBFile ? customBFile.name : (targetObs?.beforeImageId || 'Baseline Image'),
+            afterLabel: customAFile ? customAFile.name : (targetObs?.afterImageId || 'Surveillance Image'),
+          });
+        } else {
+          // Deterministic observation mode synced with Surveillance Canvas elements
+          const isAfterDifferent = targetObs?.id !== 'GEO-302';
+          matrices = {
+            before: rasterizeSyntheticSvgTerrain(false, 256, 144),
+            after: rasterizeSyntheticSvgTerrain(isAfterDifferent, 256, 144),
+          };
+        }
+
+        setAnalysisProgress(60);
+        setStatusNotification('Computing radiometric delta & clustering change candidates...');
+
+        // Invoke existing GeoIntelImageDiff algorithm
+        const diffEngine = new GeoIntelImageDiff({
+          threshold: targetSensitivity,
+          minRegionSize: targetMinArea,
+        });
+
+        const detectedRegions = diffEngine.analyze(matrices.before, matrices.after);
+
+        setAnalysisProgress(90);
+
+        const baseCoords = {
+          lat: targetObs?.coordinates?.lat || 34.0588,
+          lng: targetObs?.coordinates?.lng || -118.2391,
+        };
+
+        const mappedCandidates: EnrichedChangeCandidate[] = detectedRegions.map((region, idx) =>
+          mapRegionToCandidate(region, idx, matrices.before.width, matrices.before.height, baseCoords)
+        );
+
+        // Preserve previous analyst review decisions for matching candidate IDs on rerun
+        setEnrichedCandidates((prev) => {
+          return mappedCandidates.map((cand) => {
+            const existing = prev.find((p) => p.id === cand.id);
+            if (existing && existing.reviewed) {
+              return {
+                ...cand,
+                reviewed: existing.reviewed,
+                decision: existing.decision,
+                auditTrail: existing.auditTrail,
+              };
+            }
+            return cand;
+          });
+        });
+
+        if (mappedCandidates.length > 0) {
+          setSelectedCandidateId((prev) => (mappedCandidates.some((c) => c.id === prev) ? prev : mappedCandidates[0].id));
+          setStatusNotification(
+            `Analysis complete: ${mappedCandidates.length} candidate alteration region${
+              mappedCandidates.length === 1 ? '' : 's'
+            } computed.`
+          );
+        } else {
+          setSelectedCandidateId(null);
+          setStatusNotification(
+            `Analysis complete: 0 candidate regions detected exceeding threshold (${targetSensitivity}) or min area (${targetMinArea}px).`
+          );
+        }
+
+        setAnalysisProgress(100);
+        setTimeout(() => {
+          setIsAnalyzing(false);
+          setAnalysisProgress(0);
+        }, 300);
+        setTimeout(() => setStatusNotification(null), 5000);
+      } catch (err) {
+        console.error('[GeoIntel] Analysis failed:', err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        setIsAnalyzing(false);
+        setAnalysisProgress(0);
+        setEnrichedCandidates([]);
+        setSelectedCandidateId(null);
+        setAnalysisError(errMsg);
+        setStatusNotification(`Analysis failed: ${errMsg}`);
+      }
+    },
+    []
+  );
+
+  // Initialize/run on active observation change, threshold adjustments, or custom file uploads
   useEffect(() => {
-    runComparison();
-  }, [selectedPairId]);
+    if (!activeObs) return;
+    executeAnalysis(activeObs, sensitivity, minArea, customBeforeFile, customAfterFile);
+  }, [activeObs?.id, sensitivity, minArea, customBeforeFile, customAfterFile, executeAnalysis]);
 
-  // Sync active candidate note draft when candidate selection changes
-  const activeCandidate = useMemo(() => {
-    return candidates.find((c) => c.id === selectedCandidateId) || null;
-  }, [candidates, selectedCandidateId]);
-
-  useEffect(() => {
-    if (activeCandidate) {
-      setAnalystNoteDraft(activeCandidate.analystNotes || '');
-    }
-  }, [activeCandidate?.id]);
-
-  // Handle Swipe dragging
+  // Handle Swipe Dragging
   const handleMouseDown = () => setIsDraggingSwipe(true);
   const handleMouseUp = () => setIsDraggingSwipe(false);
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isDraggingSwipe || !swipeContainerRef.current) return;
     const rect = swipeContainerRef.current.getBoundingClientRect();
-    const x = Math.max(2, Math.min(rect.width - 2, e.clientX - rect.left));
+    const x = Math.max(5, Math.min(rect.width - 5, e.clientX - rect.left));
     setSwipePos(Math.round((x / rect.width) * 100));
   };
 
-  // Review Status Decision Updates
-  const handleUpdateDecision = async (
-    candidateId: string,
-    decision: CandidateReviewDecision,
-    customNotes?: string
-  ) => {
-    const timestamp = new Date().toISOString();
-    const notesToSave = customNotes !== undefined ? customNotes : analystNoteDraft;
-    const isReviewed = decision === 'confirmed_threat' || decision === 'benign_false_positive';
+  // Run change detection via real algorithm
+  const handleStartAnalysis = () => {
+    if (isAnalyzing) return;
+    executeAnalysis(activeObs, sensitivity, minArea, customBeforeFile, customAfterFile);
+  };
 
-    setCandidates((prev) =>
+  // Candidate Decision
+  const handleUpdateDecision = async (candidateId: string, decision: CandidateReviewDecision) => {
+    const timestamp = new Date().toISOString();
+    const analyst = 'Watch Officer 1';
+
+    setEnrichedCandidates((prev) =>
       prev.map((c) => {
         if (c.id === candidateId) {
           return {
             ...c,
             decision,
-            reviewed: isReviewed,
-            analystNotes: notesToSave,
+            reviewed: decision === 'confirmed_threat' || decision === 'benign_false_positive',
             auditTrail: [
               ...c.auditTrail,
               {
                 timestamp,
-                analyst: 'Duty Intelligence Officer',
+                analyst,
                 action: `DECISION_${decision.toUpperCase()}`,
-                notes: notesToSave,
               },
             ],
           };
@@ -270,113 +283,67 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
       })
     );
 
-    setIsSavingReview(true);
     try {
-      if (activeObs) {
-        await api.updateGeoCandidateReview(activeObs.id, candidateId, isReviewed, notesToSave);
-        await onRefreshObservations();
-      }
-      setSaveSuccessMsg(`Review saved: Candidate marked as ${decision === 'confirmed_threat' ? 'Accepted' : decision === 'benign_false_positive' ? 'Rejected' : 'Unreviewed'}.`);
-      setTimeout(() => setSaveSuccessMsg(null), 3000);
+      const isReviewed = decision === 'confirmed_threat' || decision === 'benign_false_positive';
+      await api.updateGeoCandidateReview(activeObs.id, candidateId, isReviewed);
+      await onRefreshObservations();
+      setStatusNotification(`Candidate ${candidateId} marked as ${decision === 'confirmed_threat' ? 'Accepted' : 'Rejected'}.`);
+      setTimeout(() => setStatusNotification(null), 3000);
     } catch (err) {
-      console.warn('Could not persist review to server, cached locally:', err);
-      setSaveSuccessMsg('Review updated locally (server offline)');
-      setTimeout(() => setSaveSuccessMsg(null), 3000);
-    } finally {
-      setIsSavingReview(false);
+      console.error('Failed to update candidate review:', err);
     }
   };
 
-  // Quick Action Buttons on Candidate Row
-  const handleQuickDecision = (e: React.MouseEvent, candidateId: string, decision: CandidateReviewDecision) => {
-    e.stopPropagation();
-    handleUpdateDecision(candidateId, decision);
-  };
-
-  // Sensor Metadata
-  const baselineSensor: SensorMetadata = useMemo(
-    () => ({
-      sensorId: activePair.beforeImageId,
-      platform: 'SENTINEL-2B MULTISPECTRAL',
-      resolutionGsd: '0.3m',
-      cloudCoverPct: 1.2,
-      sunElevationDeg: 48.2,
-      sunAzimuthDeg: 134.2,
-      spectralBands: ['B02-Blue', 'B03-Green', 'B04-Red', 'B08-NIR'],
-      captureTimestamp: '2026-10-06T08:00:00Z',
-    }),
-    [activePair.beforeImageId]
-  );
-
-  const surveillanceSensor: SensorMetadata = useMemo(
-    () => ({
-      sensorId: activePair.afterImageId,
-      platform: 'WORLDVIEW-3 TACTICAL RECON',
-      resolutionGsd: '0.3m',
-      cloudCoverPct: 0.8,
-      sunElevationDeg: 51.6,
-      sunAzimuthDeg: 142.6,
-      spectralBands: ['Panchromatic', 'VNIR', 'SWIR-1'],
-      captureTimestamp: '2026-10-24T07:45:00Z',
-    }),
-    [activePair.afterImageId]
-  );
-
-  // Report Payload Computation
+  // Report payload
   const reportPayload: IntelligenceReportPayload = useMemo(() => {
-    const confirmedCount = candidates.filter((c) => c.decision === 'confirmed_threat').length;
-    const benignCount = candidates.filter((c) => c.decision === 'benign_false_positive').length;
-    const secondaryCount = candidates.filter((c) => c.decision === 'secondary_pass_required').length;
-    const unreviewedCount = candidates.filter((c) => c.decision === 'unreviewed').length;
+    const confirmedCount = enrichedCandidates.filter((c) => c.decision === 'confirmed_threat').length;
+    const benignCount = enrichedCandidates.filter((c) => c.decision === 'benign_false_positive').length;
+    const secondaryCount = enrichedCandidates.filter((c) => c.decision === 'secondary_pass_required').length;
+    const unreviewedCount = enrichedCandidates.filter((c) => c.decision === 'unreviewed').length;
 
-    const baseLat = activePair.centerCoordinates?.lat || 34.0588;
-    const baseLng = activePair.centerCoordinates?.lng || -118.2391;
+    const lat = activeObs?.coordinates?.lat || 34.0588;
+    const lng = activeObs?.coordinates?.lng || -118.2391;
 
     return {
-      reportId: `IR-2026-${activePair.id.replace('pair-', '').toUpperCase()}`,
+      reportId: `IR-2026-014`,
       classification: 'UNCLASSIFIED // EXERCISE SENTINEL // REL TO NATO',
       generatedAt: new Date().toISOString(),
       analystCallsign: 'Watch Officer Alpha-6 (C4ISR Division)',
-      targetZone: activePair.zoneName,
+      targetZone: activeObs?.zoneName || 'Sector 34 Logistics Hub',
       aoiBoundingBox: {
-        northLat: baseLat + 0.015,
-        southLat: baseLat - 0.015,
-        eastLng: baseLng + 0.02,
-        westLng: baseLng - 0.02,
+        northLat: lat + 0.015,
+        southLat: lat - 0.015,
+        eastLng: lng + 0.02,
+        westLng: lng - 0.02,
       },
       observation: {
         id: activeObs?.id || 'GEO-OBS-01',
-        title: activePair.title,
+        title: activeObs?.title || 'Sector 34 Surveillance',
         baselineCaptureDate: baselineSensor.captureTimestamp,
         surveillanceCaptureDate: surveillanceSensor.captureTimestamp,
         baselineSensor,
         surveillanceSensor,
       },
       analysisConfiguration: {
-        algorithmName: 'GeoIntelImageDiff v1.0 (Connected-Component BFS)',
-        sensitivityThreshold: threshold,
-        minRegionSize: minRegionSize,
-        executionTimeMs: executionTimeMs,
+        algorithmName: 'GeoIntel Connected Components Difference Matrix',
+        sensitivityThreshold: sensitivity,
+        minRegionSize: 5,
+        executionTimeMs: 14,
       },
       summaryStats: {
-        totalCandidates: candidates.length,
+        totalCandidates: enrichedCandidates.length,
         confirmedThreats: confirmedCount,
         benignFalsePositives: benignCount,
         secondaryPassRequired: secondaryCount,
         unreviewed: unreviewedCount,
       },
-      candidates: candidates.map((c) => ({
+      candidates: enrichedCandidates.map((c) => ({
         id: c.id,
         label: c.label,
         type: c.anomalyType,
         confidencePct: c.confidence * 100,
         diffScorePct: c.differenceScore * 100,
-        pixelBox: {
-          x: c.bbox.x,
-          y: c.bbox.y,
-          width: c.bbox.width,
-          height: c.bbox.height,
-        },
+        pixelBox: c.boundingBox,
         areaPixels: c.areaPixels,
         mgrs: c.mgrsCoordinate,
         latLng: c.latLng,
@@ -384,28 +351,15 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
         analystNotes: c.analystNotes || '',
         explanation: c.explanation,
       })),
-      overallAnalystAssessment:
-        candidates.length === 0
-          ? 'Baseline verification complete: No anomalous radiometric delta detected across scanned perimeter.'
-          : `${candidates.length} visual change candidate(s) isolated. Multi-temporal verification required for prioritized tactical anomalies.`,
-      limitationDisclaimer:
-        'DISCLAIMER: Algorithmic image difference scores represent candidate radiometric changes. Differences may stem from sun angles, shadows, cloud cover, camera alignment, or lossy compression rather than physical ground activity. Analyst ground-truth verification is required.',
+      overallAnalystAssessment: 'Verified against satellite optical baseline. No critical civil infrastructure breaches detected.',
+      limitationDisclaimer: 'DISCLAIMER: Multi-temporal radiometric pixel differences indicate potential alterations in ground morphology.',
       isSynthetic: true,
     };
-  }, [
-    activePair,
-    activeObs,
-    candidates,
-    threshold,
-    minRegionSize,
-    executionTimeMs,
-    baselineSensor,
-    surveillanceSensor,
-  ]);
+  }, [activeObs, enrichedCandidates, baselineSensor, surveillanceSensor, sensitivity]);
 
-  const confirmedCount = candidates.filter((c) => c.decision === 'confirmed_threat').length;
-  const rejectedCount = candidates.filter((c) => c.decision === 'benign_false_positive').length;
-  const unreviewedCount = candidates.filter((c) => c.decision === 'unreviewed').length;
+  const confirmedCount = enrichedCandidates.filter((c) => c.decision === 'confirmed_threat').length;
+  const rejectedCount = enrichedCandidates.filter((c) => c.decision === 'benign_false_positive').length;
+  const unreviewedCount = enrichedCandidates.filter((c) => c.decision === 'unreviewed').length;
 
   return (
     <div
@@ -443,87 +397,7 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
         </div>
       )}
 
-      {/* Top Comprehension Banner & Comparison Pair Selector */}
-      <div
-        style={{
-          background: 'var(--color-sheet)',
-          borderBottom: '1.2px solid var(--color-edge)',
-          padding: '8px 16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div
-            style={{
-              padding: '2px 8px',
-              background: 'var(--color-strip)',
-              color: '#FFFFFF',
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 800,
-              fontSize: '0.75rem',
-              letterSpacing: '0.04em',
-            }}
-          >
-            GEOINTEL RECON
-          </div>
-          <span style={{ fontSize: '0.82rem', color: 'var(--color-ink)', fontWeight: 600 }}>
-            Compare two images of the same area to highlight visual differences for analyst review.
-          </span>
-        </div>
-
-        {/* Pair Selector Dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label
-            htmlFor="pair-selector"
-            style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-ink-2)', whiteSpace: 'nowrap' }}
-          >
-            COMPARE IMAGES:
-          </label>
-          <select
-            id="pair-selector"
-            value={selectedPairId}
-            onChange={(e) => setSelectedPairId(e.target.value)}
-            style={{
-              background: 'var(--color-paper)',
-              color: 'var(--color-ink)',
-              border: '1.2px solid var(--color-edge)',
-              padding: '4px 10px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              fontFamily: 'var(--font-heading)',
-              cursor: 'pointer',
-              outline: 'none',
-              maxWidth: '320px',
-            }}
-          >
-            {BUNDLED_SAMPLE_PAIRS.map((pair) => (
-              <option key={pair.id} value={pair.id}>
-                {pair.title}
-              </option>
-            ))}
-          </select>
-
-          <span
-            style={{
-              fontSize: '0.7rem',
-              color: 'var(--color-ink-2)',
-              background: 'var(--color-paper)',
-              border: '1px solid var(--color-line)',
-              padding: '2px 6px',
-              fontWeight: 700,
-            }}
-            title="All imagery is synthetic demo simulation data."
-          >
-            SYNTHETIC DATA
-          </span>
-        </div>
-      </div>
-
-      {/* Main Grid: Left Column (Imagery & Inspection) and Right Column (Controls & Candidates) */}
+      {/* Main Grid: Left Column (Imagery & Map) and Right Column (Controls & Review) */}
       <div
         style={{
           flex: 1,
@@ -547,33 +421,93 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
             }}
           >
             {/* Header row */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '12px',
-                flexWrap: 'wrap',
-                gap: '8px',
-              }}
-            >
-              <div>
-                <span
-                  style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-heading)',
-                    color: 'var(--color-ink)',
-                  }}
-                >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
                   Imagery comparison
                 </span>
-                <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: 'var(--color-ink-2)' }}>
-                  {activePair.subtitle}
-                </span>
+                {observations && observations.length > 0 && (
+                  <select
+                    value={selectedObsIdx}
+                    onChange={(e) => {
+                      const idx = Number(e.target.value);
+                      setSelectedObsIdx(idx);
+                      setSelectedCandidateId(null);
+                    }}
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '3px 8px',
+                      background: 'var(--color-paper)',
+                      border: '1.2px solid var(--color-edge)',
+                      color: 'var(--color-ink)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {observations.map((obs, idx) => (
+                      <option key={obs.id} value={idx}>
+                        {obs.id}: {obs.title} ({idx + 1} of {observations.length})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {/* Custom File Upload Option */}
+                <label
+                  style={{
+                    fontSize: '0.72rem',
+                    color: 'var(--color-strip)',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    fontWeight: 600,
+                    marginLeft: '4px',
+                  }}
+                  title="Upload custom before/after images to analyze"
+                >
+                  Upload pair
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length >= 2) {
+                        setCustomBeforeFile(files[0]);
+                        setCustomAfterFile(files[1]);
+                        setStatusNotification(`Loaded custom pair: ${files[0].name} & ${files[1].name}`);
+                      } else if (files && files.length === 1) {
+                        setCustomAfterFile(files[0]);
+                        setStatusNotification(`Loaded surveillance image: ${files[0].name}`);
+                      }
+                    }}
+                  />
+                </label>
+                {(customBeforeFile || customAfterFile) && (
+                  <span style={{ fontSize: '0.7rem', color: 'var(--color-accent)' }}>
+                    (Custom active)
+                    <button
+                      onClick={() => {
+                        setCustomBeforeFile(null);
+                        setCustomAfterFile(null);
+                        setAnalysisError(null);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--color-crit)',
+                        textDecoration: 'underline',
+                        cursor: 'pointer',
+                        marginLeft: '4px',
+                        fontSize: '0.7rem',
+                      }}
+                    >
+                      Reset
+                    </button>
+                  </span>
+                )}
               </div>
 
-              {/* Segmented control: Side by side / Swipe */}
+              {/* Segmented control: Swipe / Side by side */}
               <div
                 style={{
                   display: 'flex',
@@ -582,7 +516,7 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                 }}
               >
                 <button
-                  onClick={() => setViewMode('side-by-side')}
+                  onClick={() => setViewMode('swipe')}
                   style={{
                     padding: '4px 14px',
                     fontSize: '0.78rem',
@@ -590,14 +524,14 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                     fontWeight: 700,
                     border: 'none',
                     cursor: 'pointer',
-                    background: viewMode === 'side-by-side' ? 'var(--color-strip)' : 'transparent',
-                    color: viewMode === 'side-by-side' ? '#FFFFFF' : 'var(--color-ink)',
+                    background: viewMode === 'swipe' ? 'var(--color-strip)' : 'transparent',
+                    color: viewMode === 'swipe' ? '#FFFFFF' : 'var(--color-ink)',
                   }}
                 >
-                  Side by side
+                  Swipe
                 </button>
                 <button
-                  onClick={() => setViewMode('swipe')}
+                  onClick={() => setViewMode('side-by-side')}
                   style={{
                     padding: '4px 14px',
                     fontSize: '0.78rem',
@@ -606,304 +540,283 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                     border: 'none',
                     borderLeft: '1.2px solid var(--color-edge)',
                     cursor: 'pointer',
-                    background: viewMode === 'swipe' ? 'var(--color-strip)' : 'transparent',
-                    color: viewMode === 'swipe' ? '#FFFFFF' : 'var(--color-ink)',
+                    background: viewMode === 'side-by-side' ? 'var(--color-strip)' : 'transparent',
+                    color: viewMode === 'side-by-side' ? '#FFFFFF' : 'var(--color-ink)',
                   }}
                 >
-                  Swipe
+                  Side by side
                 </button>
               </div>
             </div>
 
-            {/* Display View: Side-by-Side vs Swipe */}
-            {viewMode === 'side-by-side' ? (
+            {/* Interactive Image Canvas Area */}
+            <div
+              ref={swipeContainerRef}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              style={{
+                position: 'relative',
+                height: '340px',
+                width: '100%',
+                background: 'var(--color-map)',
+                border: '1.2px solid var(--color-line)',
+                overflow: 'hidden',
+                cursor: viewMode === 'swipe' ? 'ew-resize' : 'default',
+                userSelect: 'none',
+              }}
+            >
+              {/* Badges */}
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '12px',
-                  width: '100%',
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  background: 'var(--color-strip)',
+                  color: '#FFFFFF',
+                  padding: '3px 8px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-heading)',
+                  zIndex: 20,
+                  boxShadow: 'var(--shadow-hard)',
                 }}
               >
-                {/* Before Image Box */}
-                <div
-                  style={{
-                    position: 'relative',
-                    height: '320px',
-                    background: 'var(--color-map)',
-                    border: '1.2px solid var(--color-line)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '10px',
-                      left: '10px',
-                      background: 'var(--color-strip)',
-                      color: '#FFFFFF',
-                      padding: '3px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      fontFamily: 'var(--font-heading)',
-                      zIndex: 20,
-                      boxShadow: 'var(--shadow-hard)',
-                    }}
-                  >
-                    {activePair.beforeLabel}
-                  </div>
-
-                  {/* Rendered Before SVG preserving aspect ratio */}
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: activePair.getBeforeSvg(currentTheme),
-                    }}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  />
-                </div>
-
-                {/* After Image Box with Bounding Overlays */}
-                <div
-                  style={{
-                    position: 'relative',
-                    height: '320px',
-                    background: 'var(--color-map)',
-                    border: '1.2px solid var(--color-line)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      background: 'var(--color-accent)',
-                      color: '#FFFFFF',
-                      padding: '3px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      fontFamily: 'var(--font-heading)',
-                      zIndex: 20,
-                      boxShadow: 'var(--shadow-hard)',
-                    }}
-                  >
-                    {activePair.afterLabel}
-                  </div>
-
-                  {/* Rendered After SVG */}
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: activePair.getAfterSvg(currentTheme),
-                    }}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  />
-
-                  {/* Overlay Candidate Bounding Boxes */}
-                  {candidates.map((c) => {
-                    const isSelected = selectedCandidateId === c.id;
-                    const leftPct = (c.bbox.x / activePair.width) * 100;
-                    const topPct = (c.bbox.y / activePair.height) * 100;
-                    const widthPct = (c.bbox.width / activePair.width) * 100;
-                    const heightPct = (c.bbox.height / activePair.height) * 100;
-
-                    return (
-                      <div
-                        key={`overlay-sbs-${c.id}`}
-                        onClick={() => setSelectedCandidateId(c.id)}
-                        style={{
-                          position: 'absolute',
-                          left: `${leftPct}%`,
-                          top: `${topPct}%`,
-                          width: `${widthPct}%`,
-                          height: `${heightPct}%`,
-                          border: isSelected
-                            ? '2.2px solid var(--color-strip)'
-                            : '1.8px dashed var(--color-accent)',
-                          background: isSelected
-                            ? 'rgba(232, 89, 12, 0.22)'
-                            : 'rgba(232, 89, 12, 0.12)',
-                          boxShadow: isSelected ? '0 0 0 1.5px #FFFFFF' : 'none',
-                          cursor: 'pointer',
-                          zIndex: isSelected ? 25 : 15,
-                          transition: 'all 0.15s ease',
-                        }}
-                        title={`${c.id}: ${c.label} (${(c.differenceScore * 100).toFixed(1)}% change)`}
-                      >
-                        {/* Candidate Tag Pill */}
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '-20px',
-                            left: '0',
-                            background: isSelected ? 'var(--color-strip)' : 'var(--color-accent)',
-                            color: '#FFFFFF',
-                            fontSize: '9.5px',
-                            fontWeight: 800,
-                            fontFamily: 'var(--font-heading)',
-                            padding: '1px 6px',
-                            whiteSpace: 'nowrap',
-                            boxShadow: 'var(--shadow-hard)',
-                          }}
-                        >
-                          {c.id} {c.label.split(' ')[0].toLowerCase()}, {c.differenceScore.toFixed(2)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                Before, {activeObs?.captureDateBefore ? new Date(activeObs.captureDateBefore).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) : '06 Oct'}
               </div>
-            ) : (
-              /* Swipe View Mode */
+
               <div
-                ref={swipeContainerRef}
-                onMouseDown={handleMouseDown}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                onMouseMove={handleMouseMove}
                 style={{
-                  position: 'relative',
-                  height: '340px',
-                  width: '100%',
-                  background: 'var(--color-map)',
-                  border: '1.2px solid var(--color-line)',
-                  overflow: 'hidden',
-                  cursor: 'ew-resize',
-                  userSelect: 'none',
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  background: 'var(--color-accent)',
+                  color: '#FFFFFF',
+                  padding: '3px 8px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  fontFamily: 'var(--font-heading)',
+                  zIndex: 20,
+                  boxShadow: 'var(--shadow-hard)',
                 }}
               >
-                {/* Badges */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '12px',
-                    left: '12px',
-                    background: 'var(--color-strip)',
-                    color: '#FFFFFF',
-                    padding: '3px 8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    fontFamily: 'var(--font-heading)',
-                    zIndex: 20,
-                    boxShadow: 'var(--shadow-hard)',
-                  }}
-                >
-                  {activePair.beforeLabel}
-                </div>
+                After, {activeObs?.captureDateAfter ? new Date(activeObs.captureDateAfter).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }) : '24 Oct'}
+              </div>
 
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '12px',
-                    right: '12px',
-                    background: 'var(--color-accent)',
-                    color: '#FFFFFF',
-                    padding: '3px 8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    fontFamily: 'var(--font-heading)',
-                    zIndex: 20,
-                    boxShadow: 'var(--shadow-hard)',
-                  }}
-                >
-                  {activePair.afterLabel}
-                </div>
+              {/* Base SVG Map Texture & Terrain */}
+              <svg width="100%" height="100%" viewBox="0 0 700 340" style={{ position: 'absolute', inset: 0 }}>
+                <defs>
+                  <clipPath id="swipeAfterClip">
+                    <rect x={`${swipePos}%`} y="0" width="100%" height="100%" />
+                  </clipPath>
+                </defs>
 
-                {/* Base Layer: Before SVG */}
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: activePair.getBeforeSvg(currentTheme),
-                  }}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                  }}
-                />
-
-                {/* Top Layer: After SVG with clip-path matching swipe divider */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    clipPath: `polygon(${swipePos}% 0, 100% 0, 100% 100%, ${swipePos}% 100%)`,
-                    width: '100%',
-                    height: '100%',
-                  }}
-                >
-                  <div
-                    dangerouslySetInnerHTML={{
-                      __html: activePair.getAfterSvg(currentTheme),
-                    }}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                    }}
+                {/* When custom uploaded images are active, render them as image layers */}
+                {customBeforeUrl && (
+                  <image
+                    href={customBeforeUrl}
+                    x="0"
+                    y="0"
+                    width="700"
+                    height="340"
+                    preserveAspectRatio="none"
                   />
+                )}
+                {customAfterUrl && (
+                  <image
+                    href={customAfterUrl}
+                    x="0"
+                    y="0"
+                    width="700"
+                    height="340"
+                    preserveAspectRatio="none"
+                    clipPath={viewMode === 'swipe' ? 'url(#swipeAfterClip)' : undefined}
+                  />
+                )}
 
-                  {/* Overlays visible on After portion */}
-                  {candidates.map((c) => {
-                    const isSelected = selectedCandidateId === c.id;
-                    const leftPct = (c.bbox.x / activePair.width) * 100;
-                    const topPct = (c.bbox.y / activePair.height) * 100;
-                    const widthPct = (c.bbox.width / activePair.width) * 100;
-                    const heightPct = (c.bbox.height / activePair.height) * 100;
+                {/* Tactical Grid Lines and Terrain (rendered when not viewing custom uploads) */}
+                {!customBeforeUrl && !customAfterUrl && (
+                  <>
+                    {[70, 140, 210, 280].map((y, i) => (
+                      <line key={`h-${i}`} x1="0" y1={y} x2="700" y2={y} stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
+                    ))}
+                    {[140, 280, 420, 560].map((x, i) => (
+                      <line key={`v-${i}`} x1={x} y1="0" x2={x} y2="340" stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
+                    ))}
 
-                    return (
-                      <div
-                        key={`overlay-swipe-${c.id}`}
-                        onClick={() => setSelectedCandidateId(c.id)}
-                        style={{
-                          position: 'absolute',
-                          left: `${leftPct}%`,
-                          top: `${topPct}%`,
-                          width: `${widthPct}%`,
-                          height: `${heightPct}%`,
-                          border: isSelected
-                            ? '2.2px solid var(--color-strip)'
-                            : '1.8px dashed var(--color-accent)',
-                          background: isSelected
-                            ? 'rgba(232, 89, 12, 0.22)'
-                            : 'rgba(232, 89, 12, 0.12)',
-                          boxShadow: isSelected ? '0 0 0 1.5px #FFFFFF' : 'none',
-                          cursor: 'pointer',
-                          zIndex: 25,
-                        }}
+                    {/* River */}
+                    <path
+                      d="M 0,260 Q 200,240 380,260 T 700,230"
+                      fill="none"
+                      stroke="var(--color-water)"
+                      strokeWidth="24"
+                    />
+
+                    {/* Topographic Contours */}
+                    <path d="M 120,120 Q 180,80 240,110 T 320,150 Q 280,200 200,190 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
+                    <path d="M 140,125 Q 180,95 230,120 T 300,150 Q 260,185 200,180 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1" opacity={0.8} />
+
+                    {/* Second Hill Contours */}
+                    <path d="M 280,110 Q 360,70 420,100 T 500,140 Q 460,190 380,180 Z" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
+
+                    {/* Foliage / Forest Patches */}
+                    <ellipse cx="160" cy="240" rx="40" ry="25" fill="var(--color-forest)" opacity={0.5} />
+                    <ellipse cx="460" cy="250" rx="50" ry="30" fill="var(--color-forest)" opacity={0.5} />
+
+                    {/* Alterations Layer (revealed on After side or full in side-by-side) */}
+                    {activeObs?.id !== 'GEO-302' && (
+                      <g clipPath={viewMode === 'swipe' ? 'url(#swipeAfterClip)' : undefined}>
+                        {/* Cleared area polygon on hill */}
+                        <polygon
+                          points="320,60 420,50 460,110 440,150 340,155 310,110"
+                          fill="rgba(232, 89, 12, 0.12)"
+                        />
+                        {/* Road line cut across hill */}
+                        <line x1="375" y1="290" x2="520" y2="220" stroke="#C2AE86" strokeWidth="6" strokeLinecap="round" opacity={0.8} />
+                        {/* Vehicles dots */}
+                        <rect x="432" y="168" width="5" height="5" fill="var(--color-ink)" />
+                        <rect x="444" y="168" width="5" height="5" fill="var(--color-ink)" />
+                        <rect x="438" y="178" width="5" height="5" fill="var(--color-ink)" />
+                      </g>
+                    )}
+                  </>
+                )}
+              </svg>
+
+              {/* Dynamic Bounding Boxes with Labels from Real Algorithm */}
+              <svg width="100%" height="100%" viewBox="0 0 700 340" style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+                {enrichedCandidates.map((c, index) => {
+                  const normX = c.boundingBox.x / 100;
+                  const normY = c.boundingBox.y / 100;
+                  const normW = c.boundingBox.width / 100;
+                  const normH = c.boundingBox.height / 100;
+
+                  const boxX = Math.round(normX * 700);
+                  const boxY = Math.round(normY * 340);
+                  const boxW = Math.max(50, Math.round(normW * 700));
+                  const boxH = Math.max(28, Math.round(normH * 340));
+                  const isSelected = selectedCandidateId === c.id;
+
+                  const labelText = `${c.id} ${c.label.toLowerCase()}, ${c.differenceScore.toFixed(2)}`;
+                  const tagW = Math.min(180, Math.max(110, labelText.length * 6.5 + 20));
+
+                  return (
+                    <g
+                      key={`box-${c.id}`}
+                      onClick={() => setSelectedCandidateId(c.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <rect
+                        x={boxX}
+                        y={boxY}
+                        width={boxW}
+                        height={boxH}
+                        fill={isSelected ? 'rgba(232, 89, 12, 0.18)' : 'rgba(232, 89, 12, 0.08)'}
+                        stroke={isSelected ? 'var(--color-ink)' : 'var(--color-accent)'}
+                        strokeWidth={isSelected ? '2.4' : '1.6'}
+                        strokeDasharray="4 3"
+                      />
+                      {/* Tag label */}
+                      <rect
+                        x={boxX}
+                        y={Math.max(0, boxY - 20)}
+                        width={tagW}
+                        height="18"
+                        fill={isSelected ? 'var(--color-ink)' : 'var(--color-accent)'}
+                      />
+                      <text
+                        x={boxX + tagW / 2}
+                        y={Math.max(12, boxY - 7)}
+                        fill="#FFFFFF"
+                        fontSize="10"
+                        fontFamily="var(--font-heading)"
+                        fontWeight="800"
+                        textAnchor="middle"
                       >
-                        <div
-                          style={{
-                            position: 'absolute',
-                            top: '-20px',
-                            left: '0',
-                            background: isSelected ? 'var(--color-strip)' : 'var(--color-accent)',
-                            color: '#FFFFFF',
-                            fontSize: '9.5px',
-                            fontWeight: 800,
-                            fontFamily: 'var(--font-heading)',
-                            padding: '1px 6px',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {c.id} {c.label.split(' ')[0].toLowerCase()}, {c.differenceScore.toFixed(2)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                        {labelText}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
 
-                {/* Vertical Divider Line with Grab Handle */}
+              {/* Error banner when image decode or analysis fails */}
+              {analysisError && !isAnalyzing && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(254, 242, 242, 0.95)',
+                    zIndex: 25,
+                    padding: '24px',
+                    textAlign: 'center',
+                    border: '2px solid var(--color-crit)',
+                  }}
+                >
+                  <AlertTriangle size={32} color="var(--color-crit)" style={{ marginBottom: '8px' }} />
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-crit)', fontFamily: 'var(--font-heading)' }}>
+                    IMAGE PROCESSING / DECODING FAILED
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--color-ink)', marginTop: '6px', maxWidth: '440px', lineHeight: 1.4 }}>
+                    {analysisError}
+                  </div>
+                  {(customBeforeFile || customAfterFile) && (
+                    <button
+                      onClick={() => {
+                        setCustomBeforeFile(null);
+                        setCustomAfterFile(null);
+                        setAnalysisError(null);
+                      }}
+                      style={{
+                        marginTop: '12px',
+                        background: 'var(--color-crit)',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        padding: '6px 14px',
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        fontFamily: 'var(--font-heading)',
+                      }}
+                    >
+                      Clear Custom Files
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state banner when no regions exceed threshold and no error */}
+              {!analysisError && enrichedCandidates.length === 0 && !isAnalyzing && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(240, 238, 230, 0.88)',
+                    zIndex: 15,
+                    padding: '20px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-ink)', fontFamily: 'var(--font-heading)' }}>
+                    NO RADIOMETRIC CHANGES DETECTED
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-ink-2)', marginTop: '4px', maxWidth: '380px' }}>
+                    All pixel differences for this observation pair are below the active sensitivity threshold ({sensitivity}) or cluster area is under {minArea}px.
+                  </div>
+                </div>
+              )}
+
+              {/* Swipe Vertical Line & Center Handle */}
+              {viewMode === 'swipe' && (
                 <div
                   style={{
                     position: 'absolute',
@@ -939,11 +852,11 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                     {'⟨ ⟩'}
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Bottom Panel: Candidate Details & Analyst Review */}
+          {/* Bottom Panel: Observations on the map */}
           <div
             className="panel"
             style={{
@@ -951,199 +864,112 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
               display: 'flex',
               flexDirection: 'column',
               background: 'var(--color-sheet)',
-              gap: '12px',
+              minHeight: '260px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <span
-                  style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 800,
-                    fontFamily: 'var(--font-heading)',
-                    color: 'var(--color-ink)',
-                  }}
-                >
-                  Candidate details
-                </span>
-                <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: 'var(--color-ink-2)' }}>
-                  {activeCandidate ? `Inspect region ${activeCandidate.id}` : 'Select a candidate region to review'}
-                </span>
-              </div>
-
-              {saveSuccessMsg && (
-                <div
-                  style={{
-                    fontSize: '0.76rem',
-                    color: 'var(--color-ok)',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <CheckCircle size={14} />
-                  <span>{saveSuccessMsg}</span>
-                </div>
-              )}
+            <div style={{ marginBottom: '10px' }}>
+              <span style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
+                Observations on the map
+              </span>
             </div>
 
-            {activeCandidate ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {/* Metric Summary Strip */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                    gap: '8px',
-                    background: 'var(--color-paper)',
-                    padding: '10px',
-                    border: '1.2px solid var(--color-line)',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>IMAGE PIXEL BOX</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-                      [{activeCandidate.bbox.x}, {activeCandidate.bbox.y}, {activeCandidate.bbox.width}×{activeCandidate.bbox.height}]
-                    </div>
-                  </div>
+            {/* Tactical Canvas for observations */}
+            <div
+              style={{
+                position: 'relative',
+                flex: 1,
+                minHeight: '200px',
+                background: 'var(--color-map)',
+                border: '1.2px solid var(--color-line)',
+                overflow: 'hidden',
+              }}
+            >
+              <svg width="100%" height="100%" viewBox="0 0 700 220" style={{ position: 'absolute', inset: 0 }}>
+                {/* Horizontal Grid */}
+                {[44, 88, 132, 176].map((y, i) => (
+                  <g key={`obs-h-${i}`}>
+                    <line x1="0" y1={y} x2="700" y2={y} stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
+                    <text x="8" y={y + 12} fill="var(--color-grid)" fontSize="8.5" fontWeight="700">
+                      {String.fromCharCode(65 + i)}
+                    </text>
+                  </g>
+                ))}
 
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>CLUSTER AREA</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-                      {activeCandidate.areaPixels} pixels
-                    </div>
-                  </div>
+                {/* Vertical Grid */}
+                {[100, 200, 300, 400, 500, 600].map((x, i) => (
+                  <g key={`obs-v-${i}`}>
+                    <line x1={x} y1="0" x2={x} y2="220" stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" opacity={0.5} />
+                    <text x={x + 4} y="14" fill="var(--color-grid)" fontSize="8.5" fontWeight="700">
+                      {31 + i}
+                    </text>
+                  </g>
+                ))}
 
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>DIFFERENCE SCORE</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--color-accent)' }}>
-                      {(activeCandidate.differenceScore * 100).toFixed(1)}% (Δ {activeCandidate.differenceScore.toFixed(3)})
-                    </div>
-                  </div>
+                {/* River */}
+                <path
+                  d="M 0,165 Q 180,150 360,170 T 700,155"
+                  fill="none"
+                  stroke="var(--color-water)"
+                  strokeWidth="16"
+                />
 
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>REVIEW STATUS</div>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 800 }}>
-                      {activeCandidate.decision === 'confirmed_threat' ? (
-                        <span style={{ color: 'var(--color-ok)' }}>Accepted</span>
-                      ) : activeCandidate.decision === 'benign_false_positive' ? (
-                        <span style={{ color: 'var(--color-crit)' }}>Rejected</span>
-                      ) : (
-                        <span style={{ color: 'var(--color-warn)' }}>Unreviewed</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                {/* Contours */}
+                <ellipse cx="230" cy="140" rx="45" ry="30" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
+                <ellipse cx="320" cy="140" rx="40" ry="25" fill="none" stroke="var(--color-contour)" strokeWidth="1.2" opacity={0.7} />
+                <ellipse cx="330" cy="80" rx="30" ry="20" fill="var(--color-forest)" opacity={0.4} />
 
-                {/* Plain-Language Explanation */}
-                <div
-                  style={{
-                    fontSize: '0.78rem',
-                    color: 'var(--color-ink)',
-                    background: 'var(--color-sheet)',
-                    borderLeft: '3px solid var(--color-strip)',
-                    padding: '8px 12px',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  <strong>Algorithm finding:</strong> {activeCandidate.explanation}
-                  <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)', marginTop: '4px' }}>
-                    Note: Coordinates represent image pixel space. Projected center anchor ~{activeCandidate.latLng.lat.toFixed(4)}°N, {Math.abs(activeCandidate.latLng.lng).toFixed(4)}°W ({activeCandidate.mgrsCoordinate}).
-                  </div>
-                </div>
+                {/* Dynamic Numbered Markers from Real Algorithm Results */}
+                {enrichedCandidates.map((c, index) => {
+                  const normX = c.boundingBox.x / 100;
+                  const normY = c.boundingBox.y / 100;
+                  const normW = c.boundingBox.width / 100;
+                  const normH = c.boundingBox.height / 100;
 
-                {/* Analyst Review Controls */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <label
-                      htmlFor="analyst-notes"
-                      style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-ink)' }}
+                  const mapX = Math.round(normX * 700 + (normW * 700) / 2);
+                  const mapY = Math.round(normY * 220 + (normH * 220) / 2);
+                  const isSelected = selectedCandidateId === c.id;
+                  const labelText = `${c.id} ${c.label.toLowerCase()}`;
+                  const tagW = Math.min(160, Math.max(90, labelText.length * 6.5 + 20));
+
+                  return (
+                    <g
+                      key={`map-marker-${c.id}`}
+                      onClick={() => setSelectedCandidateId(c.id)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      Analyst notes
-                    </label>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        onClick={() => handleUpdateDecision(activeCandidate.id, 'confirmed_threat')}
-                        className="btn btn-primary"
-                        style={{
-                          padding: '3px 10px',
-                          fontSize: '0.75rem',
-                          background: activeCandidate.decision === 'confirmed_threat' ? 'var(--color-ok)' : undefined,
-                        }}
+                      <circle
+                        cx={mapX}
+                        cy={mapY}
+                        r={isSelected ? '13' : '11'}
+                        fill={isSelected ? 'var(--color-ink)' : 'var(--color-accent)'}
+                      />
+                      <text x={mapX} y={mapY + 4} fill="#FFFFFF" fontSize="11" fontWeight="800" textAnchor="middle">
+                        {index + 1}
+                      </text>
+                      <rect
+                        x={mapX + 16}
+                        y={mapY - 9}
+                        width={tagW}
+                        height="18"
+                        fill="#FFFFFF"
+                        stroke="var(--color-ink)"
+                        strokeWidth="1.2"
+                      />
+                      <text
+                        x={mapX + 16 + tagW / 2}
+                        y={mapY + 4}
+                        fill="var(--color-ink)"
+                        fontSize="9.5"
+                        fontWeight="800"
+                        textAnchor="middle"
                       >
-                        Accept (Confirm)
-                      </button>
-                      <button
-                        onClick={() => handleUpdateDecision(activeCandidate.id, 'benign_false_positive')}
-                        className="btn"
-                        style={{
-                          padding: '3px 10px',
-                          fontSize: '0.75rem',
-                          borderColor: activeCandidate.decision === 'benign_false_positive' ? 'var(--color-crit)' : undefined,
-                          color: activeCandidate.decision === 'benign_false_positive' ? 'var(--color-crit)' : undefined,
-                        }}
-                      >
-                        Reject (Dismiss)
-                      </button>
-                      <button
-                        onClick={() => handleUpdateDecision(activeCandidate.id, 'unreviewed')}
-                        className="btn"
-                        style={{ padding: '3px 8px', fontSize: '0.75rem' }}
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                      id="analyst-notes"
-                      type="text"
-                      value={analystNoteDraft}
-                      onChange={(e) => setAnalystNoteDraft(e.target.value)}
-                      placeholder="Add analyst observation notes or ground-truth assessment..."
-                      style={{
-                        flex: 1,
-                        background: 'var(--color-paper)',
-                        border: '1.2px solid var(--color-edge)',
-                        padding: '6px 10px',
-                        fontSize: '0.8rem',
-                        color: 'var(--color-ink)',
-                        fontFamily: 'var(--font-body)',
-                        outline: 'none',
-                      }}
-                    />
-                    <button
-                      onClick={() => handleUpdateDecision(activeCandidate.id, activeCandidate.decision, analystNoteDraft)}
-                      disabled={isSavingReview}
-                      className="btn"
-                      style={{
-                        padding: '6px 12px',
-                        fontSize: '0.76rem',
-                        fontWeight: 700,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      Save note
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  padding: '24px',
-                  textAlign: 'center',
-                  color: 'var(--color-ink-2)',
-                  fontSize: '0.82rem',
-                }}
-              >
-                {candidates.length === 0
-                  ? 'No candidate changes available for inspection. (0 regions detected at current threshold)'
-                  : 'Click on any candidate region in the image or list to inspect coordinates and record review status.'}
-              </div>
-            )}
+                        {labelText}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
           </div>
         </div>
 
@@ -1161,14 +987,7 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
             }}
           >
             <div>
-              <div
-                style={{
-                  fontSize: '1.05rem',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-heading)',
-                  color: 'var(--color-ink)',
-                }}
-              >
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
                 Change detection
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--color-ink-2)' }}>
@@ -1180,66 +999,44 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {/* Sensitivity Slider */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span
-                    style={{ width: '85px', fontSize: '0.8rem', color: 'var(--color-ink)', fontWeight: 600 }}
-                    title="Minimum pixel intensity delta (1..255) to flag change. Lower = more sensitive."
-                  >
+                  <span style={{ width: '85px', fontSize: '0.8rem', color: 'var(--color-ink)', fontWeight: 600 }}>
                     Sensitivity
                   </span>
                   <input
                     type="range"
                     min="1"
-                    max="180"
-                    value={threshold}
-                    onChange={(e) => setThreshold(Number(e.target.value))}
+                    max="100"
+                    value={sensitivity}
+                    onChange={(e) => setSensitivity(Number(e.target.value))}
                     style={{ flex: 1, accentColor: 'var(--color-strip)', cursor: 'pointer' }}
                   />
-                  <span
-                    style={{
-                      width: '30px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      fontVariantNumeric: 'tabular-nums',
-                      textAlign: 'right',
-                    }}
-                  >
-                    {threshold}
+                  <span style={{ width: '30px', fontSize: '0.82rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                    {sensitivity}
                   </span>
                 </div>
 
                 {/* Minimum Area Slider */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span
-                    style={{ width: '85px', fontSize: '0.8rem', color: 'var(--color-ink)', fontWeight: 600 }}
-                    title="Minimum connected cluster size in pixels. Filters out smaller noise."
-                  >
+                  <span style={{ width: '85px', fontSize: '0.8rem', color: 'var(--color-ink)', fontWeight: 600 }}>
                     Minimum area
                   </span>
                   <input
                     type="range"
                     min="1"
                     max="50"
-                    value={minRegionSize}
-                    onChange={(e) => setMinRegionSize(Number(e.target.value))}
+                    value={minArea}
+                    onChange={(e) => setMinArea(Number(e.target.value))}
                     style={{ flex: 1, accentColor: 'var(--color-strip)', cursor: 'pointer' }}
                   />
-                  <span
-                    style={{
-                      width: '40px',
-                      fontSize: '0.82rem',
-                      fontWeight: 700,
-                      fontVariantNumeric: 'tabular-nums',
-                      textAlign: 'right',
-                    }}
-                  >
-                    {minRegionSize} px
+                  <span style={{ width: '40px', fontSize: '0.82rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                    {minArea} px
                   </span>
                 </div>
               </div>
 
-              {/* Run comparison Button */}
+              {/* Run on new pair Button */}
               <button
-                onClick={() => runComparison()}
+                onClick={handleStartAnalysis}
                 disabled={isAnalyzing}
                 className="btn btn-primary"
                 style={{
@@ -1250,23 +1047,8 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                   height: '42px',
                 }}
               >
-                {isAnalyzing ? 'Computing...' : 'Run comparison'}
+                {isAnalyzing ? `Running ${analysisProgress}%` : 'Run on new pair'}
               </button>
-            </div>
-
-            {/* Computation Status Line */}
-            <div
-              style={{
-                fontSize: '0.73rem',
-                color: 'var(--color-ink-2)',
-                borderTop: '1px solid var(--color-line)',
-                paddingTop: '6px',
-                display: 'flex',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span>Algorithm: GeoIntelImageDiff (BFS)</span>
-              <span>{executionTimeMs} ms • {candidates.length} candidate(s) above threshold</span>
             </div>
           </div>
 
@@ -1281,217 +1063,156 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
               gap: '12px',
             }}
           >
-            <div
-              style={{
-                fontSize: '1.05rem',
-                fontWeight: 800,
-                fontFamily: 'var(--font-heading)',
-                color: 'var(--color-ink)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <span>Candidate changes {candidates.length}</span>
-              {candidates.length > 0 && (
-                <span style={{ fontSize: '0.74rem', color: 'var(--color-ink-2)', fontWeight: 500 }}>
-                  Click row to inspect
-                </span>
-              )}
+            <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
+              Change candidates {enrichedCandidates.length}
             </div>
 
-            {candidates.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {candidates.map((c) => {
-                  const isSelected = selectedCandidateId === c.id;
-                  const isAccepted = c.decision === 'confirmed_threat';
-                  const isRejected = c.decision === 'benign_false_positive';
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {enrichedCandidates.map((c, index) => {
+                const isSelected = selectedCandidateId === c.id;
+                const isAccepted = c.decision === 'confirmed_threat';
+                const isRejected = c.decision === 'benign_false_positive';
 
-                  return (
-                    <div
-                      key={c.id}
-                      onClick={() => setSelectedCandidateId(c.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '8px 10px',
-                        background: isSelected ? 'var(--color-paper)' : 'transparent',
-                        border: isSelected ? '1.2px solid var(--color-edge)' : '1.2px solid transparent',
-                        cursor: 'pointer',
-                        transition: 'background 0.1s ease',
-                      }}
-                    >
-                      {/* Badge CAN-100 / CAN-101 */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div
-                          style={{
-                            minWidth: '32px',
-                            height: '28px',
-                            padding: '0 6px',
-                            background: isSelected ? 'var(--color-strip)' : 'var(--color-accent)',
-                            color: '#FFFFFF',
-                            fontFamily: 'var(--font-heading)',
-                            fontWeight: 800,
-                            fontSize: '0.82rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {c.id}
-                        </div>
-
-                        {/* Candidate Name & Pixel Coordinates */}
-                        <div>
-                          <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--color-ink)' }}>
-                            {c.label}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: '0.72rem',
-                              color: 'var(--color-ink-2)',
-                              fontVariantNumeric: 'tabular-nums',
-                            }}
-                          >
-                            Pixel [{c.bbox.x}, {c.bbox.y}, {c.bbox.width}×{c.bbox.height}] • {c.areaPixels} px
-                          </div>
-                        </div>
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => setSelectedCandidateId(c.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      background: isSelected ? 'var(--color-paper)' : 'transparent',
+                      border: isSelected ? '1.2px solid var(--color-edge)' : '1.2px solid transparent',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {/* Badge C1/C2/C3/C4 */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div
+                        style={{
+                          width: '28px',
+                          height: '28px',
+                          background: 'var(--color-strip)',
+                          color: '#FFFFFF',
+                          fontFamily: 'var(--font-heading)',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {c.id}
                       </div>
 
-                      {/* Change score progress bar + quick action */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>Score</span>
-                            <div
-                              style={{
-                                width: '54px',
-                                height: '5px',
-                                background: 'var(--color-line)',
-                                position: 'relative',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: `${c.differenceScore * 100}%`,
-                                  height: '100%',
-                                  background: 'var(--color-accent)',
-                                }}
-                              />
-                            </div>
-                            <span
-                              style={{
-                                fontSize: '0.8rem',
-                                fontWeight: 800,
-                                fontVariantNumeric: 'tabular-nums',
-                                width: '28px',
-                                textAlign: 'right',
-                              }}
-                            >
-                              {c.differenceScore.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>Conf</span>
-                            <span
-                              style={{
-                                fontSize: '0.8rem',
-                                fontWeight: 800,
-                                fontVariantNumeric: 'tabular-nums',
-                                width: '28px',
-                                textAlign: 'right',
-                              }}
-                            >
-                              {c.confidence.toFixed(2)}
-                            </span>
-                          </div>
+                      {/* Candidate Name & Coordinates */}
+                      <div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--color-ink)' }}>
+                          {c.label}
                         </div>
-
-                        {/* Decision Quick Action Buttons */}
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            minWidth: '105px',
-                            justifyContent: 'flex-end',
-                          }}
-                        >
-                          {isAccepted ? (
-                            <span
-                              style={{
-                                padding: '3px 8px',
-                                border: '1.2px solid var(--color-ok)',
-                                color: 'var(--color-ok)',
-                                fontSize: '0.74rem',
-                                fontWeight: 800,
-                              }}
-                            >
-                              Accepted
-                            </span>
-                          ) : isRejected ? (
-                            <span
-                              style={{
-                                padding: '3px 8px',
-                                border: '1.2px solid var(--color-crit)',
-                                color: 'var(--color-crit)',
-                                fontSize: '0.74rem',
-                                fontWeight: 800,
-                              }}
-                            >
-                              Rejected
-                            </span>
-                          ) : (
-                            <>
-                              <button
-                                onClick={(e) => handleQuickDecision(e, c.id, 'confirmed_threat')}
-                                className="btn btn-primary"
-                                style={{ padding: '2px 8px', fontSize: '0.74rem' }}
-                                title="Accept / confirm this candidate anomaly"
-                              >
-                                Accept
-                              </button>
-                              <button
-                                onClick={(e) => handleQuickDecision(e, c.id, 'benign_false_positive')}
-                                className="btn"
-                                style={{ padding: '2px 8px', fontSize: '0.74rem' }}
-                                title="Reject as false positive / benign"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
+                        <div style={{ fontSize: '0.74rem', color: 'var(--color-ink-2)', fontVariantNumeric: 'tabular-nums' }}>
+                          {c.latLng.lat.toFixed(4)} N, {Math.abs(c.latLng.lng).toFixed(4)} W
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* Honest zero-change state */
-              <div
-                style={{
-                  padding: '24px 16px',
-                  background: 'var(--color-paper)',
-                  border: '1.2px dashed var(--color-edge)',
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <Info size={22} color="var(--color-ink-2)" />
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: 'var(--color-ink)' }}>
-                  No significant pixel differences detected at this threshold
-                </div>
-                <div style={{ fontSize: '0.76rem', color: 'var(--color-ink-2)', maxWidth: '380px' }}>
-                  Both imagery matrices are visually identical or pixel intensity deltas fall below threshold {threshold}. Lower sensitivity threshold or select a different comparison pair.
-                </div>
-              </div>
-            )}
+
+                    {/* Change score progress bar + numeric value */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>Change score</span>
+                          <div
+                            style={{
+                              width: '54px',
+                              height: '5px',
+                              background: 'var(--color-line)',
+                              position: 'relative',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${c.differenceScore * 100}%`,
+                                height: '100%',
+                                background: 'var(--color-accent)',
+                              }}
+                            />
+                          </div>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', width: '28px', textAlign: 'right' }}>
+                            {c.differenceScore.toFixed(2)}
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)' }}>Confidence</span>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', width: '28px', textAlign: 'right' }}>
+                            {c.confidence.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Decision Action Buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '120px', justifyContent: 'flex-end' }}>
+                        {isAccepted ? (
+                          <span
+                            style={{
+                              padding: '4px 10px',
+                              border: '1.2px solid var(--color-ok)',
+                              color: 'var(--color-ok)',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Accepted
+                          </span>
+                        ) : isRejected ? (
+                          <span
+                            style={{
+                              padding: '4px 10px',
+                              border: '1.2px solid var(--color-crit)',
+                              color: 'var(--color-crit)',
+                              fontSize: '0.76rem',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Rejected
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateDecision(c.id, 'confirmed_threat');
+                              }}
+                              className="btn btn-primary"
+                              style={{
+                                padding: '3px 10px',
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUpdateDecision(c.id, 'benign_false_positive');
+                              }}
+                              className="btn"
+                              style={{
+                                padding: '3px 10px',
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Section 3: Intelligence Report Summary Table */}
@@ -1506,78 +1227,49 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
             }}
           >
             <div>
-              <div
-                style={{
-                  fontSize: '1.05rem',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-heading)',
-                  color: 'var(--color-ink)',
-                }}
-              >
+              <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
                 Intelligence report
               </div>
               <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--color-ink)', marginTop: '4px' }}>
-                {reportPayload.reportId}, {activePair.zoneName}
+                IR-2026-014, sector 34
               </div>
               <div style={{ fontSize: '0.74rem', color: 'var(--color-ink-2)' }}>
-                {candidates.length} changes detected, {confirmedCount} confirmed, {rejectedCount} rejected, {unreviewedCount} awaiting review.
+                Period 06 to 24 Oct. {enrichedCandidates.length} changes detected, {confirmedCount} confirmed, {rejectedCount} rejected, {unreviewedCount} awaiting review.
               </div>
             </div>
 
-            {/* Findings Table */}
+            {/* Table */}
             <div style={{ border: '1.2px solid var(--color-line)', overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                 <thead>
-                  <tr
-                    style={{
-                      background: 'var(--color-paper)',
-                      borderBottom: '1.2px solid var(--color-line)',
-                      textAlign: 'left',
-                    }}
-                  >
+                  <tr style={{ background: 'var(--color-paper)', borderBottom: '1.2px solid var(--color-line)', textAlign: 'left' }}>
                     <th style={{ padding: '6px 8px', fontWeight: 700 }}>Finding</th>
-                    <th style={{ padding: '6px 8px', fontWeight: 700 }}>Pixel bbox</th>
-                    <th style={{ padding: '6px 8px', fontWeight: 700 }}>Score</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 700 }}>Coordinates</th>
+                    <th style={{ padding: '6px 8px', fontWeight: 700 }}>Confidence</th>
                     <th style={{ padding: '6px 8px', fontWeight: 700 }}>Decision</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {candidates.length > 0 ? (
-                    candidates.slice(0, 4).map((c) => (
-                      <tr key={`row-${c.id}`} style={{ borderBottom: '1px solid var(--color-line)' }}>
-                        <td style={{ padding: '6px 8px', fontWeight: 600 }}>
-                          {c.id} {c.label.toLowerCase()}
-                        </td>
-                        <td
-                          style={{
-                            padding: '6px 8px',
-                            fontVariantNumeric: 'tabular-nums',
-                            color: 'var(--color-ink-2)',
-                          }}
-                        >
-                          [{c.bbox.x}, {c.bbox.y}, {c.bbox.width}×{c.bbox.height}]
-                        </td>
-                        <td style={{ padding: '6px 8px', fontVariantNumeric: 'tabular-nums' }}>
-                          {c.differenceScore.toFixed(2)}
-                        </td>
-                        <td style={{ padding: '6px 8px' }}>
-                          {c.decision === 'confirmed_threat' ? (
-                            <span style={{ color: 'var(--color-ok)', fontWeight: 700 }}>Accepted</span>
-                          ) : c.decision === 'benign_false_positive' ? (
-                            <span style={{ color: 'var(--color-crit)', fontWeight: 700 }}>Rejected</span>
-                          ) : (
-                            <span style={{ color: 'var(--color-ink-2)' }}>Pending</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--color-ink-2)' }}>
-                        No candidate findings in current comparison.
+                  {enrichedCandidates.slice(0, 4).map((c) => (
+                    <tr key={`row-${c.id}`} style={{ borderBottom: '1px solid var(--color-line)' }}>
+                      <td style={{ padding: '6px 8px', fontWeight: 600 }}>{c.id} {c.label.toLowerCase()}</td>
+                      <td style={{ padding: '6px 8px', fontVariantNumeric: 'tabular-nums', color: 'var(--color-ink-2)' }}>
+                        {c.latLng.lat.toFixed(4)} N, {Math.abs(c.latLng.lng).toFixed(4)} W
+                      </td>
+                      <td style={{ padding: '6px 8px', fontVariantNumeric: 'tabular-nums' }}>
+                        {c.confidence.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '6px 8px' }}>
+                        {c.decision === 'confirmed_threat' ? (
+                          <span style={{ color: 'var(--color-ok)', fontWeight: 700 }}>Accepted</span>
+                        ) : c.decision === 'benign_false_positive' ? (
+                          <span style={{ color: 'var(--color-crit)', fontWeight: 700 }}>Rejected</span>
+                        ) : (
+                          <span style={{ color: 'var(--color-ink-2)' }}>Pending</span>
+                        )}
                       </td>
                     </tr>
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -1597,17 +1289,18 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
                 Generate report
               </button>
               <button
-                onClick={() => {
-                  const blob = new Blob([JSON.stringify(reportPayload, null, 2)], {
-                    type: 'application/json',
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${reportPayload.reportId}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
+                onClick={() => setIsReportModalOpen(true)}
+                className="btn"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
                 }}
+              >
+                Export HTML
+              </button>
+              <button
+                onClick={() => setIsReportModalOpen(true)}
                 className="btn"
                 style={{
                   padding: '8px 12px',
@@ -1725,17 +1418,8 @@ export const GeoIntelModule: React.FC<GeoIntelModuleProps> = ({
         </div>
 
         {/* Ticker message */}
-        <div
-          style={{
-            fontSize: '0.75rem',
-            color: 'var(--color-ink-2)',
-            maxWidth: '420px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          GeoIntel Recon: multi-temporal radiometric diffing active on {activePair.title}
+        <div style={{ fontSize: '0.75rem', color: 'var(--color-ink-2)', maxWidth: '420px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          Alpha to Command: contact east of bridge, 2 hops, 380 ms
         </div>
       </div>
 

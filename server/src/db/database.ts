@@ -168,6 +168,10 @@ export class Database {
     this.persist();
   }
 
+  public getStorageMode(): 'file' | 'memory' {
+    return this.isMemoryMode ? 'memory' : 'file';
+  }
+
   public getRawState(): Readonly<DatabaseState> {
     return this.state;
   }

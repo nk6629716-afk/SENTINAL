@@ -6,6 +6,7 @@ import {
   RoadHazardEdge,
   EvacuationNode,
   CalculatedRoute,
+  SharedMapMarker,
 } from '@shared/types';
 import {
   Maximize2,
@@ -24,6 +25,7 @@ export interface TacticalMapProps {
   zones?: RestrictedAirspaceZone[];
   nodes?: EvacuationNode[];
   edges?: RoadHazardEdge[];
+  markers?: SharedMapMarker[];
   activeRoute?: CalculatedRoute | null;
   selectedEntityId?: string | null;
   onSelectEntity?: (entity: { type: string; id: string; raw: any }) => void;
@@ -48,12 +50,154 @@ function boxesIntersect(a: BoundingBox2D, b: BoundingBox2D): boolean {
   return !(a.x2 < b.x1 || a.x1 > b.x2 || a.y2 < b.y1 || a.y1 > b.y2);
 }
 
+interface StaticRadarScopeBezelProps {
+  centerPt: { x: number; y: number };
+  scopeRadius: number;
+  radarMode: 'ppi' | 'flir' | 'topo';
+  showTerrain: boolean;
+  showRangeRings: boolean;
+}
+
+const StaticRadarScopeBezel = React.memo<StaticRadarScopeBezelProps>(({
+  centerPt,
+  scopeRadius,
+  radarMode,
+  showTerrain,
+  showRangeRings,
+}) => {
+  return (
+    <>
+      {/* Scope Outer Housing Bezel & Instrument Rim */}
+      <g pointerEvents="none">
+        <rect width="1000" height="680" fill="url(#radar-drafting-grid)" />
+        <circle
+          cx={centerPt.x}
+          cy={centerPt.y}
+          r={scopeRadius + 14}
+          fill="#090E17"
+          stroke="rgba(56, 189, 248, 0.3)"
+          strokeWidth="3"
+        />
+        {Array.from({ length: 72 }).map((_, i) => {
+          const deg = i * 5;
+          const isMajor = deg % 30 === 0;
+          const isMedium = deg % 10 === 0 && !isMajor;
+          const rad = (deg * Math.PI) / 180;
+          const rInner = scopeRadius + (isMajor ? 4 : isMedium ? 8 : 10);
+          const rOuter = scopeRadius + 14;
+          const x1 = centerPt.x + Math.sin(rad) * rInner;
+          const y1 = centerPt.y - Math.cos(rad) * rInner;
+          const x2 = centerPt.x + Math.sin(rad) * rOuter;
+          const y2 = centerPt.y - Math.cos(rad) * rOuter;
+          return (
+            <line
+              key={`tick-${deg}`}
+              x1={x1}
+              y1={y1}
+              x2={x2}
+              y2={y2}
+              stroke={isMajor ? '#00F2FE' : isMedium ? 'rgba(0, 242, 254, 0.7)' : 'rgba(0, 242, 254, 0.3)'}
+              strokeWidth={isMajor ? 1.5 : 0.8}
+            />
+          );
+        })}
+        {Array.from({ length: 12 }).map((_, i) => {
+          const deg = i * 30;
+          const rad = (deg * Math.PI) / 180;
+          const labelR = scopeRadius + 26;
+          const x = centerPt.x + Math.sin(rad) * labelR;
+          const y = centerPt.y - Math.cos(rad) * labelR + 3.5;
+          let label = `${deg.toString().padStart(3, '0')}°`;
+          let isCardinal = false;
+          let color = '#94A3B8';
+          if (deg === 0) { label = 'N 000°'; isCardinal = true; color = '#00F2FE'; }
+          else if (deg === 90) { label = 'E 090°'; isCardinal = true; color = '#00F2FE'; }
+          else if (deg === 180) { label = 'S 180°'; isCardinal = true; color = '#00F2FE'; }
+          else if (deg === 270) { label = 'W 270°'; isCardinal = true; color = '#00F2FE'; }
+          return (
+            <text
+              key={`az-deg-${deg}`}
+              x={x}
+              y={y}
+              fill={color}
+              fontSize={isCardinal ? '10' : '8'}
+              fontFamily="var(--font-mono)"
+              fontWeight={isCardinal ? '800' : '600'}
+              textAnchor="middle"
+            >
+              {label}
+            </text>
+          );
+        })}
+      </g>
+      <circle
+        cx={centerPt.x}
+        cy={centerPt.y}
+        r={scopeRadius}
+        fill={radarMode === 'flir' ? 'url(#flir-gradient)' : 'url(#crt-glass-gradient)'}
+      />
+      <rect
+        x={centerPt.x - scopeRadius}
+        y={centerPt.y - scopeRadius}
+        width={scopeRadius * 2}
+        height={scopeRadius * 2}
+        fill="url(#radar-scanlines)"
+        pointerEvents="none"
+      />
+      {showTerrain && (
+        <g opacity={radarMode === 'flir' ? 0.25 : 0.16} pointerEvents="none">
+          <path d="M 160,420 Q 320,360 480,380 T 680,320 T 840,300 T 960,330" fill="none" stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'} strokeWidth="1.2" strokeDasharray="6,4" />
+          <path d="M 120,500 Q 300,450 510,480 T 740,420 T 920,460" fill="none" stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'} strokeWidth="1" strokeDasharray="4,6" />
+          <path d="M 280,200 Q 440,150 620,180 T 840,160" fill="none" stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'} strokeWidth="0.8" strokeDasharray="3,5" />
+        </g>
+      )}
+      {showRangeRings && (
+        <g pointerEvents="none">
+          {[0.25, 0.5, 0.75, 1.0].map((ratio, idx) => {
+            const r = scopeRadius * ratio;
+            const km = (idx + 1) * 5;
+            const nm = ((idx + 1) * 2.7).toFixed(1);
+            return (
+              <g key={`ring-${idx}`}>
+                <circle cx={centerPt.x} cy={centerPt.y} r={r} fill="none" stroke={radarMode === 'flir' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(0, 242, 254, 0.22)'} strokeWidth={ratio === 1.0 ? '1.5' : '1'} strokeDasharray={ratio === 1.0 ? undefined : '4,6'} />
+                <text x={centerPt.x + r + 5} y={centerPt.y - 4} fill={radarMode === 'flir' ? '#FCA5A5' : '#7DD3FC'} fontSize="8.5" fontFamily="var(--font-mono)" fontWeight="700">
+                  {km}KM / {nm}NM
+                </text>
+                <text x={centerPt.x - r - 5} y={centerPt.y - 4} fill={radarMode === 'flir' ? '#FCA5A5' : '#7DD3FC'} fontSize="8.5" fontFamily="var(--font-mono)" fontWeight="700" textAnchor="end">
+                  {km}KM
+                </text>
+              </g>
+            );
+          })}
+          <line x1={centerPt.x - scopeRadius} y1={centerPt.y} x2={centerPt.x + scopeRadius} y2={centerPt.y} stroke={radarMode === 'flir' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 242, 254, 0.28)'} strokeWidth="1" />
+          <line x1={centerPt.x} y1={centerPt.y - scopeRadius} x2={centerPt.x} y2={centerPt.y + scopeRadius} stroke={radarMode === 'flir' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 242, 254, 0.28)'} strokeWidth="1" />
+          {[-220, -165, -110, -55, 55, 110, 165, 220].map((offset) => (
+            <g key={`mil-${offset}`}>
+              <line x1={centerPt.x + offset} y1={centerPt.y - 3} x2={centerPt.x + offset} y2={centerPt.y + 3} stroke="rgba(0, 242, 254, 0.5)" strokeWidth="1" />
+              <line x1={centerPt.x - 3} y1={centerPt.y + offset} x2={centerPt.x + 3} y2={centerPt.y + offset} stroke="rgba(0, 242, 254, 0.5)" strokeWidth="1" />
+            </g>
+          ))}
+          {Array.from({ length: 12 }).map((_, i) => {
+            const deg = i * 30;
+            if (deg % 90 === 0) return null;
+            const rad = (deg * Math.PI) / 180;
+            return (
+              <line key={`rad-spoke-${deg}`} x1={centerPt.x} y1={centerPt.y} x2={centerPt.x + Math.sin(rad) * scopeRadius} y2={centerPt.y - Math.cos(rad) * scopeRadius} stroke="rgba(0, 242, 254, 0.12)" strokeWidth="0.8" strokeDasharray="2,6" />
+            );
+          })}
+        </g>
+      )}
+    </>
+  );
+});
+
 export const TacticalMap: React.FC<TacticalMapProps> = ({
   incidents = [],
   tracks = [],
   zones = [],
   nodes = [],
   edges = [],
+  markers = [],
   activeRoute = null,
   selectedEntityId = null,
   onSelectEntity,
@@ -214,6 +358,37 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
   const handleMouseUp = () => setIsDragging(false);
 
+  // Touch Support: One-finger pan & Two-finger pinch zoom
+  const touchStateRef = useRef<{ x: number; y: number; dist?: number }>({ x: 0, y: 0 });
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touchStateRef.current = { x: t.clientX - pan.x, y: t.clientY - pan.y };
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStateRef.current = { x: pan.x, y: pan.y, dist: Math.hypot(dx, dy) };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      setPan({
+        x: t.clientX - touchStateRef.current.x,
+        y: t.clientY - touchStateRef.current.y,
+      });
+    } else if (e.touches.length === 2 && touchStateRef.current.dist) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scaleFactor = dist / touchStateRef.current.dist;
+      touchStateRef.current.dist = dist;
+      setZoom((z) => Math.min(Math.max(Number((z * scaleFactor).toFixed(3)), 0.4), 4.5));
+    }
+  };
+
   const toggleLayer = (layer: keyof typeof activeLayers) => {
     setActiveLayers((prev) => ({ ...prev, [layer]: !prev[layer] }));
   };
@@ -337,11 +512,16 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         userSelect: 'none',
         display: 'flex',
         flexDirection: 'column',
+        transition: 'height 0.25s ease',
+        touchAction: 'none',
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={() => {}}
     >
       {/* 4-Region Map Grid Overlay Layer */}
       <div className="map-overlay-layer">
@@ -1010,6 +1190,21 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                     );
                   })}
 
+                  {/* Trajectory Prediction: 60-second forward projected path as dotted line */}
+                  {track.predictedPath && track.predictedPath.length > 0 && (
+                    <polyline
+                      points={`${pos.x},${pos.y} ` + track.predictedPath.map((p) => {
+                        const pr = project(p.lat, p.lng);
+                        return `${pr.x},${pr.y}`;
+                      }).join(' ')}
+                      fill="none"
+                      stroke={isHostile ? '#EF4444' : '#00F2FE'}
+                      strokeWidth="1.6"
+                      strokeDasharray="4,4"
+                      opacity="0.65"
+                    />
+                  )}
+
                   <g
                     transform={`translate(${pos.x}, ${pos.y})`}
                     style={{ cursor: 'pointer' }}
@@ -1152,6 +1347,43 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               />
             </g>
           )}
+
+          {/* Shared Tactical Map Markers (FieldLink Mesh Sync) */}
+          {(markers || []).map((marker) => {
+            const pos = project(marker.location.lat, marker.location.lng);
+            const isRally = marker.type === 'rally_point';
+            const isContact = marker.type === 'contact';
+            const color = isRally ? '#10B981' : isContact ? '#EF4444' : '#F59E0B';
+
+            return (
+              <g
+                key={marker.id}
+                transform={`translate(${pos.x}, ${pos.y})`}
+                style={{ cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectEntity?.({ type: 'marker', id: marker.id, raw: marker });
+                }}
+              >
+                <title>{`Tactical Marker [${marker.type.toUpperCase()}]: ${marker.label} • Node ${marker.createdByNode}`}</title>
+                <circle r="10" fill="rgba(9, 14, 24, 0.95)" stroke={color} strokeWidth="2" filter="url(#radar-glow-cyan)" />
+                <text y="3.5" fill={color} fontSize="9" fontFamily="var(--font-mono)" fontWeight="800" textAnchor="middle">
+                  {isRally ? '⚑' : isContact ? '✕' : '▲'}
+                </text>
+                <g transform="translate(13, -7)">
+                  <rect x="0" y="0" width="84" height="15" rx="3" fill="rgba(9, 14, 24, 0.9)" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8" />
+                  <text x="42" y="11" fill="#E2E8F0" fontSize="7.5" fontFamily="var(--font-mono)" fontWeight="700" textAnchor="middle">
+                    {marker.label.substring(0, 14)}
+                  </text>
+                </g>
+              </g>
+            );
+          })}
+
+          {/* Central Radar Transmitter Antenna Node */}
+          <circle cx={centerPt.x} cy={centerPt.y} r="3.5" fill="#00F2FE" />
+          <circle cx={centerPt.x} cy={centerPt.y} r="8" fill="none" stroke="#00F2FE" strokeWidth="1.2" opacity="0.75" />
+          <circle cx={centerPt.x} cy={centerPt.y} r="14" fill="none" stroke="#00F2FE" strokeWidth="0.8" strokeDasharray="3,3" opacity="0.45" />
         </g>
       </svg>
     </div>

@@ -191,6 +191,29 @@ export interface TelemetryTrack {
   flightHistory: Waypoint[];
   anomalyFlags?: string[];
   isSimulated: true;
+  // Phase 1 & 3: Threat scoring and trajectory predictions
+  threatScore?: number;
+  threatFactors?: {
+    speedScore: number;
+    altitudeScore: number;
+    headingScore: number;
+    breachScore: number;
+    loiterScore: number;
+    transponderScore: number;
+  };
+  predictedPath?: Waypoint[];
+  predictedCPA?: {
+    distanceMeters: number;
+    timeToCpaSeconds: number;
+    zoneId: string;
+    zoneName: string;
+    willBreach: boolean;
+    timeToBreachSec?: number;
+  };
+  predictionErrorMeters?: number;
+  transponderActive?: boolean;
+  isLoitering?: boolean;
+  isSwarm?: boolean;
 }
 
 export type AnomalyRuleName =
@@ -397,6 +420,29 @@ export interface CasualtyRecord {
   isSimulated: true;
   decisionTreePath?: string[];
   missingDataWarnings?: string[];
+  // Phase 1 & 5: Live drifting vitals and triage history
+  heartRate?: number;
+  spo2?: number;
+  bpSystolic?: number;
+  bpDiastolic?: number;
+  radialPulsePresent?: boolean;
+  severeBleedingControlled?: boolean;
+  vitalsHistory?: {
+    timestamp: string;
+    heartRate: number;
+    respiratoryRate: number;
+    spo2: number;
+    bpSystolic: number;
+    bpDiastolic: number;
+  }[];
+  triageHistory?: {
+    timestamp: string;
+    category: TriageCategory;
+    reason: string;
+    triggerVitals: string;
+  }[];
+  trend?: 'improving' | 'deteriorating' | 'stable';
+  deteriorationRate?: number;
 }
 
 export type Patient = CasualtyRecord;
@@ -561,3 +607,60 @@ export interface RealtimeEvent<T = unknown> {
   payload: T;
   timestamp: string;
 }
+
+// -------------------------------------------------------------
+// MODULE 1 EXTENSION: FIELDLINK DECENTRALIZED MESH & MARKERS
+// -------------------------------------------------------------
+export type MeshNodeId = 'Alpha' | 'Bravo' | 'Command';
+export type MeshMessageState = 'queued' | 'relayed' | 'delivered';
+
+export interface MeshMessage {
+  id: string;
+  senderNode: MeshNodeId;
+  targetNode: MeshNodeId;
+  channel: string; // e.g. '#tactical-alpha', '#recon-bravo', '#command-net'
+  content: string;
+  hopPath: MeshNodeId[];
+  state: MeshMessageState;
+  latencyMs: number;
+  timestamp: string;
+  retryCount: number;
+  isSimulated: true;
+}
+
+export type MapMarkerType = 'rally_point' | 'contact' | 'hazard' | 'checkpoint';
+
+export interface SharedMapMarker {
+  id: string;
+  type: MapMarkerType;
+  label: string;
+  location: GeoLocation;
+  createdByNode: MeshNodeId;
+  createdAt: string;
+  updatedAt: string;
+  isSimulated: true;
+}
+
+export interface SyncLogEntry {
+  id: string;
+  timestamp: string;
+  action: 'ENQUEUE' | 'PACKET_DELIVERED' | 'PACKET_DROP' | 'SYNC_FLUSH' | 'CONFLICT_LWW';
+  sourceNode: MeshNodeId;
+  details: string;
+  status: 'info' | 'warning' | 'success';
+}
+
+
+export interface SimulationMeasurableMetrics {
+  tracksMonitored: number;
+  alertsRaised: number;
+  meanAlertLatencyMs: number;
+  meanPredictionErrorM: number;
+  messagesDelivered: number;
+  messagesDropped: number;
+  reportsSynced: number;
+  casualtiesTriaged: number;
+  routeRecalculations: number;
+  changeDetectionsConfirmed: number;
+}
+

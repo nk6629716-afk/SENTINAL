@@ -28,6 +28,10 @@ export interface CommandHeaderProps {
   onToggleHeaderMinimized?: () => void;
   realtimeStatus?: 'connected' | 'reconnecting' | 'disconnected' | 'stale';
   lastEventTimestamp?: string | null;
+  simSpeed?: number;
+  onSetSimSpeed?: (speed: 1 | 2 | 5) => void;
+  onToggleSimPause?: () => void;
+  isSimPaused?: boolean;
 }
 
 export const CommandHeader: React.FC<CommandHeaderProps> = ({

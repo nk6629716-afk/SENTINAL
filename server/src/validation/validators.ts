@@ -66,7 +66,21 @@ export function validateGeoPoint(point: unknown, fieldName = 'location'): GeoPoi
 // --------------------------------------------------------------------------
 const VALID_SOURCE_MODULES: SourceModule[] = ['fieldlink', 'skywatch', 'geointel', 'mediroute', 'system'];
 const VALID_PRIORITIES: PriorityLevel[] = ['critical', 'high', 'medium', 'low'];
-const VALID_INCIDENT_TYPES: IncidentType[] = ['medical', 'hazard', 'hostile_drone', 'infrastructure', 'recon', 'general'];
+const VALID_INCIDENT_TYPES: IncidentType[] = [
+  'security_breach',
+  'medical_evac',
+  'drone_incursion',
+  'recon_anomaly',
+  'infrastructure_damage',
+  'communication_loss',
+  'road_blockage',
+  'medical',
+  'hazard',
+  'hostile_drone',
+  'infrastructure',
+  'recon',
+  'general',
+];
 const VALID_INCIDENT_STATUSES = ['active', 'in_progress', 'resolved', 'archived'];
 
 export function validateCreateIncident(body: unknown): CreateIncidentInput {
@@ -194,7 +208,10 @@ export function validateSyncBatchRequest(body: unknown): SyncBatchRequest {
   }
   const b = body as Record<string, unknown>;
 
-  if (!Array.isArray(b.items)) {
+  // Canonical schema is { items: [...] }. For backward compatibility, also accept { reports: [...] }
+  const rawList = Array.isArray(b.items) ? b.items : Array.isArray(b.reports) ? b.reports : null;
+
+  if (!rawList) {
     throw new ValidationError('Sync request must contain an "items" array', [
       { field: 'items', message: 'Expected an array of sync items' },
     ]);
@@ -202,7 +219,7 @@ export function validateSyncBatchRequest(body: unknown): SyncBatchRequest {
 
   return {
     batchId: typeof b.batchId === 'string' ? b.batchId : undefined,
-    items: b.items as any,
+    items: rawList as any,
   };
 }
 

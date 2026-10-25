@@ -9,4 +9,8 @@ test('GET /api/health returns 200 and simulated indicator', async () => {
   assert.strictEqual(res.body.status, 'ok');
   assert.strictEqual(res.body.isSimulated, true);
   assert.ok(typeof res.body.uptimeSeconds === 'number');
+  assert.strictEqual(res.body.storageMode, 'file');
+  assert.strictEqual(typeof res.body.supabaseConfigured, 'boolean');
+  assert.strictEqual(res.body.supabasePersistenceActive, false);
 });
+
