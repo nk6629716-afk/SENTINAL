@@ -59,6 +59,12 @@
   /* Dimensions */
   --header-height: 64px;
   --sidebar-width: 260px;
+  /* Radar & Tactical Map Tokens (Light Mode) */
+  --radar-glow: rgba(43, 84, 126, 0.25);
+  --radar-sweep: rgba(43, 84, 126, 0.12);
+  --radar-grid: rgba(43, 84, 126, 0.18);
+  --radar-beam: #2B547E;
+  --radar-ring: rgba(43, 84, 126, 0.22);
 }
 
 /* 2. Dark Theme Tokens (Genuine Tactical Dark - No blinding white highlights) */
@@ -70,7 +76,7 @@
   --surface-inset: #13161A;
   --surface-card: #20262D;
   --surface-highlight: rgba(255, 255, 255, 0.05);
-  --map-canvas: #15191E;
+  --map-canvas: #0A0E14;
 
   /* Typography */
   --text-primary: #EDF1F4;
@@ -92,6 +98,13 @@
   --critical-bg: rgba(227, 83, 83, 0.16);
   --informational: #4898CF;
   --informational-bg: rgba(72, 152, 207, 0.16);
+
+  /* Radar & Tactical Map Tokens (Dark Mode) */
+  --radar-glow: rgba(0, 242, 254, 0.45);
+  --radar-sweep: rgba(0, 242, 254, 0.18);
+  --radar-grid: rgba(0, 242, 254, 0.16);
+  --radar-beam: #00F2FE;
+  --radar-ring: rgba(0, 242, 254, 0.25);
 
   /* Neumorphic Shadows (Dark Mode: Restrained Ambient Shadows & Thin Elevation) */
   --shadow-raised: 0 6px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -417,3 +430,48 @@ select.input-neu {
     display: inline-flex !important;
   }
 }
+
+/* Radar Tactical PPI Animations */
+@keyframes radar-sweep-rot {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes radar-blip-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes corridor-flow {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.radar-sweep-beam {
+  animation: radar-sweep-rot 4s linear infinite;
+  pointer-events: none;
+}
+
+.route-active-glow {
+  stroke-dasharray: 8 5;
+  animation: corridor-flow 1.2s linear infinite;
+}
+
