@@ -160,32 +160,42 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   const isMobile = windowWidth < 600;
   const isTablet = windowWidth < 900;
 
-  // 1. Minimized Mode (28px strip)
+  // 1. Minimized Mode (38px strip - clear, prominent & easy to read)
   if (isHeaderMinimized) {
     return (
       <header
         className="command-header minimized"
         aria-label="Command Header Minimized Strip"
+        style={{
+          height: '38px',
+          minHeight: '38px',
+          maxHeight: '38px',
+          padding: '0 16px',
+        }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
           <span
             style={{
-              width: '7px',
-              height: '7px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
               background: isOfflineMode ? 'var(--critical)' : 'var(--healthy)',
-              boxShadow: `0 0 6px ${isOfflineMode ? 'var(--critical)' : 'var(--healthy)'}`,
+              boxShadow: `0 0 8px ${isOfflineMode ? 'var(--critical)' : 'var(--healthy)'}`,
               flexShrink: 0,
             }}
           />
           <span
             style={{
-              fontSize: '0.74rem',
+              fontSize: '0.78rem',
               fontFamily: 'var(--font-mono)',
               fontWeight: 800,
               color: 'var(--accent)',
               letterSpacing: '0.04em',
               whiteSpace: 'nowrap',
+              background: 'var(--surface-inset)',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
             }}
           >
             SENTINEL v2.6
@@ -193,17 +203,17 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           <span
             className="badge-neu badge-neu-info"
             style={{
-              fontSize: '0.58rem',
-              padding: '1px 5px',
+              fontSize: '0.64rem',
+              padding: '2px 6px',
               fontFamily: 'var(--font-mono)',
-              fontWeight: 700,
+              fontWeight: 800,
             }}
           >
             {moduleInfo.code}
           </span>
           <span
             style={{
-              fontSize: '0.72rem',
+              fontSize: '0.82rem',
               fontWeight: 700,
               color: 'var(--text-primary)',
               whiteSpace: 'nowrap',
@@ -215,34 +225,43 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <span
             style={{
-              fontSize: '0.68rem',
+              fontSize: '0.72rem',
               fontFamily: 'var(--font-mono)',
-              color: 'var(--text-muted)',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
               whiteSpace: 'nowrap',
+              background: 'var(--surface-inset)',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-pill)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
             }}
           >
+            <Clock size={11} color="var(--accent)" />
             {currentTime.substring(11, 19)} UTC
           </span>
           <button
             type="button"
-            className="btn-neu btn-neu-sm"
+            className="btn-neu btn-neu-sm btn-neu-primary"
             onClick={onToggleHeaderMinimized}
             aria-label="Restore full header"
-            title="Restore full header"
+            title="Restore full header (56px)"
             style={{
-              padding: '2px 8px',
-              height: '22px',
-              fontSize: '0.66rem',
+              padding: '3px 12px',
+              height: '26px',
+              fontSize: '0.74rem',
+              fontWeight: 700,
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '4px',
+              gap: '5px',
             }}
           >
-            <ChevronDown size={12} />
-            <span>Restore</span>
+            <ChevronDown size={14} />
+            <span>Restore Header</span>
           </button>
         </div>
       </header>
@@ -563,8 +582,8 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             type="button"
             className="btn-neu header-icon-btn"
             onClick={onToggleHeaderMinimized}
-            aria-label="Minimize header to thin 28px strip"
-            title="Minimize header (28px strip)"
+            aria-label="Minimize header"
+            title="Minimize header"
           >
             <ChevronUp size={14} />
           </button>
@@ -760,7 +779,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
                     }}
                   >
                     <ChevronUp size={14} />
-                    <span>Minimize Header (28px)</span>
+                    <span>Minimize Header</span>
                   </button>
                 )}
               </div>

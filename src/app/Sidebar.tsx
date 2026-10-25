@@ -23,9 +23,6 @@ export interface SidebarProps {
   isOpenMobile?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
-  sidebarWidth?: number;
-  onWidthChange?: (width: number) => void;
-  onCollapseChange?: (collapsed: boolean) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,12 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile = false,
   isCollapsed = false,
   onToggleCollapse,
-  sidebarWidth = 248,
-  onWidthChange,
-  onCollapseChange,
 }) => {
-  const [isResizing, setIsResizing] = useState(false);
-
   const navItems = [
     {
       id: 'dashboard',
@@ -86,50 +78,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  // Drag resizer handler (200px - 320px, snap to rail at < 140px, double-click reset)
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (isCollapsed) return;
-    setIsResizing(true);
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = moveEvent.clientX;
-      if (newWidth < 140) {
-        if (onCollapseChange) onCollapseChange(true);
-        if (onWidthChange) onWidthChange(72);
-      } else {
-        if (isCollapsed && onCollapseChange) {
-          onCollapseChange(false);
-        }
-        const clamped = Math.max(200, Math.min(320, newWidth));
-        if (onWidthChange) onWidthChange(clamped);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  const handleDoubleClickResizer = () => {
-    if (onCollapseChange) onCollapseChange(false);
-    if (onWidthChange) onWidthChange(248);
-  };
-
   return (
     <aside
-      className={`app-sidebar ${isOpenMobile ? 'open' : ''} ${isResizing ? 'resizing' : ''} ${
-        isCollapsed ? 'collapsed' : ''
-      }`}
+      className={`app-sidebar ${isOpenMobile ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
       aria-label="Tactical Navigation Sidebar"
     >
       {/* 1. Slim Masthead */}
@@ -313,6 +264,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           gap: '6px',
           overflowY: 'auto',
           overflowX: 'hidden',
+          overscrollBehavior: 'contain',
+          scrollbarWidth: 'thin',
         }}
         aria-label="Primary Navigation"
       >
@@ -579,17 +532,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </div>
-
-      {/* 4. Drag Resizing Handle (Desktop only, right edge) */}
-      {!isCollapsed && (
-        <div
-          className={`sidebar-resizer ${isResizing ? 'active' : ''}`}
-          onMouseDown={handleMouseDown}
-          onDoubleClick={handleDoubleClickResizer}
-          title="Drag to resize (200px - 320px). Double-click to reset (248px)."
-          aria-hidden="true"
-        />
-      )}
     </aside>
   );
 };

@@ -37,14 +37,6 @@ export const App: React.FC = () => {
     }
   });
 
-  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    try {
-      const val = localStorage.getItem('sentinel_sidebar_width');
-      return val !== null ? Math.max(200, Math.min(320, Number(val))) : 248;
-    } catch (e) {
-      return 248;
-    }
-  });
 
   const [isHeaderCompact, setIsHeaderCompact] = useState<boolean>(() => {
     try {
@@ -215,20 +207,6 @@ export const App: React.FC = () => {
     });
   };
 
-  const handleSidebarWidthChange = (newWidth: number) => {
-    setSidebarWidth(newWidth);
-    try {
-      localStorage.setItem('sentinel_sidebar_width', JSON.stringify(newWidth));
-    } catch (err) {}
-  };
-
-  const handleSidebarCollapseChange = (col: boolean) => {
-    setIsSidebarCollapsed(col);
-    try {
-      localStorage.setItem('sentinel_sidebar_collapsed', JSON.stringify(col));
-    } catch (err) {}
-  };
-
   const handleToggleHeaderCompact = () => {
     setIsHeaderCompact((prev) => {
       const next = !prev;
@@ -249,8 +227,8 @@ export const App: React.FC = () => {
     });
   };
 
-  const effectiveSidebarWidth = isSidebarCollapsed ? 72 : sidebarWidth;
-  const effectiveHeaderHeight = isHeaderMinimized ? 28 : (isHeaderCompact ? 44 : 56);
+  const effectiveSidebarWidth = isSidebarCollapsed ? 72 : 248;
+  const effectiveHeaderHeight = isHeaderMinimized ? 38 : (isHeaderCompact ? 44 : 56);
 
   const pendingSyncCount = incidents.filter(
     (i) => i.syncStatus === 'pending' || i.syncStatus === 'failed'
@@ -333,9 +311,6 @@ export const App: React.FC = () => {
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
-        sidebarWidth={sidebarWidth}
-        onWidthChange={handleSidebarWidthChange}
-        onCollapseChange={handleSidebarCollapseChange}
       />
 
       {/* 2. Sticky Command Header */}

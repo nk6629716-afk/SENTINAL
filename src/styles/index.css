@@ -124,8 +124,9 @@
 }
 
 html, body {
-  min-height: 100%;
+  height: 100%;
   width: 100%;
+  overflow: hidden;
   background-color: var(--surface);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -137,7 +138,9 @@ html, body {
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -390,18 +393,22 @@ select.input-neu {
   grid-template-areas:
     "sidebar header"
     "sidebar main";
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   width: 100%;
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
   transition: grid-template-columns 200ms ease;
+  background: var(--surface);
 }
 
 .app-sidebar {
   grid-area: sidebar;
   height: 100vh;
+  max-height: 100vh;
   position: sticky;
   top: 0;
+  left: 0;
   width: var(--sidebar-width, 248px);
   background: var(--surface);
   border-right: 1px solid var(--border-subtle);
@@ -413,28 +420,7 @@ select.input-neu {
   user-select: none;
   box-sizing: border-box;
   overflow: hidden;
-}
-
-.app-sidebar.resizing {
-  transition: none !important;
-}
-
-/* Right-edge drag handle for manual width adjustment */
-.sidebar-resizer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 6px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 50;
-  transition: background-color 0.15s ease;
-}
-
-.sidebar-resizer:hover,
-.sidebar-resizer.active {
-  background-color: var(--accent);
-  box-shadow: 0 0 8px var(--accent-light);
+  flex-shrink: 0;
 }
 
 /* Nav Item & Fixed 40px Icon Column */
@@ -530,7 +516,10 @@ select.input-neu {
 }
 
 .command-header.minimized {
-  padding: 0 14px;
+  height: var(--header-height, 38px);
+  min-height: var(--header-height, 38px);
+  max-height: var(--header-height, 38px);
+  padding: 0 16px;
   border-bottom: 1px solid var(--accent);
 }
 
@@ -550,14 +539,19 @@ select.input-neu {
   flex-shrink: 0;
 }
 
-/* App Main Content */
+/* App Main Content (Dedicated Scroll Container) */
 .app-main {
   grid-area: main;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: calc(100vh - var(--header-height, 56px));
+  max-height: calc(100vh - var(--header-height, 56px));
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--surface);
   box-sizing: border-box;
+  overscroll-behavior: contain;
 }
 
 /* Overflow Dropdown Menu */
@@ -594,7 +588,20 @@ select.input-neu {
   .app-shell {
     display: flex;
     flex-direction: column;
-    grid-template-columns: 1fr;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+  .command-header {
+    width: 100%;
+    flex-shrink: 0;
+  }
+  .app-main {
+    flex: 1;
+    height: calc(100vh - var(--header-height, 56px));
+    max-height: calc(100vh - var(--header-height, 56px));
+    overflow-y: auto;
+    overflow-x: hidden;
   }
   .app-sidebar {
     position: fixed;
@@ -603,6 +610,7 @@ select.input-neu {
     bottom: 0;
     width: min(280px, 85vw) !important;
     height: 100vh;
+    max-height: 100vh;
     transform: translateX(-100%);
     transition: transform 0.25s ease !important;
     box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
@@ -610,9 +618,6 @@ select.input-neu {
   }
   .app-sidebar.open {
     transform: translateX(0);
-  }
-  .sidebar-resizer {
-    display: none !important;
   }
   .sidebar-backdrop {
     position: fixed;
