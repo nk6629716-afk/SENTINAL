@@ -16,7 +16,8 @@
     "test": "node src/tests/frontend-contracts.test.js",
     "test:server": "npm run test --prefix server",
     "test:algorithms": "./server/node_modules/.bin/tsx -e \"import { runAllAlgorithmTests } from './tests/algorithms.test.ts'; const res = runAllAlgorithmTests(); console.log(res.logs.join('\\n')); if (res.passed !== res.total) process.exit(1);\"",
-    "test:all": "npm test && npm run test --prefix server && python3 tests/run_verification.py && npm run test:algorithms"
+    "test:demo": "./server/node_modules/.bin/tsx tests/demonstration.ts",
+    "test:all": "npm test && npm run test --prefix server && python3 tests/run_verification.py && npm run test:algorithms && npm run test:demo"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",
