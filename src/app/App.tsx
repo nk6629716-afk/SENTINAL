@@ -8,6 +8,8 @@ import {
   CasualtyRecord,
   RoadHazardEdge,
   DashboardSummary,
+  SharedMapMarker,
+  SimulationMeasurableMetrics,
 } from '@shared/types';
 import { api } from '../services/api/apiClient';
 import { dbService } from '../services/storage/indexedDb';
@@ -115,7 +117,34 @@ export const App: React.FC = () => {
   const [hazards, setHazards] = useState<RoadHazardEdge[]>([]);
   const [realtimeState, setRealtimeState] = useState<RealtimeState>(() => realtimeService.getState());
   const [backendHealth, setBackendHealth] = useState<any>(null);
+  const [markers, setMarkers] = useState<SharedMapMarker[]>([]);
+  const [simMetrics, setSimMetrics] = useState<SimulationMeasurableMetrics | null>(null);
+  const [simSpeed, setSimSpeed] = useState<1 | 2 | 5>(1);
   const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
+
+  // Realtime Simulation Bus (Phase 1)
+  useEffect(() => {
+    api.resumeSimulation();
+    const unsubscribe = api.subscribeSimulation((simState) => {
+      setTracks(simState.tracks);
+      setCasualties(simState.casualties);
+      setHazards(simState.hazards);
+      setMarkers(simState.markers);
+      setSimMetrics(simState.metrics);
+      setIsSimPaused(simState.isPaused);
+      setSimSpeed(simState.speed);
+    });
+
+    return () => {
+      unsubscribe();
+      api.pauseSimulation();
+    };
+  }, []);
+
+  const handleSetSimSpeed = (speed: 1 | 2 | 5) => {
+    setSimSpeed(speed);
+    api.setSimulationSpeed(speed);
+  };
 
   // 1. Initial Database Seed & Load
   const refreshAllData = useCallback(async () => {
@@ -443,6 +472,10 @@ export const App: React.FC = () => {
         onTriggerSync={handleTriggerSync}
         onResetDemo={handleResetDemo}
         isSyncing={isSyncing}
+        simSpeed={simSpeed}
+        isSimPaused={isSimPaused}
+        onSetSimSpeed={handleSetSimSpeed}
+        onToggleSimPause={handleToggleSimPause}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebarCollapse={handleToggleSidebarCollapse}

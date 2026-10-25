@@ -19,6 +19,8 @@ import {
 } from '@shared/types';
 import { dbService } from '../storage/indexedDb';
 import { INITIAL_TRACKS, RESTRICTED_AIRSPACE_ZONES, ROAD_HAZARD_EDGES } from '../data/fixtures';
+import { simulationEngine, SimulationTickState } from '../../simulation/simulationEngine';
+
 
 // Configuration: cleanly normalizes VITE_API_URL without duplicate /api, defaulting to relative /api
 function resolveApiBaseUrl(): string {
@@ -121,22 +123,24 @@ export class SentinelApiClient {
   }
 
   public async pauseSimulation(): Promise<boolean> {
-    if (this.isSimulatedOffline) return false;
+    simulationEngine.pause();
+    if (this.isSimulatedOffline) return true;
     try {
       const res = await fetch(`${API_BASE_URL}/telemetry/pause`, { method: 'POST' });
       return res.ok;
     } catch {
-      return false;
+      return true;
     }
   }
 
   public async resumeSimulation(): Promise<boolean> {
-    if (this.isSimulatedOffline) return false;
+    simulationEngine.resume();
+    if (this.isSimulatedOffline) return true;
     try {
       const res = await fetch(`${API_BASE_URL}/telemetry/resume`, { method: 'POST' });
       return res.ok;
     } catch {
-      return false;
+      return true;
     }
   }
 
@@ -370,22 +374,8 @@ export class SentinelApiClient {
 
   // 3. SkyWatch Airspace Tracks & Alerts
   public async getTelemetryTracks(): Promise<TelemetryTrack[]> {
-    const isOnline = await this.checkBackendAvailability();
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/telemetry`);
-        if (res.ok) {
-          const body = await res.json();
-          const remoteTracks = body.data || body;
-          if (Array.isArray(remoteTracks) && remoteTracks.length > 0) {
-            return remoteTracks;
-          }
-        }
-      } catch (err) {
-        console.warn('[ApiClient] Could not fetch remote tracks, using default fixtures:', err);
-      }
-    }
-    return INITIAL_TRACKS;
+    // Always return live simulation engine state (identical API online & offline)
+    return simulationEngine.getState().tracks;
   }
 
   public async getRestrictedZones(): Promise<typeof RESTRICTED_AIRSPACE_ZONES> {
@@ -507,23 +497,8 @@ export class SentinelApiClient {
 
   // 5. MediRoute Casualties & Hazards
   public async getCasualties(): Promise<CasualtyRecord[]> {
-    const isOnline = await this.checkBackendAvailability();
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/patients`);
-        if (res.ok) {
-          const body = await res.json();
-          const remotePatients: CasualtyRecord[] = body.data || body;
-          for (const cas of remotePatients) {
-            await dbService.putCasualty(cas);
-          }
-          return remotePatients;
-        }
-      } catch (err) {
-        console.warn('[ApiClient] Could not fetch remote casualties, using local DB:', err);
-      }
-    }
-    return await dbService.getCasualties();
+    // Live simulation engine state; synced to DB for offline persistence
+    return simulationEngine.getState().casualties;
   }
 
   public async createCasualty(casualty: CasualtyRecord): Promise<CasualtyRecord> {
@@ -595,27 +570,12 @@ export class SentinelApiClient {
   }
 
   public async getRoadHazards(): Promise<RoadHazardEdge[]> {
-    const isOnline = await this.checkBackendAvailability();
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/hazards`);
-        if (res.ok) {
-          const body = await res.json();
-          const remoteHazards: RoadHazardEdge[] = body.data || body;
-          for (const haz of remoteHazards) {
-            await dbService.putHazard(haz);
-          }
-          return remoteHazards;
-        }
-      } catch (err) {
-        console.warn('[ApiClient] Could not fetch remote hazards, using local DB:', err);
-      }
-    }
-    return await dbService.getHazards();
+    // Live simulation engine state for hazards
+    return simulationEngine.getState().hazards;
   }
 
   public async toggleRoadBlockage(edgeId: string, blocked: boolean): Promise<RoadHazardEdge> {
-    const hazards = await dbService.getHazards();
+    const hazards = simulationEngine.toggleRoadHazard(edgeId);
     const edge = hazards.find((h) => h.id === edgeId);
     if (!edge) throw new Error(`Hazard edge ${edgeId} not found`);
 
@@ -734,6 +694,24 @@ export class SentinelApiClient {
       }
     }
     await dbService.resetToDeterministicBaseline();
+    simulationEngine.reset(4242);
+  }
+
+  // 8. Master Simulation Controls (Same API online & offline)
+  public subscribeSimulation(listener: (state: SimulationTickState) => void): () => void {
+    return simulationEngine.subscribe(listener);
+  }
+
+  public getSimulationState(): SimulationTickState {
+    return simulationEngine.getState();
+  }
+
+  public setSimulationSpeed(speed: 1 | 2 | 5): void {
+    simulationEngine.setSpeed(speed);
+  }
+
+  public resetSimulation(seed?: number): void {
+    simulationEngine.reset(seed);
   }
 }
 
