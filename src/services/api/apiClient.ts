@@ -20,8 +20,16 @@ import {
 import { dbService } from '../storage/indexedDb';
 import { INITIAL_TRACKS, RESTRICTED_AIRSPACE_ZONES, ROAD_HAZARD_EDGES } from '../data/fixtures';
 
-// Configuration: uses VITE_API_URL if configured, otherwise relative /api for local Vite proxy
-const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '') || '/api';
+// Configuration: cleanly normalizes VITE_API_URL without duplicate /api, defaulting to relative /api
+function resolveApiBaseUrl(): string {
+  const envUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+  if (!envUrl) {
+    return '/api';
+  }
+  return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 export class SentinelApiClient {
   private isSimulatedOffline: boolean = false;

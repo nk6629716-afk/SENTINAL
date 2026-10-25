@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { config } from './config';
@@ -52,6 +54,34 @@ export function createApp(): express.Application {
       },
     });
   });
+
+  // Static frontend assets serving (Vite production build)
+  const possibleDistPaths = [
+    path.resolve(process.cwd(), '../dist'),
+    path.resolve(process.cwd(), 'dist'),
+    path.resolve(__dirname, '../../../dist'),
+    path.resolve(__dirname, '../../../../dist'),
+  ];
+  const frontendDistPath = possibleDistPaths.find((p) => fs.existsSync(path.join(p, 'index.html')));
+
+  if (frontendDistPath) {
+    app.use(express.static(frontendDistPath));
+    app.get('*', (req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(path.join(frontendDistPath, 'index.html'));
+    });
+  } else {
+    app.get('/', (_req: Request, res: Response) => {
+      res.status(200).json({
+        status: 'ok',
+        service: 'sentinel-backend',
+        version: '1.0.0',
+        message: 'SENTINEL API Service is active. Access /api/health for system status.',
+      });
+    });
+  }
 
   // Global Error Handler
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
