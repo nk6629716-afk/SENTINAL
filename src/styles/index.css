@@ -1,58 +1,118 @@
 /* ==========================================================================
-   SENTINEL COMMAND DESIGN SYSTEM
-   Dark Restrained Operational Interface: Crisp Slate Surfaces, Clear Contrast
+   SENTINEL — Neumorphic Operations Editorial Design System
+   Dual-Theme Engine: Warm Editorial Light & Tactical Instrument Dark
+   Accessible Contrast, Subtle Elevations, Recessed Insets, Asymmetric Composition
    ========================================================================== */
 
-:root {
-  /* Surface & Canvas Palette (Dark Tactical Command Theme) */
-  --surface: #0B0F17;
-  --surface-raised: #131A26;
-  --surface-inset: #080C13;
-  --surface-card: #131A26;
-  --surface-highlight: #1B2433;
+/* 1. Light Theme Tokens (Warm Neutral Editorial) */
+:root,
+:root[data-theme="light"] {
+  /* Surfaces */
+  --surface: #F3F1EB;
+  --surface-raised: #F8F7F3;
+  --surface-elevated: #FFFFFF;
+  --surface-inset: #E8E7E0;
+  --surface-card: #F8F7F3;
+  --surface-highlight: #FFFFFF;
+  --map-canvas: #E4E2DA;
 
-  /* High Contrast Typography */
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  /* Typography */
+  --text-primary: #202521;
+  --text-secondary: #5A645D;
+  --text-muted: #7E8981;
 
-  /* Restrained Structural Borders */
-  --border-subtle: #1E293B;
-  --border-light: rgba(255, 255, 255, 0.08);
+  /* Borders & Dividers */
+  --border-subtle: #DBD8CF;
+  --border-light: rgba(255, 255, 255, 0.85);
 
-  /* Meaningful Operational Status Accents */
-  --accent: #3B82F6;
-  --accent-light: rgba(59, 130, 246, 0.15);
-  --healthy: #10B981;
-  --healthy-bg: rgba(16, 185, 129, 0.12);
-  --warning: #F59E0B;
-  --warning-bg: rgba(245, 158, 11, 0.12);
-  --critical: #EF4444;
-  --critical-bg: rgba(239, 68, 68, 0.12);
-  --informational: #0EA5E9;
-  --informational-bg: rgba(14, 165, 233, 0.12);
+  /* Meaningful Status Accents */
+  --accent: #2B547E;
+  --accent-light: #EAF1F8;
+  --healthy: #286643;
+  --healthy-bg: #E7F3EB;
+  --warning: #945B11;
+  --warning-bg: #FAF0E3;
+  --critical: #A82E2E;
+  --critical-bg: #FAECEC;
+  --informational: #2B5F80;
+  --informational-bg: #E8F2F7;
 
-  /* Soft Ambient Elevation & Inset Shadows */
-  --shadow-raised: 0 4px 14px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
-  --shadow-raised-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
-  --shadow-raised-hover: 0 6px 20px rgba(0, 0, 0, 0.6);
-  --shadow-inset: inset 0 2px 5px rgba(0, 0, 0, 0.6);
-  --shadow-inset-sm: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+  /* Neumorphic Shadows (Light Mode: Soft Warm Highlights & Muted Shadows) */
+  --shadow-raised: 5px 5px 13px rgba(175, 170, 158, 0.35), -5px -5px 13px rgba(255, 255, 255, 0.9);
+  --shadow-raised-sm: 3px 3px 8px rgba(175, 170, 158, 0.28), -3px -3px 8px rgba(255, 255, 255, 0.85);
+  --shadow-raised-hover: 7px 7px 18px rgba(175, 170, 158, 0.45), -7px -7px 18px rgba(255, 255, 255, 0.95);
+  --shadow-inset: inset 3px 3px 6px rgba(175, 170, 158, 0.32), inset -3px -3px 6px rgba(255, 255, 255, 0.82);
+  --shadow-inset-sm: inset 2px 2px 4px rgba(175, 170, 158, 0.26), inset -2px -2px 4px rgba(255, 255, 255, 0.76);
+  --shadow-sidebar: 4px 0 16px rgba(175, 170, 158, 0.2);
 
-  /* Geometry & Rounded Corners */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  /* Geometry & Layout */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
   --radius-pill: 9999px;
 
   /* Typography Stacks */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
-  /* Header & Sidebar Dimensions */
+  /* Dimensions */
   --header-height: 64px;
   --sidebar-width: 260px;
+  /* Radar & Tactical Map Tokens (Light Mode) */
+  --radar-glow: rgba(43, 84, 126, 0.25);
+  --radar-sweep: rgba(43, 84, 126, 0.12);
+  --radar-grid: rgba(43, 84, 126, 0.18);
+  --radar-beam: #2B547E;
+  --radar-ring: rgba(43, 84, 126, 0.22);
+}
+
+/* 2. Dark Theme Tokens (Genuine Tactical Dark - No blinding white highlights) */
+:root[data-theme="dark"] {
+  /* Surfaces */
+  --surface: #171B20;
+  --surface-raised: #20262D;
+  --surface-elevated: #252D35;
+  --surface-inset: #13161A;
+  --surface-card: #20262D;
+  --surface-highlight: rgba(255, 255, 255, 0.05);
+  --map-canvas: #0A0E14;
+
+  /* Typography */
+  --text-primary: #EDF1F4;
+  --text-secondary: #95A1AD;
+  --text-muted: #6B7683;
+
+  /* Borders & Dividers */
+  --border-subtle: #2C3540;
+  --border-light: rgba(255, 255, 255, 0.06);
+
+  /* Meaningful Status Accents */
+  --accent: #5283BD;
+  --accent-light: rgba(82, 131, 189, 0.16);
+  --healthy: #44A670;
+  --healthy-bg: rgba(68, 166, 112, 0.16);
+  --warning: #D89128;
+  --warning-bg: rgba(216, 145, 40, 0.16);
+  --critical: #E35353;
+  --critical-bg: rgba(227, 83, 83, 0.16);
+  --informational: #4898CF;
+  --informational-bg: rgba(72, 152, 207, 0.16);
+
+  /* Radar & Tactical Map Tokens (Dark Mode) */
+  --radar-glow: rgba(0, 242, 254, 0.45);
+  --radar-sweep: rgba(0, 242, 254, 0.18);
+  --radar-grid: rgba(0, 242, 254, 0.16);
+  --radar-beam: #00F2FE;
+  --radar-ring: rgba(0, 242, 254, 0.25);
+
+  /* Neumorphic Shadows (Dark Mode: Restrained Ambient Shadows & Thin Elevation) */
+  --shadow-raised: 0 6px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-raised-sm: 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-raised-hover: 0 8px 22px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-inset: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-inset-sm: inset 0 1px 4px rgba(0, 0, 0, 0.45);
+  --shadow-sidebar: 4px 0 18px rgba(0, 0, 0, 0.4);
 }
 
 /* Reset & Base Canvas */
@@ -72,6 +132,7 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
@@ -80,12 +141,28 @@ html, body {
   flex-direction: column;
 }
 
+/* Accessible Focus States */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Typography Hierarchy */
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .mono {
@@ -101,14 +178,14 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-inset);
 }
 ::-webkit-scrollbar-thumb {
-  background: #2A3649;
+  background: var(--border-subtle);
   border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
 }
 
-/* Raised Command Cards / Panels */
+/* Raised Neumorphic Cards / Panels */
 .neu-card {
   background: var(--surface-raised);
   border-radius: var(--radius-lg);
@@ -116,7 +193,7 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid var(--border-subtle);
   padding: 20px;
   position: relative;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .neu-card-sm {
@@ -125,17 +202,19 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--shadow-raised-sm);
   border: 1px solid var(--border-subtle);
   padding: 14px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
 }
 
-/* Recessed Panel */
+/* Recessed Neumorphic Panel */
 .neu-inset {
   background: var(--surface-inset);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-inset);
   border: 1px solid var(--border-subtle);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-/* Tactile Command Buttons */
+/* Tactile Neumorphic Buttons */
 .btn-neu {
   display: inline-flex;
   align-items: center;
@@ -159,13 +238,7 @@ h1, h2, h3, h4, h5, h6 {
 .btn-neu:hover {
   box-shadow: var(--shadow-raised);
   transform: translateY(-1px);
-  border-color: var(--accent);
-  color: #FFFFFF;
-}
-
-.btn-neu:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  color: var(--accent);
 }
 
 .btn-neu:active, .btn-neu.active {
@@ -176,32 +249,30 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-neu-primary {
   background: var(--accent);
-  color: #FFFFFF;
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .btn-neu-primary:hover {
-  background: #2563EB;
-  color: #FFFFFF;
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.45);
+  filter: brightness(1.08);
+  box-shadow: var(--shadow-raised);
 }
 
 .btn-neu-primary:active {
-  background: #1D4ED8;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  filter: brightness(0.92);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .btn-neu-critical {
   background: var(--critical);
-  color: #FFFFFF;
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .btn-neu-critical:hover {
-  background: #DC2626;
-  color: #FFFFFF;
+  filter: brightness(1.08);
 }
 
 .btn-neu-sm {
@@ -216,7 +287,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: none;
 }
 
-/* Recessed Form Inputs */
+/* Soft Recessed Form Inputs */
 .input-neu {
   width: 100%;
   background: var(--surface-inset);
@@ -233,7 +304,7 @@ h1, h2, h3, h4, h5, h6 {
 .input-neu:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: var(--shadow-inset), 0 0 0 2px rgba(59, 130, 246, 0.2);
+  box-shadow: var(--shadow-inset), 0 0 0 2px var(--accent-light);
 }
 
 .input-neu::placeholder {
@@ -263,25 +334,25 @@ select.input-neu {
 .badge-neu-ok {
   background: var(--healthy-bg);
   color: var(--healthy);
-  border-color: rgba(57, 118, 83, 0.25);
+  border-color: rgba(40, 102, 67, 0.25);
 }
 
 .badge-neu-warn {
   background: var(--warning-bg);
   color: var(--warning);
-  border-color: rgba(168, 107, 18, 0.25);
+  border-color: rgba(148, 91, 17, 0.25);
 }
 
 .badge-neu-crit {
   background: var(--critical-bg);
   color: var(--critical);
-  border-color: rgba(185, 56, 56, 0.25);
+  border-color: rgba(168, 46, 46, 0.25);
 }
 
 .badge-neu-info {
   background: var(--informational-bg);
   color: var(--informational);
-  border-color: rgba(53, 107, 140, 0.25);
+  border-color: rgba(43, 95, 128, 0.25);
 }
 
 .badge-neu-neutral {
@@ -325,7 +396,8 @@ select.input-neu {
   flex-direction: column;
   flex-shrink: 0;
   z-index: 40;
-  box-shadow: 4px 0 16px rgba(163, 174, 192, 0.25);
+  box-shadow: var(--shadow-sidebar);
+  transition: transform 0.25s ease, background 0.2s ease;
 }
 
 .app-main {
@@ -341,8 +413,65 @@ select.input-neu {
     flex-direction: column;
   }
   .app-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border-subtle);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    height: 100vh;
+    transform: translateX(-100%);
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+  }
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+  .btn-mobile-nav {
+    display: inline-flex !important;
   }
 }
+
+/* Radar Tactical PPI Animations */
+@keyframes radar-sweep-rot {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes radar-blip-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes corridor-flow {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.radar-sweep-beam {
+  animation: radar-sweep-rot 4s linear infinite;
+  pointer-events: none;
+}
+
+.route-active-glow {
+  stroke-dasharray: 8 5;
+  animation: corridor-flow 1.2s linear infinite;
+}
+

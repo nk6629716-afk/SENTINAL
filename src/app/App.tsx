@@ -25,6 +25,7 @@ export const App: React.FC = () => {
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Core Data States
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -201,6 +202,8 @@ export const App: React.FC = () => {
         pendingSyncCount={pendingSyncCount}
         unackAlertsCount={unackAlertsCount}
         isOfflineMode={isOfflineMode}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* 2. Main Content Area */}
@@ -213,6 +216,7 @@ export const App: React.FC = () => {
           onTriggerSync={handleTriggerSync}
           onResetDemo={handleResetDemo}
           isSyncing={isSyncing}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
         <main style={{ flex: 1, padding: '24px' }}>
@@ -271,36 +275,6 @@ export const App: React.FC = () => {
             />
           )}
         </main>
-
-        {/* Soft Tactical Footer */}
-        <footer
-          style={{
-            borderTop: '1px solid var(--border-subtle)',
-            backgroundColor: 'var(--surface)',
-            padding: '14px 28px',
-            fontSize: '0.74rem',
-            color: 'var(--text-secondary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '8px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ color: 'var(--accent)', fontWeight: 700 }}>SENTINEL v1.0.0</span>
-            <span>•</span>
-            <span>Falling Sun 2026 Prototype</span>
-            <span>•</span>
-            <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.62rem' }}>
-              SIMULATED OPERATIONS TESTBED
-            </span>
-          </div>
-
-          <div>
-            <span>Honest Demo Simulation • Person 1 Frontend • Person 2 Backend API • Person 3 Algorithms</span>
-          </div>
-        </footer>
       </div>
     </div>
   );

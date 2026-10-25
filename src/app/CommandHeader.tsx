@@ -7,8 +7,12 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Shield,
+  Menu,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
+import { themeService, ThemeMode } from '../services/theme/themeService';
 
 interface CommandHeaderProps {
   activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
@@ -18,6 +22,7 @@ interface CommandHeaderProps {
   onTriggerSync: () => Promise<void>;
   onResetDemo: () => Promise<void>;
   isSyncing: boolean;
+  onToggleMobileMenu?: () => void;
 }
 
 export const CommandHeader: React.FC<CommandHeaderProps> = ({
@@ -28,8 +33,10 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   onTriggerSync,
   onResetDemo,
   isSyncing,
+  onToggleMobileMenu,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getThemeMode());
   const [browserHardwareOnline, setBrowserHardwareOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -48,12 +55,21 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
     window.addEventListener('online', handleHwOnline);
     window.addEventListener('offline', handleHwOffline);
 
+    const unsubscribeTheme = themeService.subscribe((mode) => {
+      setThemeMode(mode);
+    });
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('online', handleHwOnline);
       window.removeEventListener('offline', handleHwOffline);
+      unsubscribeTheme();
     };
   }, []);
+
+  const handleThemeChange = (mode: ThemeMode) => {
+    themeService.setThemeMode(mode);
+  };
 
   const getModuleTitle = () => {
     switch (activeModule) {
@@ -61,26 +77,31 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         return {
           title: 'Common Operational Picture',
           subtitle: 'Cross-module tactical synthesis, field queue, and airspace situational feeds',
+          tag: 'SYNTHESIS-01',
         };
       case 'fieldlink':
         return {
           title: 'FieldLink Tactical Reports',
           subtitle: 'Offline-first battlefield communication, IndexedDB queue, and idempotent sync',
+          tag: 'TACTICAL-COMMS-02',
         };
       case 'skywatch':
         return {
           title: 'SkyWatch Airspace Security',
           subtitle: 'Counter-drone radar simulation and explainable mathematical anomaly detection',
+          tag: 'AIRSPACE-DEFENSE-03',
         };
       case 'geointel':
         return {
           title: 'GeoIntel Reconnaissance',
           subtitle: 'Multi-temporal change analysis and candidate review workflow',
+          tag: 'GEO-RECON-04',
         };
       case 'mediroute':
         return {
           title: 'MediRoute Logistics',
           subtitle: 'Algorithmic START triage and hazard-avoiding Dijkstra evacuation routing',
+          tag: 'MED-EVAC-05',
         };
     }
   };
@@ -103,37 +124,159 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         top: 0,
         zIndex: 30,
         boxShadow: 'var(--shadow-raised-sm)',
+        transition: 'background 0.2s ease, border-color 0.2s ease',
       }}
     >
-      {/* Title & Module Identity */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+      {/* Title & Context */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {onToggleMobileMenu && (
+          <button
+            className="btn-neu btn-neu-sm btn-mobile-nav"
+            onClick={onToggleMobileMenu}
+            style={{ display: 'none' }}
+            aria-label="Open Navigation Menu"
+          >
+            <Menu size={16} />
+          </button>
+        )}
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 800,
+                color: 'var(--accent)',
+                letterSpacing: '0.04em',
+                background: 'var(--surface-inset)',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-subtle)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--healthy)', boxShadow: '0 0 6px var(--healthy)' }} />
+              SENTINEL PLATFORM
+            </span>
+            <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-muted)' }}>
+              / {moduleInfo.tag}
+            </span>
+            <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.65rem' }}>
+              DEMO TESTBED — SYNTHETIC DATA
+            </span>
+          </div>
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0 0' }}>
             {moduleInfo.title}
           </h1>
-          <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.65rem' }}>
-            DEMO TESTBED — SYNTHETIC DATA
-          </span>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+            {moduleInfo.subtitle}
+          </p>
         </div>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          {moduleInfo.subtitle}
-        </p>
       </div>
 
-      {/* Operational Status Bar & Controls */}
+      {/* Quick Controls, Theme Selector & Status Area */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        {/* UTC Clock */}
+        {/* System / Light / Dark Mode Toggle */}
         <div
+          className="neu-inset"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '3px',
+            borderRadius: 'var(--radius-pill)',
+            gap: '2px',
+          }}
+          role="group"
+          aria-label="Appearance Mode"
+        >
+          <button
+            type="button"
+            onClick={() => handleThemeChange('system')}
+            title="System Mode (Follows OS preference)"
+            style={{
+              border: 'none',
+              background: themeMode === 'system' ? 'var(--surface-raised)' : 'transparent',
+              boxShadow: themeMode === 'system' ? 'var(--shadow-raised-sm)' : 'none',
+              color: themeMode === 'system' ? 'var(--accent)' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 8px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Monitor size={12} />
+            <span>Auto</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleThemeChange('light')}
+            title="Light Theme"
+            style={{
+              border: 'none',
+              background: themeMode === 'light' ? 'var(--surface-raised)' : 'transparent',
+              boxShadow: themeMode === 'light' ? 'var(--shadow-raised-sm)' : 'none',
+              color: themeMode === 'light' ? 'var(--warning)' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 8px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Sun size={12} />
+            <span>Light</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleThemeChange('dark')}
+            title="Dark Tactical Theme"
+            style={{
+              border: 'none',
+              background: themeMode === 'dark' ? 'var(--surface-raised)' : 'transparent',
+              boxShadow: themeMode === 'dark' ? 'var(--shadow-raised-sm)' : 'none',
+              color: themeMode === 'dark' ? 'var(--accent)' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 8px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Moon size={12} />
+            <span>Dark</span>
+          </button>
+        </div>
+
+        {/* Live UTC Clock */}
+        <div
+          className="neu-inset"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
+            padding: '5px 12px',
             borderRadius: 'var(--radius-pill)',
-            background: 'var(--surface-inset)',
-            border: '1px solid var(--border-subtle)',
             fontSize: '0.74rem',
             fontFamily: 'var(--font-mono)',
+            fontWeight: 600,
             color: 'var(--text-secondary)',
           }}
           title="Current Zulu Operational Time"
@@ -148,7 +291,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
+            padding: '5px 12px',
             borderRadius: 'var(--radius-pill)',
             background: effectiveOffline ? 'var(--critical-bg)' : 'var(--healthy-bg)',
             border: `1px solid ${effectiveOffline ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
@@ -173,7 +316,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
+            padding: '5px 12px',
             borderRadius: 'var(--radius-pill)',
             background: pendingSyncCount > 0 ? 'var(--warning-bg)' : 'var(--surface-inset)',
             border: `1px solid ${pendingSyncCount > 0 ? 'rgba(245, 158, 11, 0.3)' : 'var(--border-subtle)'}`,
@@ -188,7 +331,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           <span>{pendingSyncCount > 0 ? `${pendingSyncCount} PENDING OUTBOX` : 'ALL SYNCHRONIZED'}</span>
         </div>
 
-        {/* Toggle Offline Mode Button */}
+        {/* Simulated Blackout Button */}
         <button
           className={`btn-neu btn-neu-sm ${effectiveOffline ? 'btn-neu-critical' : ''}`}
           onClick={onToggleOffline}
@@ -219,13 +362,17 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           <span>{isSyncing ? 'Syncing...' : `Sync Outbox (${pendingSyncCount})`}</span>
         </button>
 
-        {/* Deterministic Reset Demo Button */}
+        {/* Distinct Reset Baseline Button */}
         <button
           className="btn-neu btn-neu-sm"
           onClick={onResetDemo}
-          title="Reset all demo records back to deterministic baseline fixtures"
+          style={{
+            borderColor: 'var(--warning)',
+            color: 'var(--text-primary)',
+          }}
+          title="Reset scenario data to deterministic baseline fixtures"
         >
-          <RotateCcw size={12} />
+          <RotateCcw size={13} color="var(--warning)" />
           <span>Reset Demo</span>
         </button>
       </div>
