@@ -36,7 +36,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   onToggleMobileMenu,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
-  const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getThemeMode());
+  const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getMode());
   const [browserHardwareOnline, setBrowserHardwareOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
@@ -68,7 +68,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   }, []);
 
   const handleThemeChange = (mode: ThemeMode) => {
-    themeService.setThemeMode(mode);
+    themeService.setMode(mode);
   };
 
   const getModuleTitle = () => {
