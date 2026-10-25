@@ -55,10 +55,15 @@ export const App: React.FC = () => {
     const handleHashChange = () => {
       const parsed = parseModuleFromHash(window.location.hash);
       setActiveModuleState(parsed);
+      const clean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+      if (!(VALID_MODULES as readonly string[]).includes(clean)) {
+        window.history.replaceState(null, '', '#dashboard');
+      }
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    if (!window.location.hash) {
+    const initialClean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+    if (!(VALID_MODULES as readonly string[]).includes(initialClean)) {
       window.history.replaceState(null, '', '#dashboard');
     }
 
