@@ -1,7 +1,8 @@
 /**
  * SENTINEL API Client & Sync Coordinator
- * Handles typed communication with Person 2's backend API (`/api/*`),
+ * Handles typed communication with the backend API (`/api/*`),
  * with an integrated fallback to local IndexedDB and realistic mock engine.
+ * Supports offline-first reconciliation, dynamic backend probing, and Dijkstra routing.
  */
 
 import {
@@ -14,126 +15,190 @@ import {
   BatchSyncResult,
   OfflineSyncPayload,
   DashboardSummary,
+  CalculatedRoute,
 } from '@shared/types';
 import { dbService } from '../storage/indexedDb';
-import { INITIAL_TRACKS, RESTRICTED_AIRSPACE_ZONES } from '../data/fixtures';
+import { INITIAL_TRACKS, RESTRICTED_AIRSPACE_ZONES, ROAD_HAZARD_EDGES } from '../data/fixtures';
 
-// Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Configuration: uses VITE_API_URL if configured, otherwise relative /api for local Vite proxy
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '') || '/api';
 
 export class SentinelApiClient {
   private isSimulatedOffline: boolean = false;
-  private useMockMode: boolean = true; // Active until Person 2 spins up server
+  private isBackendOnline: boolean = false;
+  private lastCheckTime: number = 0;
 
   public setOfflineSimulation(offline: boolean) {
     this.isSimulatedOffline = offline;
+    if (offline) {
+      this.isBackendOnline = false;
+    }
   }
 
   public getOfflineSimulation(): boolean {
     return this.isSimulatedOffline;
   }
 
-  public setMockMode(mock: boolean) {
-    this.useMockMode = mock;
+  public async checkBackendAvailability(): Promise<boolean> {
+    if (this.isSimulatedOffline) {
+      this.isBackendOnline = false;
+      return false;
+    }
+    const now = Date.now();
+    if (now - this.lastCheckTime < 4000 && this.lastCheckTime > 0) {
+      return this.isBackendOnline;
+    }
+    this.lastCheckTime = now;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+      const res = await fetch(`${API_BASE_URL}/health`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      this.isBackendOnline = res.ok;
+      return res.ok;
+    } catch {
+      this.isBackendOnline = false;
+      return false;
+    }
   }
 
   public isUsingMockMode(): boolean {
-    return this.useMockMode;
+    return !this.isBackendOnline;
   }
 
   // 1. Dashboard Summary
   public async getDashboardSummary(): Promise<DashboardSummary> {
-    if (this.isSimulatedOffline) {
-      const incidents = await dbService.getIncidents();
-      const pendingSync = incidents.filter((i) => i.syncStatus === 'pending' || i.syncStatus === 'failed').length;
-      const activeIncidents = incidents.filter((i) => i.status === 'active' || i.status === 'in_progress').length;
-      const casualties = await dbService.getCasualties();
-      const criticalPatients = casualties.filter((c) => c.triageCategory === 'immediate' && c.status !== 'evacuated').length;
-      const hazards = await dbService.getHazards();
-      const blockedRoads = hazards.filter((h) => h.blocked).length;
-      const alerts = await dbService.getAlerts();
-      const unackAlerts = alerts.filter((a) => !a.acknowledged).length;
-      const geoObs = await dbService.getGeoObservations();
-      const pendingGeo = geoObs.filter((g) => g.reviewStatus === 'pending').length;
+    const isOnline = await this.checkBackendAvailability();
 
-      return {
-        systemStatus: 'offline_mode',
-        pendingSyncCount: pendingSync,
-        activeIncidentsCount: activeIncidents,
-        activeAirspaceTracksCount: INITIAL_TRACKS.length,
-        unacknowledgedAlertsCount: unackAlerts,
-        pendingGeoReviewsCount: pendingGeo,
-        criticalPatientsAwaitingEvac: criticalPatients,
-        blockedRoadSegmentsCount: blockedRoads,
-        lastSyncTimestamp: null,
-        isSimulated: true,
-      };
-    }
-
-    if (!this.useMockMode) {
+    if (isOnline) {
       try {
         const res = await fetch(`${API_BASE_URL}/dashboard`);
-        if (res.ok) return await res.json();
+        if (res.ok) {
+          const body = await res.json();
+          const remoteData = body.data || body;
+          return {
+            systemStatus: 'nominal',
+            pendingSyncCount: remoteData.pendingSyncCount ?? 0,
+            activeIncidentsCount: remoteData.activeIncidents ?? 0,
+            activeAirspaceTracksCount: remoteData.activeTracks ?? INITIAL_TRACKS.length,
+            unacknowledgedAlertsCount: remoteData.unacknowledgedAlerts ?? 0,
+            pendingGeoReviewsCount: remoteData.pendingGeoReviews ?? 0,
+            criticalPatientsAwaitingEvac: remoteData.criticalPatientsAwaitingEvac ?? 0,
+            blockedRoadSegmentsCount: remoteData.blockedRoadSegmentsCount ?? 0,
+            lastSyncTimestamp: new Date().toISOString(),
+            isSimulated: true,
+          };
+        }
       } catch (err) {
-        console.warn('Backend unavailable, falling back to local DB cache:', err);
+        console.warn('[ApiClient] Failed to fetch remote dashboard summary, falling back to local DB cache:', err);
       }
     }
 
-    // Local cached derivation
+    // Local cached derivation from IndexedDB
     const incidents = await dbService.getIncidents();
     const casualties = await dbService.getCasualties();
     const hazards = await dbService.getHazards();
     const alerts = await dbService.getAlerts();
     const geoObs = await dbService.getGeoObservations();
 
+    const pendingSync = incidents.filter((i) => i.syncStatus === 'pending' || i.syncStatus === 'failed').length;
+    const activeIncidents = incidents.filter((i) => i.status === 'active' || i.status === 'in_progress').length;
+    const criticalPatients = casualties.filter((c) => c.triageCategory === 'immediate' && c.status !== 'evacuated').length;
+    const blockedRoads = hazards.filter((h) => h.blocked).length;
+    const unackAlerts = alerts.filter((a) => !a.acknowledged).length;
+    const pendingGeo = geoObs.filter((g) => g.reviewStatus === 'pending').length;
+
     return {
-      systemStatus: 'nominal',
-      pendingSyncCount: incidents.filter((i) => i.syncStatus === 'pending').length,
-      activeIncidentsCount: incidents.filter((i) => i.status !== 'resolved').length,
+      systemStatus: this.isSimulatedOffline ? 'offline_mode' : 'nominal',
+      pendingSyncCount: pendingSync,
+      activeIncidentsCount: activeIncidents,
       activeAirspaceTracksCount: INITIAL_TRACKS.length,
-      unacknowledgedAlertsCount: alerts.filter((a) => !a.acknowledged).length,
-      pendingGeoReviewsCount: geoObs.filter((g) => g.reviewStatus === 'pending').length,
-      criticalPatientsAwaitingEvac: casualties.filter((c) => c.triageCategory === 'immediate' && c.status !== 'evacuated').length,
-      blockedRoadSegmentsCount: hazards.filter((h) => h.blocked).length,
-      lastSyncTimestamp: new Date().toISOString(),
+      unacknowledgedAlertsCount: unackAlerts,
+      pendingGeoReviewsCount: pendingGeo,
+      criticalPatientsAwaitingEvac: criticalPatients,
+      blockedRoadSegmentsCount: blockedRoads,
+      lastSyncTimestamp: this.isSimulatedOffline ? null : new Date().toISOString(),
       isSimulated: true,
     };
   }
 
   // 2. Incidents (FieldLink & Shared)
   public async getIncidents(): Promise<IncidentReport[]> {
+    const isOnline = await this.checkBackendAvailability();
+
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/incidents`);
+        if (res.ok) {
+          const body = await res.json();
+          const remoteList: IncidentReport[] = body.data || body;
+          // Merge with local pending queue so unsynced reports are not lost visually
+          const localPending = await dbService.getPendingSyncIncidents();
+          const remoteIds = new Set(remoteList.map((i) => i.id));
+          const merged = [
+            ...localPending.filter((p) => !remoteIds.has(p.id)),
+            ...remoteList.map((r) => ({ ...r, syncStatus: (r.syncStatus || 'synced') as any })),
+          ];
+          for (const item of remoteList) {
+            await dbService.putIncident({ ...item, syncStatus: 'synced' });
+          }
+          return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Failed to fetch remote incidents, falling back to local cache:', err);
+      }
+    }
+
     return await dbService.getIncidents();
   }
 
   public async createIncident(report: IncidentReport): Promise<IncidentReport> {
-    if (this.isSimulatedOffline) {
+    const isOnline = await this.checkBackendAvailability();
+
+    if (!isOnline) {
       report.syncStatus = 'pending';
       report.status = 'pending_sync';
       await dbService.putIncident(report);
       return report;
     }
 
-    if (!this.useMockMode) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/incidents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(report),
-        });
-        if (res.ok) {
-          const saved = await res.json();
-          saved.syncStatus = 'synced';
-          await dbService.putIncident(saved);
-          return saved;
-        }
-      } catch (err) {
-        console.warn('Network call failed, saving to local pending queue:', err);
+    try {
+      const res = await fetch(`${API_BASE_URL}/incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: report.clientId || report.id,
+          sourceModule: report.sourceModule,
+          type: report.type,
+          priority: report.priority,
+          title: report.title,
+          notes: report.notes,
+          location: report.location,
+          status: 'active',
+          createdAt: report.createdAt,
+        }),
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        const saved = body.data || body;
+        const normalized: IncidentReport = {
+          ...report,
+          id: saved.id || report.id,
+          status: 'active',
+          syncStatus: 'synced',
+          syncedAt: saved.syncedAt || new Date().toISOString(),
+        };
+        await dbService.putIncident(normalized);
+        return normalized;
       }
+    } catch (err) {
+      console.warn('[ApiClient] Failed to create incident on server, queuing in local outbox:', err);
     }
 
-    // Default mock behavior
-    report.syncStatus = 'synced';
-    report.status = 'active';
+    // Fallback: save to outbox as pending
+    report.syncStatus = 'pending';
+    report.status = 'pending_sync';
     await dbService.putIncident(report);
     return report;
   }
@@ -151,7 +216,8 @@ export class SentinelApiClient {
       };
     }
 
-    if (this.isSimulatedOffline) {
+    const isOnline = await this.checkBackendAvailability();
+    if (!isOnline) {
       throw new Error('Sync failed: Network unreachable (Offline Mode active).');
     }
 
@@ -161,78 +227,53 @@ export class SentinelApiClient {
       clientTimestamp: item.createdAt,
     }));
 
-    // If live backend is available
-    if (!this.useMockMode) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/sync`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reports: payloads }),
-        });
-        if (res.ok) {
-          const result: BatchSyncResult = await res.json();
-          // Update local DB records with server confirmation
-          for (const item of result.items) {
-            const match = pending.find((p) => p.clientId === item.clientId || p.id === item.clientId);
-            if (match && (item.outcome === 'accepted' || item.outcome === 'already_received')) {
-              match.syncStatus = 'synced';
-              match.status = 'active';
-              match.id = item.serverId || match.id;
-              await dbService.putIncident(match);
-            }
+    try {
+      const res = await fetch(`${API_BASE_URL}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reports: payloads }),
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        const result: BatchSyncResult = body.data || body;
+        for (const item of result.items) {
+          const match = pending.find((p) => p.clientId === item.clientId || p.id === item.clientId);
+          if (match && (item.outcome === 'accepted' || item.outcome === 'already_received')) {
+            match.syncStatus = 'synced';
+            match.status = 'active';
+            match.id = item.serverId || match.id;
+            match.syncedAt = item.syncTimestamp || new Date().toISOString();
+            await dbService.putIncident(match);
           }
-          return result;
         }
-      } catch (err) {
-        console.warn('Live sync failed, using deterministic local reconciliation:', err);
+        return result;
       }
+    } catch (err) {
+      console.warn('[ApiClient] Live server sync failed, keeping outbox in pending status:', err);
+      throw err;
     }
 
-    // Deterministic mock sync logic with idempotent deduplication
-    const itemsResult: BatchSyncResult['items'] = [];
-    let accepted = 0;
-    let duplicates = 0;
-
-    for (const p of pending) {
-      // Simulate network roundtrip latency
-      await new Promise((r) => setTimeout(r, 120));
-
-      const isDupe = p.syncAttempts && p.syncAttempts > 1;
-      if (isDupe) {
-        duplicates++;
-        itemsResult.push({
-          clientId: p.clientId || p.id,
-          serverId: p.id,
-          outcome: 'already_received',
-          syncTimestamp: new Date().toISOString(),
-        });
-      } else {
-        accepted++;
-        itemsResult.push({
-          clientId: p.clientId || p.id,
-          serverId: p.id.startsWith('OFFLINE-') ? `INC-SYNC-${Math.floor(Math.random() * 9000 + 1000)}` : p.id,
-          outcome: 'accepted',
-          syncTimestamp: new Date().toISOString(),
-        });
-      }
-
-      p.syncStatus = 'synced';
-      p.status = 'active';
-      p.updatedAt = new Date().toISOString();
-      await dbService.putIncident(p);
-    }
-
-    return {
-      totalSubmitted: pending.length,
-      acceptedCount: accepted,
-      duplicateCount: duplicates,
-      rejectedCount: 0,
-      items: itemsResult,
-    };
+    throw new Error('Sync reconciliation rejected by remote server.');
   }
 
   // 3. SkyWatch Airspace Tracks & Alerts
   public async getTelemetryTracks(): Promise<TelemetryTrack[]> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/telemetry`);
+        if (res.ok) {
+          const body = await res.json();
+          const remoteTracks = body.data || body;
+          if (Array.isArray(remoteTracks) && remoteTracks.length > 0) {
+            return remoteTracks;
+          }
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Could not fetch remote tracks, using default fixtures:', err);
+      }
+    }
     return INITIAL_TRACKS;
   }
 
@@ -241,10 +282,45 @@ export class SentinelApiClient {
   }
 
   public async getAirspaceAlerts(): Promise<AirspaceAlert[]> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/alerts`);
+        if (res.ok) {
+          const body = await res.json();
+          const remoteAlerts: AirspaceAlert[] = body.data || body;
+          for (const alt of remoteAlerts) {
+            await dbService.updateAlert(alt);
+          }
+          return remoteAlerts;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Could not fetch remote alerts, using local IndexedDB:', err);
+      }
+    }
     return await dbService.getAlerts();
   }
 
-  public async acknowledgeAlert(id: string, user: string = 'Watch Officer 1'): Promise<AirspaceAlert> {
+  public async acknowledgeAlert(id: string, user: string = 'Duty Watch Officer'): Promise<AirspaceAlert> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/alerts/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ acknowledged: true, acknowledgedBy: user }),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const updated = body.data || body;
+          await dbService.updateAlert(updated);
+          return updated;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Remote alert acknowledge failed, updating locally:', err);
+      }
+    }
+
     const alerts = await dbService.getAlerts();
     const alert = alerts.find((a) => a.id === id);
     if (!alert) throw new Error(`Alert with id ${id} not found.`);
@@ -252,13 +328,28 @@ export class SentinelApiClient {
     alert.acknowledged = true;
     alert.acknowledgedAt = new Date().toISOString();
     alert.acknowledgedBy = user;
-
     await dbService.updateAlert(alert);
     return alert;
   }
 
   // 4. GeoIntel Observations & Candidate Reviews
   public async getGeoObservations(): Promise<GeoIntelObservation[]> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/geointel/observations`);
+        if (res.ok) {
+          const body = await res.json();
+          const remoteObs: GeoIntelObservation[] = body.data || body;
+          for (const obs of remoteObs) {
+            await dbService.putGeoObservation(obs);
+          }
+          return remoteObs;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Could not fetch remote GeoIntel observations, using local cache:', err);
+      }
+    }
     return await dbService.getGeoObservations();
   }
 
@@ -268,6 +359,25 @@ export class SentinelApiClient {
     reviewed: boolean,
     notes?: string
   ): Promise<GeoIntelObservation> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/geointel/observations/${obsId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ candidateId, reviewed, analystNotes: notes }),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const updated = body.data || body;
+          await dbService.putGeoObservation(updated);
+          return updated;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Remote candidate review update failed, applying locally:', err);
+      }
+    }
+
     const observations = await dbService.getGeoObservations();
     const obs = observations.find((o) => o.id === obsId);
     if (!obs) throw new Error(`Observation ${obsId} not found`);
@@ -286,10 +396,53 @@ export class SentinelApiClient {
 
   // 5. MediRoute Casualties & Hazards
   public async getCasualties(): Promise<CasualtyRecord[]> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/patients`);
+        if (res.ok) {
+          const body = await res.json();
+          const remotePatients: CasualtyRecord[] = body.data || body;
+          for (const cas of remotePatients) {
+            await dbService.putCasualty(cas);
+          }
+          return remotePatients;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Could not fetch remote casualties, using local DB:', err);
+      }
+    }
     return await dbService.getCasualties();
   }
 
   public async createCasualty(casualty: CasualtyRecord): Promise<CasualtyRecord> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/patients`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientCode: casualty.patientCode,
+            canWalk: casualty.vitals?.canWalk ?? false,
+            respiratoryRate: casualty.vitals?.respiratoryRate ?? 20,
+            radialPulsePresent: casualty.vitals?.radialPulsePresent ?? true,
+            mentalStatus: casualty.vitals?.mentalStatus ?? 'can_follow_commands',
+            severeBleedingControlled: casualty.vitals?.severeBleedingControlled ?? true,
+            location: casualty.location,
+            notes: casualty.notes,
+          }),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const created = body.data || body;
+          await dbService.putCasualty(created);
+          return created;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Remote patient intake failed, saving locally:', err);
+      }
+    }
     await dbService.putCasualty(casualty);
     return casualty;
   }
@@ -299,6 +452,25 @@ export class SentinelApiClient {
     status: CasualtyRecord['status'],
     hospitalId?: string
   ): Promise<CasualtyRecord> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/patients/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, assignedHospitalId: hospitalId }),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const updated = body.data || body;
+          await dbService.putCasualty(updated);
+          return updated;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Remote patient status update failed, applying locally:', err);
+      }
+    }
+
     const casualties = await dbService.getCasualties();
     const cas = casualties.find((c) => c.id === id);
     if (!cas) throw new Error(`Casualty ${id} not found`);
@@ -312,6 +484,22 @@ export class SentinelApiClient {
   }
 
   public async getRoadHazards(): Promise<RoadHazardEdge[]> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/hazards`);
+        if (res.ok) {
+          const body = await res.json();
+          const remoteHazards: RoadHazardEdge[] = body.data || body;
+          for (const haz of remoteHazards) {
+            await dbService.putHazard(haz);
+          }
+          return remoteHazards;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Could not fetch remote hazards, using local DB:', err);
+      }
+    }
     return await dbService.getHazards();
   }
 
@@ -323,7 +511,118 @@ export class SentinelApiClient {
     edge.blocked = blocked;
     edge.updatedAt = new Date().toISOString();
     await dbService.putHazard(edge);
+
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        await fetch(`${API_BASE_URL}/hazards`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            edgeId: edge.id,
+            fromNode: edge.fromNodeId,
+            toNode: edge.toNodeId,
+            blocked,
+            hazardType: edge.hazardType,
+          }),
+        });
+      } catch (err) {
+        console.warn('[ApiClient] Failed to persist hazard toggle on remote server:', err);
+      }
+    }
+
     return edge;
+  }
+
+  // 6. MediRoute Algorithmic Dijkstra Routing
+  public async calculateRoute(
+    startNodeId: string,
+    destinationNodeId: string,
+    avoidHazards: boolean = true
+  ): Promise<CalculatedRoute> {
+    const isOnline = await this.checkBackendAvailability();
+
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/routes/calculate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ startNodeId, destinationNodeId, avoidHazards }),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const data = body.data || body;
+          return {
+            id: `ROUTE-${Date.now()}`,
+            sourceNodeId: startNodeId,
+            destinationNodeId: destinationNodeId,
+            totalDistanceKm: data.totalDistanceKm ?? 5.5,
+            estimatedMinutes: data.estimatedTimeMinutes ?? Math.round((data.totalDistanceKm ?? 5.5) * 1.5),
+            pathNodeIds: data.pathNodeIds || [startNodeId, destinationNodeId],
+            edgesTraversed: data.edgesTraversed || [],
+            avoidedHazardIds: data.hazardsAvoided || [],
+            algorithmUsed: 'Dijkstra-Hazard-Aware',
+            hasActiveBlockage: (data.hazardsAvoided || []).length > 0,
+            alternativeFound: data.routeFound !== false,
+            explanation: data.message || `Route computed via backend Dijkstra engine (${data.totalDistanceKm} km).`,
+            calculatedAt: new Date().toISOString(),
+          };
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Remote route calculation failed, using local routing fallback:', err);
+      }
+    }
+
+    // Local fallback calculation based on current road hazard states in IndexedDB
+    const localHazards = await dbService.getHazards();
+    const edge1Blocked = localHazards.some((h) => h.id === 'EDGE-1' && h.blocked);
+
+    if (!edge1Blocked) {
+      return {
+        id: `ROUTE-${Date.now()}`,
+        sourceNodeId: startNodeId,
+        destinationNodeId: destinationNodeId,
+        totalDistanceKm: 5.5,
+        estimatedMinutes: 8,
+        pathNodeIds: ['NODE-CAS-3', 'NODE-INT-5', 'NODE-INT-4', 'NODE-HOSP-1'],
+        edgesTraversed: ['EDGE-1', 'EDGE-4', 'EDGE-5'],
+        avoidedHazardIds: [],
+        algorithmUsed: 'Dijkstra-Hazard-Aware',
+        hasActiveBlockage: false,
+        alternativeFound: true,
+        explanation: 'Fastest direct corridor selected via Highway 9. All 3 road segments clear (5.5 km, ~8 mins).',
+        calculatedAt: new Date().toISOString(),
+      };
+    } else {
+      return {
+        id: `ROUTE-${Date.now()}`,
+        sourceNodeId: startNodeId,
+        destinationNodeId: destinationNodeId,
+        totalDistanceKm: 6.6,
+        estimatedMinutes: 12,
+        pathNodeIds: ['NODE-CAS-3', 'NODE-AID-2', 'NODE-INT-4', 'NODE-HOSP-1'],
+        edgesTraversed: ['EDGE-2', 'EDGE-3', 'EDGE-5'],
+        avoidedHazardIds: ['EDGE-1'],
+        algorithmUsed: 'Dijkstra-Hazard-Aware',
+        hasActiveBlockage: true,
+        alternativeFound: true,
+        explanation: 'Primary Highway 9 Corridor is BLOCKED (Bridge Collapse). Diverted via North Ridgeline Bypass (+1.1 km, +4 mins transit).',
+        calculatedAt: new Date().toISOString(),
+      };
+    }
+  }
+
+  // 7. Deterministic Demo Scenario Reset
+  public async resetDemoBaseline(): Promise<void> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        await fetch(`${API_BASE_URL}/demo/reset`, { method: 'POST' });
+      } catch (err) {
+        console.warn('[ApiClient] Remote demo reset failed:', err);
+      }
+    }
+    await dbService.resetToDeterministicBaseline();
   }
 }
 

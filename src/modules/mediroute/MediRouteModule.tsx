@@ -183,51 +183,16 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
   };
 
   // Dijkstra / Hazard-Aware Routing Implementation
-  const handleRecalculateRoute = () => {
+  const handleRecalculateRoute = async () => {
     setIsCalculatingRoute(true);
-
-    setTimeout(() => {
-      // Find route from Casualty Collection Point Delta (NODE-CAS-3) to Sector General Hospital Alpha (NODE-HOSP-1)
-      const edge1 = hazards.find((h) => h.id === 'EDGE-1'); // Direct Highway 9
-      const isEdge1Blocked = edge1 ? edge1.blocked : false;
-
-      if (!isEdge1Blocked) {
-        // Direct Path: CCP Delta -> River Road -> Interstate Jct -> Hospital
-        setActiveRoute({
-          id: `ROUTE-${Date.now()}`,
-          sourceNodeId: 'NODE-CAS-3',
-          destinationNodeId: 'NODE-HOSP-1',
-          totalDistanceKm: 5.5,
-          estimatedMinutes: 8,
-          pathNodeIds: ['NODE-CAS-3', 'NODE-INT-5', 'NODE-INT-4', 'NODE-HOSP-1'],
-          edgesTraversed: ['EDGE-1', 'EDGE-4', 'EDGE-5'],
-          avoidedHazardIds: [],
-          algorithmUsed: 'Dijkstra-Hazard-Aware',
-          hasActiveBlockage: false,
-          alternativeFound: true,
-          explanation: 'Fastest direct corridor selected via Highway 9. All 3 road segments clear (5.5 km, ~8 mins).',
-          calculatedAt: new Date().toISOString(),
-        });
-      } else {
-        // Bypass Path: CCP Delta -> Aid Station Bravo -> Interstate Jct -> Hospital
-        setActiveRoute({
-          id: `ROUTE-${Date.now()}`,
-          sourceNodeId: 'NODE-CAS-3',
-          destinationNodeId: 'NODE-HOSP-1',
-          totalDistanceKm: 6.6,
-          estimatedMinutes: 12,
-          pathNodeIds: ['NODE-CAS-3', 'NODE-AID-2', 'NODE-INT-4', 'NODE-HOSP-1'],
-          edgesTraversed: ['EDGE-2', 'EDGE-3', 'EDGE-5'],
-          avoidedHazardIds: ['EDGE-1'],
-          algorithmUsed: 'Dijkstra-Hazard-Aware',
-          hasActiveBlockage: true,
-          alternativeFound: true,
-          explanation: 'Primary Highway 9 Corridor is BLOCKED (Bridge Collapse). Diverted via North Ridgeline Bypass (+1.1 km, +4 mins transit).',
-          calculatedAt: new Date().toISOString(),
-        });
-      }
+    try {
+      const route = await api.calculateRoute('NODE-CAS-3', 'NODE-HOSP-1', true);
+      setActiveRoute(route);
+    } catch (err) {
+      console.error('Failed to compute route via engine:', err);
+    } finally {
       setIsCalculatingRoute(false);
-    }, 250);
+    }
   };
 
   const getTriageBadge = (category: TriageCategory) => {

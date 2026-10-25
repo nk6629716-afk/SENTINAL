@@ -171,7 +171,7 @@ export const App: React.FC = () => {
   const handleResetDemo = async () => {
     if (window.confirm('Reset all modules to deterministic baseline fixtures for judge demonstration replay?')) {
       setIsLoading(true);
-      await dbService.resetToDeterministicBaseline();
+      await api.resetDemoBaseline();
       await refreshAllData();
       setIsLoading(false);
     }

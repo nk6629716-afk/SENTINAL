@@ -1,13 +1,19 @@
 import { app } from './app';
 import { config } from './config';
 import { telemetryService } from './services/telemetryService';
+import { isSupabaseConfigured } from './db/supabaseClient';
 
-const server = app.listen(config.port, () => {
+const HOST = '0.0.0.0';
+
+const server = app.listen(config.port, HOST, () => {
+  const supabaseActive = isSupabaseConfigured();
   console.log(`=======================================================`);
   console.log(`  SENTINEL Backend Service Active`);
   console.log(`  Environment:  ${config.nodeEnv}`);
+  console.log(`  Host:         ${HOST}`);
   console.log(`  Port:         ${config.port}`);
-  console.log(`  Storage Mode: ${config.storageMode}`);
+  console.log(`  Storage Mode: ${supabaseActive ? 'supabase + file fallback' : config.storageMode}`);
+  console.log(`  Supabase:     ${supabaseActive ? 'CONFIGURED (' + config.supabaseUrl + ')' : 'UNCONFIGURED (using local store)'}`);
   console.log(`  Data Dir:     ${config.dataDir}`);
   console.log(`  Notice:       ALL DATA IS SYNTHETIC & SIMULATED`);
   console.log(`=======================================================`);
