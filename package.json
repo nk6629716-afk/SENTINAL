@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "npm run dev --prefix server",
     "build": "tsc && vite build",
+    "build:server": "npm run build --prefix server",
     "preview": "vite preview",
-    "test": "node src/tests/frontend-contracts.test.js"
+    "test": "node src/tests/frontend-contracts.test.js",
+    "test:server": "npm run test --prefix server",
+    "test:all": "npm test && npm run test --prefix server && python3 tests/run_verification.py"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",
