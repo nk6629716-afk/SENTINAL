@@ -5,11 +5,9 @@ import {
   RefreshCw,
   RotateCcw,
   Clock,
-  Layers,
-  Radio,
-  Crosshair,
-  Compass,
-  HeartPulse,
+  CheckCircle2,
+  AlertCircle,
+  Shield,
 } from 'lucide-react';
 
 interface CommandHeaderProps {
@@ -32,59 +30,89 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   isSyncing,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [browserHardwareOnline, setBrowserHardwareOnline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
 
   useEffect(() => {
-    const update = () => {
+    const updateTime = () => {
       const now = new Date();
       setCurrentTime(now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC');
     };
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+
+    const handleHwOnline = () => setBrowserHardwareOnline(true);
+    const handleHwOffline = () => setBrowserHardwareOnline(false);
+
+    window.addEventListener('online', handleHwOnline);
+    window.addEventListener('offline', handleHwOffline);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleHwOnline);
+      window.removeEventListener('offline', handleHwOffline);
+    };
   }, []);
 
   const getModuleTitle = () => {
     switch (activeModule) {
       case 'dashboard':
-        return { title: 'Common Operational Picture', subtitle: 'Cross-module situational synthesis & active incident overview' };
+        return {
+          title: 'Common Operational Picture',
+          subtitle: 'Cross-module tactical synthesis, field queue, and airspace situational feeds',
+        };
       case 'fieldlink':
-        return { title: 'FieldLink Tactical Reports', subtitle: 'Offline-first battlefield communication & IndexedDB outbox' };
+        return {
+          title: 'FieldLink Tactical Reports',
+          subtitle: 'Offline-first battlefield communication, IndexedDB queue, and idempotent sync',
+        };
       case 'skywatch':
-        return { title: 'SkyWatch Airspace Security', subtitle: 'Counter-drone radar tracking & explainable anomaly detection' };
+        return {
+          title: 'SkyWatch Airspace Security',
+          subtitle: 'Counter-drone radar simulation and explainable mathematical anomaly detection',
+        };
       case 'geointel':
-        return { title: 'GeoIntel Reconnaissance', subtitle: 'Multi-temporal satellite change analysis & candidate review' };
+        return {
+          title: 'GeoIntel Reconnaissance',
+          subtitle: 'Multi-temporal change analysis and candidate review workflow',
+        };
       case 'mediroute':
-        return { title: 'MediRoute Logistics', subtitle: 'Algorithmic START triage & hazard-aware evacuation routing' };
+        return {
+          title: 'MediRoute Logistics',
+          subtitle: 'Algorithmic START triage and hazard-avoiding Dijkstra evacuation routing',
+        };
     }
   };
 
   const moduleInfo = getModuleTitle();
+  const effectiveOffline = isOfflineMode || !browserHardwareOnline;
 
   return (
     <header
       style={{
-        background: 'var(--surface)',
+        background: 'var(--surface-raised)',
         borderBottom: '1px solid var(--border-subtle)',
-        padding: '16px 28px',
+        padding: '14px 24px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '16px',
+        gap: '14px',
         position: 'sticky',
         top: 0,
         zIndex: 30,
-        boxShadow: '0 2px 10px rgba(163, 174, 192, 0.15)',
+        boxShadow: 'var(--shadow-raised-sm)',
       }}
     >
-      {/* Title & Context */}
+      {/* Title & Module Identity */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
             {moduleInfo.title}
           </h1>
           <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.65rem' }}>
-            SIMULATED
+            DEMO TESTBED — SYNTHETIC DATA
           </span>
         </div>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -92,9 +120,9 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         </p>
       </div>
 
-      {/* Quick Controls & Status Area */}
+      {/* Operational Status Bar & Controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        {/* Clock */}
+        {/* UTC Clock */}
         <div
           style={{
             display: 'flex',
@@ -103,45 +131,102 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             padding: '6px 12px',
             borderRadius: 'var(--radius-pill)',
             background: 'var(--surface-inset)',
-            boxShadow: 'var(--shadow-inset-sm)',
+            border: '1px solid var(--border-subtle)',
             fontSize: '0.74rem',
             fontFamily: 'var(--font-mono)',
             color: 'var(--text-secondary)',
           }}
+          title="Current Zulu Operational Time"
         >
           <Clock size={12} color="var(--accent)" />
           <span>{currentTime}</span>
         </div>
 
-        {/* Offline Mode Switch */}
-        <button
-          className={`btn-neu btn-neu-sm ${isOfflineMode ? 'btn-neu-critical' : ''}`}
-          onClick={onToggleOffline}
-          title={isOfflineMode ? 'Click to restore online network connectivity' : 'Click to simulate field network blackout'}
+        {/* Local Connectivity Status Pill */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-pill)',
+            background: effectiveOffline ? 'var(--critical-bg)' : 'var(--healthy-bg)',
+            border: `1px solid ${effectiveOffline ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+            fontSize: '0.72rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            color: effectiveOffline ? 'var(--critical)' : 'var(--healthy)',
+          }}
+          title={
+            effectiveOffline
+              ? 'Local device/browser network is disconnected or field blackout simulation is active'
+              : 'Local browser network is connected'
+          }
         >
-          {isOfflineMode ? <WifiOff size={13} /> : <Wifi size={13} />}
-          <span>{isOfflineMode ? 'Offline Active' : 'Go Offline'}</span>
+          {effectiveOffline ? <WifiOff size={12} /> : <Wifi size={12} />}
+          <span>{effectiveOffline ? 'OFFLINE (BLACKOUT)' : 'ONLINE'}</span>
+        </div>
+
+        {/* Data Sync Status Pill */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: 'var(--radius-pill)',
+            background: pendingSyncCount > 0 ? 'var(--warning-bg)' : 'var(--surface-inset)',
+            border: `1px solid ${pendingSyncCount > 0 ? 'rgba(245, 158, 11, 0.3)' : 'var(--border-subtle)'}`,
+            fontSize: '0.72rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            color: pendingSyncCount > 0 ? 'var(--warning)' : 'var(--text-secondary)',
+          }}
+          title="FieldLink outbox synchronization queue status"
+        >
+          {pendingSyncCount > 0 ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
+          <span>{pendingSyncCount > 0 ? `${pendingSyncCount} PENDING OUTBOX` : 'ALL SYNCHRONIZED'}</span>
+        </div>
+
+        {/* Toggle Offline Mode Button */}
+        <button
+          className={`btn-neu btn-neu-sm ${effectiveOffline ? 'btn-neu-critical' : ''}`}
+          onClick={onToggleOffline}
+          title={
+            effectiveOffline
+              ? 'Restore online connection mode'
+              : 'Simulate field network blackout (no internet)'
+          }
+        >
+          {effectiveOffline ? <Wifi size={13} /> : <WifiOff size={13} />}
+          <span>{effectiveOffline ? 'Restore Online' : 'Simulate Blackout'}</span>
         </button>
 
-        {/* Outbox Sync Trigger */}
+        {/* Manual Outbox Sync Button */}
         <button
-          className={`btn-neu btn-neu-sm ${pendingSyncCount > 0 ? 'btn-neu-primary' : ''}`}
+          className={`btn-neu btn-neu-sm ${pendingSyncCount > 0 && !effectiveOffline ? 'btn-neu-primary' : ''}`}
           onClick={onTriggerSync}
-          disabled={isSyncing || isOfflineMode || pendingSyncCount === 0}
-          title="Synchronize local outbox records with command center"
+          disabled={isSyncing || effectiveOffline || pendingSyncCount === 0}
+          title={
+            effectiveOffline
+              ? 'Outbox sync requires an online connection'
+              : pendingSyncCount === 0
+              ? 'No pending reports in outbox'
+              : `Trigger batch synchronization for ${pendingSyncCount} queued reports`
+          }
         >
           <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
           <span>{isSyncing ? 'Syncing...' : `Sync Outbox (${pendingSyncCount})`}</span>
         </button>
 
-        {/* Reset Demo Button */}
+        {/* Deterministic Reset Demo Button */}
         <button
           className="btn-neu btn-neu-sm"
           onClick={onResetDemo}
-          title="Reset all modules to deterministic baseline fixtures for judge demonstration"
+          title="Reset all demo records back to deterministic baseline fixtures"
         >
-          <RotateCcw size={13} />
-          <span>Reset Baseline</span>
+          <RotateCcw size={12} />
+          <span>Reset Demo</span>
         </button>
       </div>
     </header>

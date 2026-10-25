@@ -1,7 +1,7 @@
 /**
  * SENTINEL API Client & Sync Coordinator
- * Handles typed communication with Person 2's backend API (`/api/*`),
- * with an integrated fallback to local IndexedDB and realistic mock engine.
+ * Handles typed communication with the backend API (`/api/*`),
+ * backed by an IndexedDB local-first storage layer with offline reconciliation.
  */
 
 import {
@@ -18,12 +18,11 @@ import {
 import { dbService } from '../storage/indexedDb';
 import { INITIAL_TRACKS, RESTRICTED_AIRSPACE_ZONES } from '../data/fixtures';
 
-// Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Configuration: uses relative /api to work with Vite proxy locally and API gateway in deployment
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export class SentinelApiClient {
   private isSimulatedOffline: boolean = false;
-  private useMockMode: boolean = true; // Active until Person 2 spins up server
 
   public setOfflineSimulation(offline: boolean) {
     this.isSimulatedOffline = offline;
@@ -33,17 +32,30 @@ export class SentinelApiClient {
     return this.isSimulatedOffline;
   }
 
-  public setMockMode(mock: boolean) {
-    this.useMockMode = mock;
+  public isNetworkOffline(): boolean {
+    if (this.isSimulatedOffline) return true;
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+    return false;
   }
 
-  public isUsingMockMode(): boolean {
-    return this.useMockMode;
+  public async isBackendAvailable(): Promise<boolean> {
+    if (this.isNetworkOffline()) return false;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch(`${API_BASE_URL}/health`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   // 1. Dashboard Summary
   public async getDashboardSummary(): Promise<DashboardSummary> {
-    if (this.isSimulatedOffline) {
+    const isOffline = this.isNetworkOffline();
+
+    if (isOffline) {
       const incidents = await dbService.getIncidents();
       const pendingSync = incidents.filter((i) => i.syncStatus === 'pending' || i.syncStatus === 'failed').length;
       const activeIncidents = incidents.filter((i) => i.status === 'active' || i.status === 'in_progress').length;
@@ -70,13 +82,18 @@ export class SentinelApiClient {
       };
     }
 
-    if (!this.useMockMode) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/dashboard`);
-        if (res.ok) return await res.json();
-      } catch (err) {
-        console.warn('Backend unavailable, falling back to local DB cache:', err);
+    // Try live server summary if available
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const res = await fetch(`${API_BASE_URL}/dashboard`, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const body = await res.json();
+        return body.data || body;
       }
+    } catch {
+      // Fallback to local state derivation
     }
 
     // Local cached derivation
@@ -105,41 +122,74 @@ export class SentinelApiClient {
     return await dbService.getIncidents();
   }
 
-  public async createIncident(report: IncidentReport): Promise<IncidentReport> {
-    if (this.isSimulatedOffline) {
+  public async createIncident(report: IncidentReport): Promise<{
+    report: IncidentReport;
+    isServerSynced: boolean;
+    message: string;
+  }> {
+    const isOffline = this.isNetworkOffline();
+
+    if (isOffline) {
       report.syncStatus = 'pending';
       report.status = 'pending_sync';
       await dbService.putIncident(report);
-      return report;
+      return {
+        report,
+        isServerSynced: false,
+        message: 'Saved locally in IndexedDB outbox. Marked as "Pending sync" (Offline Mode active).',
+      };
     }
 
-    if (!this.useMockMode) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/incidents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(report),
-        });
-        if (res.ok) {
-          const saved = await res.json();
-          saved.syncStatus = 'synced';
-          await dbService.putIncident(saved);
-          return saved;
-        }
-      } catch (err) {
-        console.warn('Network call failed, saving to local pending queue:', err);
+    // Try communicating with live backend API
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(`${API_BASE_URL}/incidents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(report),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        const serverRecord = data.data || data;
+        report.id = serverRecord.id || report.id;
+        report.syncStatus = 'synced';
+        report.status = 'active';
+        await dbService.putIncident(report);
+        return {
+          report,
+          isServerSynced: true,
+          message: `Incident broadcasted and confirmed synchronized with command center (${report.id}).`,
+        };
       }
+    } catch (err) {
+      console.warn('[API] Backend unreachable, saving report to local outbox:', err);
     }
 
-    // Default mock behavior
-    report.syncStatus = 'synced';
-    report.status = 'active';
+    // Backend unreachable: save locally as pending
+    report.syncStatus = 'pending';
+    report.status = 'pending_sync';
     await dbService.putIncident(report);
-    return report;
+    return {
+      report,
+      isServerSynced: false,
+      message: 'Command server unreachable. Report saved locally in IndexedDB outbox (Pending sync).',
+    };
   }
 
   // Batch Offline Sync Reconciliation
-  public async syncPendingQueue(): Promise<BatchSyncResult> {
+  public async syncPendingQueue(): Promise<{
+    totalSubmitted: number;
+    acceptedCount: number;
+    duplicateCount: number;
+    rejectedCount: number;
+    items: any[];
+    serverConnected: boolean;
+    message: string;
+  }> {
     const pending = await dbService.getPendingSyncIncidents();
     if (pending.length === 0) {
       return {
@@ -148,11 +198,13 @@ export class SentinelApiClient {
         duplicateCount: 0,
         rejectedCount: 0,
         items: [],
+        serverConnected: true,
+        message: 'Outbox is empty. No pending reports require synchronization.',
       };
     }
 
-    if (this.isSimulatedOffline) {
-      throw new Error('Sync failed: Network unreachable (Offline Mode active).');
+    if (this.isNetworkOffline()) {
+      throw new Error('Synchronization unavailable: Device/browser is currently offline.');
     }
 
     const payloads: OfflineSyncPayload[] = pending.map((item) => ({
@@ -161,73 +213,64 @@ export class SentinelApiClient {
       clientTimestamp: item.createdAt,
     }));
 
-    // If live backend is available
-    if (!this.useMockMode) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/sync`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reports: payloads }),
-        });
-        if (res.ok) {
-          const result: BatchSyncResult = await res.json();
-          // Update local DB records with server confirmation
-          for (const item of result.items) {
-            const match = pending.find((p) => p.clientId === item.clientId || p.id === item.clientId);
-            if (match && (item.outcome === 'accepted' || item.outcome === 'already_received')) {
-              match.syncStatus = 'synced';
-              match.status = 'active';
-              match.id = item.serverId || match.id;
-              await dbService.putIncident(match);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`${API_BASE_URL}/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reports: payloads }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const body = await res.json();
+        const result: BatchSyncResult = body.data || body;
+        const resultItems = result.items || result.results || [];
+
+        for (const itemResult of resultItems) {
+          const match = pending.find(
+            (p) => p.clientId === itemResult.clientId || p.id === itemResult.clientId
+          );
+          if (
+            match &&
+            (itemResult.outcome === 'accepted' ||
+              itemResult.outcome === 'already_received' ||
+              itemResult.status === 'accepted')
+          ) {
+            match.syncStatus = 'synced';
+            match.status = 'active';
+            if (itemResult.serverId) {
+              match.id = itemResult.serverId;
             }
+            await dbService.putIncident(match);
           }
-          return result;
         }
-      } catch (err) {
-        console.warn('Live sync failed, using deterministic local reconciliation:', err);
+
+        return {
+          totalSubmitted: pending.length,
+          acceptedCount: result.acceptedCount ?? 0,
+          duplicateCount: result.duplicateCount ?? 0,
+          rejectedCount: result.rejectedCount ?? 0,
+          items: resultItems,
+          serverConnected: true,
+          message: `Synchronized ${result.acceptedCount} new report(s) with command server (${result.duplicateCount} duplicate(s) reconciled).`,
+        };
       }
+    } catch (err) {
+      console.warn('[Sync] Server sync request failed:', err);
     }
 
-    // Deterministic mock sync logic with idempotent deduplication
-    const itemsResult: BatchSyncResult['items'] = [];
-    let accepted = 0;
-    let duplicates = 0;
-
-    for (const p of pending) {
-      // Simulate network roundtrip latency
-      await new Promise((r) => setTimeout(r, 120));
-
-      const isDupe = p.syncAttempts && p.syncAttempts > 1;
-      if (isDupe) {
-        duplicates++;
-        itemsResult.push({
-          clientId: p.clientId || p.id,
-          serverId: p.id,
-          outcome: 'already_received',
-          syncTimestamp: new Date().toISOString(),
-        });
-      } else {
-        accepted++;
-        itemsResult.push({
-          clientId: p.clientId || p.id,
-          serverId: p.id.startsWith('OFFLINE-') ? `INC-SYNC-${Math.floor(Math.random() * 9000 + 1000)}` : p.id,
-          outcome: 'accepted',
-          syncTimestamp: new Date().toISOString(),
-        });
-      }
-
-      p.syncStatus = 'synced';
-      p.status = 'active';
-      p.updatedAt = new Date().toISOString();
-      await dbService.putIncident(p);
-    }
-
+    // Backend was unreachable: preserve pending state truthfully without falsifying sync
     return {
       totalSubmitted: pending.length,
-      acceptedCount: accepted,
-      duplicateCount: duplicates,
+      acceptedCount: 0,
+      duplicateCount: 0,
       rejectedCount: 0,
-      items: itemsResult,
+      items: [],
+      serverConnected: false,
+      message: `Synchronization waiting for backend configuration: ${pending.length} report(s) safely retained in local IndexedDB outbox.`,
     };
   }
 
@@ -244,7 +287,7 @@ export class SentinelApiClient {
     return await dbService.getAlerts();
   }
 
-  public async acknowledgeAlert(id: string, user: string = 'Watch Officer 1'): Promise<AirspaceAlert> {
+  public async acknowledgeAlert(id: string, user: string = 'Duty Watch Officer'): Promise<AirspaceAlert> {
     const alerts = await dbService.getAlerts();
     const alert = alerts.find((a) => a.id === id);
     if (!alert) throw new Error(`Alert with id ${id} not found.`);

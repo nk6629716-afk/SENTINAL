@@ -239,6 +239,7 @@ export const App: React.FC = () => {
               isOfflineMode={isOfflineMode}
               onRefreshIncidents={refreshAllData}
               onTriggerSync={handleTriggerSync}
+              onResetDemo={handleResetDemo}
               isSyncing={isSyncing}
             />
           )}
@@ -249,6 +250,7 @@ export const App: React.FC = () => {
               alerts={alerts}
               zones={zones}
               onRefreshAlerts={refreshAllData}
+              onResetDemo={handleResetDemo}
             />
           )}
 

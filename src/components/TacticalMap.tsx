@@ -93,7 +93,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         position: 'relative',
         height,
         width: '100%',
-        backgroundColor: '#E2E6ED', // Soft slate canvas
+        backgroundColor: '#080C13', // Deep dark tactical canvas
         borderRadius: 'var(--radius-lg)',
         boxShadow: 'var(--shadow-inset-sm)',
         border: '1px solid var(--border-subtle)',
@@ -215,27 +215,27 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
         {/* 1. Subtle Drafting Grid */}
         {activeLayers.grid && (
-          <g opacity="0.35">
+          <g opacity="0.4">
             {Array.from({ length: 17 }).map((_, i) => (
-              <line key={`gx-${i}`} x1={i * 50} y1="0" x2={i * 50} y2="600" stroke="#B0BAC9" strokeWidth="0.8" strokeDasharray="3,4" />
+              <line key={`gx-${i}`} x1={i * 50} y1="0" x2={i * 50} y2="600" stroke="#1E293B" strokeWidth="0.8" strokeDasharray="3,4" />
             ))}
             {Array.from({ length: 13 }).map((_, i) => (
-              <line key={`gy-${i}`} x1="0" y1={i * 50} x2="800" y2={i * 50} stroke="#B0BAC9" strokeWidth="0.8" strokeDasharray="3,4" />
+              <line key={`gy-${i}`} x1="0" y1={i * 50} x2="800" y2={i * 50} stroke="#1E293B" strokeWidth="0.8" strokeDasharray="3,4" />
             ))}
           </g>
         )}
 
         {/* 2. Concentric Range Marks */}
         {showRadarSweep && (
-          <g opacity="0.45" pointerEvents="none">
-            <circle cx={400 + pan.x} cy={300 + pan.y} r={90 * zoom} fill="none" stroke="#9AA8BC" strokeWidth="1" strokeDasharray="4,4" />
-            <circle cx={400 + pan.x} cy={300 + pan.y} r={180 * zoom} fill="none" stroke="#9AA8BC" strokeWidth="1" strokeDasharray="4,4" />
-            <circle cx={400 + pan.x} cy={300 + pan.y} r={270 * zoom} fill="none" stroke="#9AA8BC" strokeWidth="1" strokeDasharray="4,4" />
-            <line x1={400 + pan.x - 300 * zoom} y1={300 + pan.y} x2={400 + pan.x + 300 * zoom} y2={300 + pan.y} stroke="#9AA8BC" strokeWidth="0.8" />
-            <line x1={400 + pan.x} y1={300 + pan.y - 300 * zoom} x2={400 + pan.x} y2={300 + pan.y + 300 * zoom} stroke="#9AA8BC" strokeWidth="0.8" />
-            <text x={400 + pan.x + 95 * zoom} y={300 + pan.y - 6} fill="#667085" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">5 KM</text>
-            <text x={400 + pan.x + 185 * zoom} y={300 + pan.y - 6} fill="#667085" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">10 KM</text>
-            <text x={400 + pan.x + 275 * zoom} y={300 + pan.y - 6} fill="#667085" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">15 KM</text>
+          <g opacity="0.6" pointerEvents="none">
+            <circle cx={400 + pan.x} cy={300 + pan.y} r={90 * zoom} fill="none" stroke="#223249" strokeWidth="1" strokeDasharray="4,4" />
+            <circle cx={400 + pan.x} cy={300 + pan.y} r={180 * zoom} fill="none" stroke="#223249" strokeWidth="1" strokeDasharray="4,4" />
+            <circle cx={400 + pan.x} cy={300 + pan.y} r={270 * zoom} fill="none" stroke="#223249" strokeWidth="1" strokeDasharray="4,4" />
+            <line x1={400 + pan.x - 300 * zoom} y1={300 + pan.y} x2={400 + pan.x + 300 * zoom} y2={300 + pan.y} stroke="#223249" strokeWidth="0.8" />
+            <line x1={400 + pan.x} y1={300 + pan.y - 300 * zoom} x2={400 + pan.x} y2={300 + pan.y + 300 * zoom} stroke="#223249" strokeWidth="0.8" />
+            <text x={400 + pan.x + 95 * zoom} y={300 + pan.y - 6} fill="#64748B" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">5 KM</text>
+            <text x={400 + pan.x + 185 * zoom} y={300 + pan.y - 6} fill="#64748B" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">10 KM</text>
+            <text x={400 + pan.x + 275 * zoom} y={300 + pan.y - 6} fill="#64748B" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">15 KM</text>
           </g>
         )}
 

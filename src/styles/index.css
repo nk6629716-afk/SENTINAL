@@ -1,50 +1,49 @@
 /* ==========================================================================
-   SENTINEL NEUMORPHIC DESIGN SYSTEM
-   Soft Tactical Interface: Subtle Paired Shadows, Recessed Panels, Rounded Geometry
-   Reference Tokens: Canvas #E8EBF0, Inset #DDE1E8, Ink #202936, Accent #4669A8
+   SENTINEL COMMAND DESIGN SYSTEM
+   Dark Restrained Operational Interface: Crisp Slate Surfaces, Clear Contrast
    ========================================================================== */
 
 :root {
-  /* Surface & Canvas Palette */
-  --surface: #E8EBF0;
-  --surface-raised: #E8EBF0;
-  --surface-inset: #DDE1E8;
-  --surface-card: #E8EBF0;
-  --surface-highlight: #FFFFFF;
+  /* Surface & Canvas Palette (Dark Tactical Command Theme) */
+  --surface: #0B0F17;
+  --surface-raised: #131A26;
+  --surface-inset: #080C13;
+  --surface-card: #131A26;
+  --surface-highlight: #1B2433;
 
-  /* Typography */
-  --text-primary: #202936;
-  --text-secondary: #667085;
-  --text-muted: #8F9CAE;
+  /* High Contrast Typography */
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
 
-  /* Subtle Structural Borders */
-  --border-subtle: #D2D8E1;
-  --border-light: rgba(255, 255, 255, 0.6);
+  /* Restrained Structural Borders */
+  --border-subtle: #1E293B;
+  --border-light: rgba(255, 255, 255, 0.08);
 
-  /* Meaningful Status Accents */
-  --accent: #4669A8;
-  --accent-light: #EDF2FA;
-  --healthy: #397653;
-  --healthy-bg: #E9F4EE;
-  --warning: #A86B12;
-  --warning-bg: #FAF3E8;
-  --critical: #B93838;
-  --critical-bg: #FAEEEE;
-  --informational: #356B8C;
-  --informational-bg: #EBF3F8;
+  /* Meaningful Operational Status Accents */
+  --accent: #3B82F6;
+  --accent-light: rgba(59, 130, 246, 0.15);
+  --healthy: #10B981;
+  --healthy-bg: rgba(16, 185, 129, 0.12);
+  --warning: #F59E0B;
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --critical: #EF4444;
+  --critical-bg: rgba(239, 68, 68, 0.12);
+  --informational: #0EA5E9;
+  --informational-bg: rgba(14, 165, 233, 0.12);
 
-  /* Paired Neumorphic Shadows */
-  --shadow-raised: 6px 6px 14px rgba(163, 174, 192, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.85);
-  --shadow-raised-sm: 3px 3px 8px rgba(163, 174, 192, 0.35), -3px -3px 8px rgba(255, 255, 255, 0.8);
-  --shadow-raised-hover: 8px 8px 18px rgba(163, 174, 192, 0.55), -8px -8px 18px rgba(255, 255, 255, 0.95);
-  --shadow-inset: inset 3px 3px 7px rgba(163, 174, 192, 0.35), inset -3px -3px 7px rgba(255, 255, 255, 0.8);
-  --shadow-inset-sm: inset 2px 2px 4px rgba(163, 174, 192, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.75);
+  /* Soft Ambient Elevation & Inset Shadows */
+  --shadow-raised: 0 4px 14px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-raised-sm: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-raised-hover: 0 6px 20px rgba(0, 0, 0, 0.6);
+  --shadow-inset: inset 0 2px 5px rgba(0, 0, 0, 0.6);
+  --shadow-inset-sm: inset 0 1px 3px rgba(0, 0, 0, 0.5);
 
   /* Geometry & Rounded Corners */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-pill: 9999px;
 
   /* Typography Stacks */
@@ -102,19 +101,19 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-inset);
 }
 ::-webkit-scrollbar-thumb {
-  background: #B9C3D2;
+  background: #2A3649;
   border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent);
 }
 
-/* Raised Neumorphic Cards / Panels */
+/* Raised Command Cards / Panels */
 .neu-card {
   background: var(--surface-raised);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-raised);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-subtle);
   padding: 20px;
   position: relative;
   transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -124,19 +123,19 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-raised);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-raised-sm);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-subtle);
   padding: 14px;
 }
 
-/* Recessed Neumorphic Panel */
+/* Recessed Panel */
 .neu-inset {
   background: var(--surface-inset);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-inset);
-  border: 1px solid rgba(210, 216, 225, 0.4);
+  border: 1px solid var(--border-subtle);
 }
 
-/* Tactile Neumorphic Buttons */
+/* Tactile Command Buttons */
 .btn-neu {
   display: inline-flex;
   align-items: center;
@@ -148,7 +147,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   border-radius: var(--radius-md);
   cursor: pointer;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-subtle);
   background: var(--surface-raised);
   color: var(--text-primary);
   box-shadow: var(--shadow-raised-sm);
@@ -160,7 +159,13 @@ h1, h2, h3, h4, h5, h6 {
 .btn-neu:hover {
   box-shadow: var(--shadow-raised);
   transform: translateY(-1px);
-  color: var(--accent);
+  border-color: var(--accent);
+  color: #FFFFFF;
+}
+
+.btn-neu:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn-neu:active, .btn-neu.active {
@@ -172,30 +177,30 @@ h1, h2, h3, h4, h5, h6 {
 .btn-neu-primary {
   background: var(--accent);
   color: #FFFFFF;
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 4px 4px 10px rgba(70, 105, 168, 0.35), -4px -4px 10px rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
 }
 
 .btn-neu-primary:hover {
-  background: #3a578c;
+  background: #2563EB;
   color: #FFFFFF;
-  box-shadow: 5px 5px 14px rgba(70, 105, 168, 0.45), -5px -5px 14px rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.45);
 }
 
 .btn-neu-primary:active {
-  background: #314a77;
-  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.3);
+  background: #1D4ED8;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .btn-neu-critical {
   background: var(--critical);
   color: #FFFFFF;
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 4px 4px 10px rgba(185, 56, 56, 0.3), -4px -4px 10px rgba(255, 255, 255, 0.8);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
 }
 
 .btn-neu-critical:hover {
-  background: #a32f2f;
+  background: #DC2626;
   color: #FFFFFF;
 }
 
@@ -205,18 +210,18 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-neu:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
   box-shadow: none;
 }
 
-/* Soft Recessed Form Inputs */
+/* Recessed Form Inputs */
 .input-neu {
   width: 100%;
   background: var(--surface-inset);
   box-shadow: var(--shadow-inset-sm);
-  border: 1px solid rgba(210, 216, 225, 0.6);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 9px 14px;
   color: var(--text-primary);
@@ -228,7 +233,7 @@ h1, h2, h3, h4, h5, h6 {
 .input-neu:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: var(--shadow-inset), 0 0 0 2px rgba(70, 105, 168, 0.15);
+  box-shadow: var(--shadow-inset), 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .input-neu::placeholder {
