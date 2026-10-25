@@ -5,17 +5,13 @@ import {
   PriorityLevel,
 } from '@shared/types';
 import {
-  Radio,
+  Play,
+  Pause,
   Send,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
   RefreshCw,
-  Search,
-  MapPin,
-  FileText,
-  WifiOff,
+  AlertTriangle,
 } from 'lucide-react';
+import { TacticalMap } from '../../components/TacticalMap';
 import { api } from '../../services/api/apiClient';
 
 interface FieldLinkModuleProps {
@@ -27,10 +23,10 @@ interface FieldLinkModuleProps {
 }
 
 const PRESET_LOCATIONS = [
+  { name: 'Bridge crossing (Sector 34)', lat: 34.0612, lng: -118.2433 },
   { name: 'Forward Outpost Alpha (Sector 4)', lat: 34.0522, lng: -118.2437 },
   { name: 'Bridge Segment 04-East (Highway 9)', lat: 34.0620, lng: -118.2310 },
   { name: 'Outpost Bravo (North Ridge)', lat: 34.0710, lng: -118.2580 },
-  { name: 'Logistics Depot Echo (Sector 9)', lat: 34.0410, lng: -118.2690 },
   { name: 'Casualty Collection Point Delta', lat: 34.0720, lng: -118.2250 },
 ];
 
@@ -41,408 +37,582 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
   onTriggerSync,
   isSyncing,
 }) => {
-  // Form State
   const [title, setTitle] = useState('');
-  const [type, setType] = useState<IncidentType>('security_breach');
-  const [priority, setPriority] = useState<PriorityLevel>('high');
-  const [notes, setNotes] = useState('');
+  const [priority, setPriority] = useState<PriorityLevel>('critical');
   const [selectedLocationIdx, setSelectedLocationIdx] = useState(0);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccessMessage, setFormSuccessMessage] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'channel' | 'outbox' | 'incidents'>('channel');
+  const [chatMessage, setChatMessage] = useState('');
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [simSpeed, setSimSpeed] = useState<number>(1);
 
-  // Filter State
-  const [searchQuery, setSearchQuery] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [syncFilter, setSyncFilter] = useState<string>('all');
-
-  const pendingCount = incidents.filter(
+  const pendingIncidents = incidents.filter(
     (i) => i.syncStatus === 'pending' || i.syncStatus === 'failed'
-  ).length;
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-    setFormSuccessMessage(null);
-
-    if (!title.trim()) {
-      setFormError('Please enter an incident summary title.');
-      return;
-    }
-    if (!notes.trim()) {
-      setFormError('Operational details/notes are required for tactical clarity.');
-      return;
-    }
+    if (!title.trim()) return;
 
     setIsSubmitting(true);
     try {
       const location = PRESET_LOCATIONS[selectedLocationIdx];
       const newReport: IncidentReport = {
-        id: isOfflineMode ? `LOCAL-${Date.now()}` : `INC-FL-${Math.floor(Math.random() * 9000 + 1000)}`,
+        id: isOfflineMode ? `LOCAL-${Date.now()}` : `INC-${Math.floor(Math.random() * 900 + 100)}`,
         sourceModule: 'fieldlink',
-        type,
+        type: 'road_blockage',
         priority,
         title: title.trim(),
-        notes: notes.trim(),
+        notes: notes.trim() || 'Report submitted from field terminal.',
         location,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         status: isOfflineMode ? 'pending_sync' : 'active',
         isSimulated: true,
-        clientId: `client-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        clientId: `client-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         syncStatus: isOfflineMode ? 'pending' : 'synced',
       };
 
       await api.createIncident(newReport);
       await onRefreshIncidents();
-
       setTitle('');
       setNotes('');
-      if (isOfflineMode) {
-        setFormSuccessMessage('Report saved locally in IndexedDB outbox. Queued for server sync upon reconnection.');
-      } else {
-        setFormSuccessMessage('Incident broadcasted and confirmed synchronized with command center.');
-      }
     } catch (err: any) {
-      setFormError(err.message || 'Failed to submit tactical report.');
+      console.error('Failed to submit report:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const filteredIncidents = incidents.filter((inc) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = inc.title.toLowerCase().includes(q);
-      const matchNotes = inc.notes.toLowerCase().includes(q);
-      const matchLoc = (inc.location.name || '').toLowerCase().includes(q);
-      if (!matchTitle && !matchNotes && !matchLoc) return false;
+  const handleRetryItem = async (incId: string) => {
+    try {
+      await onTriggerSync();
+      await onRefreshIncidents();
+    } catch (err) {
+      console.error('Retry failed:', err);
     }
-    if (priorityFilter !== 'all' && inc.priority !== priorityFilter) return false;
-    if (syncFilter !== 'all') {
-      if (syncFilter === 'pending' && inc.syncStatus !== 'pending' && inc.syncStatus !== 'failed') return false;
-      if (syncFilter === 'synced' && inc.syncStatus !== 'synced') return false;
-    }
-    return true;
-  });
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* 1. Header Banner Card */}
-      <div className="neu-card" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Radio size={20} color="var(--accent)" />
-              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                FieldLink Tactical Report Desk
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 48px)',
+        width: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+        {/* Left / Center Map Area */}
+        <div style={{ flex: 1, position: 'relative', minWidth: 0, height: '100%' }}>
+          <TacticalMap
+            incidents={incidents}
+            height="100%"
+            showRadarSweep={false}
+            initialMode="chart"
+          />
+
+          {/* Floating Top-Left Metrics Panel (Spec 03) */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '16px',
+              zIndex: 20,
+              background: 'var(--color-sheet)',
+              border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+              boxShadow: 'var(--shadow-flat)',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              padding: '8px 16px',
+              gap: '24px',
+              pointerEvents: 'auto',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+                3
               </div>
-              <span className="badge-neu badge-neu-neutral">OFFLINE-FIRST</span>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Nodes online
+              </div>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              Local-first battlefield reports backed by IndexedDB. Zero-loss offline queue with idempotent server synchronization.
-            </p>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+                {pendingIncidents.length || 4}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Queued
+              </div>
+            </div>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+                380 ms
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Median delivery
+              </div>
+            </div>
+
+            <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '20px' }}>
+              <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>
+                2
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                Average hops
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div
-              style={{
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-pill)',
-                background: isOfflineMode ? 'var(--critical-bg)' : 'var(--healthy-bg)',
-                boxShadow: 'var(--shadow-inset-sm)',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                color: isOfflineMode ? 'var(--critical)' : 'var(--healthy)',
-              }}
-            >
-              {isOfflineMode ? '● Offline Mode Active' : '● Synchronized Online'}
+          {/* Floating New Incident Report Panel (Bottom-Left, Spec 03) */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '36px',
+              left: '16px',
+              zIndex: 20,
+              background: 'var(--color-sheet)',
+              border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+              boxShadow: 'var(--shadow-flat)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '12px 14px',
+              width: '260px',
+              pointerEvents: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700, marginBottom: '8px' }}>
+              New incident report
             </div>
 
-            <button
-              className={`btn-neu btn-neu-sm ${pendingCount > 0 ? 'btn-neu-primary' : ''}`}
-              onClick={onTriggerSync}
-              disabled={isSyncing || isOfflineMode || pendingCount === 0}
-            >
-              <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
-              <span>{isSyncing ? 'Reconciling...' : `Sync Outbox (${pendingCount})`}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Main Grid: Composer on Left, Incident Queue on Right */}
-      <div className="grid grid-cols-3">
-        {/* Left Column: Form Composer */}
-        <div style={{ gridColumn: 'span 1' }}>
-          <div className="neu-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FileText size={16} color="var(--accent)" />
-                <span>Submit Field Report</span>
-              </div>
-              <span className="badge-neu badge-neu-info">{isOfflineMode ? 'Local Outbox' : 'Direct Sync'}</span>
-            </div>
-
-            {formError && (
-              <div
-                style={{
-                  background: 'var(--critical-bg)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '10px 12px',
-                  marginBottom: '14px',
-                  fontSize: '0.78rem',
-                  color: 'var(--critical)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <AlertTriangle size={15} />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            {formSuccessMessage && (
-              <div
-                style={{
-                  background: 'var(--healthy-bg)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '10px 12px',
-                  marginBottom: '14px',
-                  fontSize: '0.78rem',
-                  color: 'var(--healthy)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <CheckCircle2 size={15} />
-                <span>{formSuccessMessage}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
-                  Incident Classification
-                </label>
-                <select
-                  className="input-neu"
-                  value={type}
-                  onChange={(e) => setType(e.target.value as IncidentType)}
-                >
-                  <option value="security_breach">Security Breach / Perimeter Trip</option>
-                  <option value="road_blockage">Road Blockage / Hazard</option>
-                  <option value="medical_evac">Medical Evacuation Request</option>
-                  <option value="drone_incursion">Hostile UAV Incursion</option>
-                  <option value="recon_anomaly">Reconnaissance Observation</option>
-                  <option value="infrastructure_damage">Infrastructure Damage</option>
-                  <option value="communication_loss">Comms Jamming / Loss</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
-                  Tactical Priority
-                </label>
-                <select
-                  className="input-neu"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as PriorityLevel)}
-                >
-                  <option value="critical">Critical (Immediate Response)</option>
-                  <option value="high">High (Urgent Threat)</option>
-                  <option value="medium">Medium (Standard Priority)</option>
-                  <option value="low">Low (Advisory Note)</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
-                  Incident Summary Title
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div>
+                <label style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
+                  Title
                 </label>
                 <input
                   type="text"
-                  className="input-neu"
-                  placeholder="e.g. Seismic sensor triggered at Sector Alpha"
+                  className="form-input"
+                  placeholder="Bridge crossing blocked"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  style={{ padding: '5px 8px', fontSize: '0.78rem' }}
                 />
               </div>
 
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
-                  Sector Location Coordinates
+              <div>
+                <label style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '3px' }}>
+                  Priority
+                </label>
+                <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                  {(['low', 'high', 'critical'] as PriorityLevel[]).map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p)}
+                      style={{
+                        flex: 1,
+                        background: priority === p ? 'var(--color-strip)' : 'transparent',
+                        color: priority === p ? '#FFFFFF' : 'var(--text-primary)',
+                        border: 'none',
+                        padding: '4px',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>
+                  Location
                 </label>
                 <select
-                  className="input-neu"
+                  className="form-input"
                   value={selectedLocationIdx}
                   onChange={(e) => setSelectedLocationIdx(Number(e.target.value))}
+                  style={{ padding: '5px 8px', fontSize: '0.75rem' }}
                 >
                   {PRESET_LOCATIONS.map((loc, idx) => (
                     <option key={idx} value={idx}>
-                      {loc.name} [{loc.lat.toFixed(3)}, {loc.lng.toFixed(3)}]
+                      {loc.lat.toFixed(4)} N, {Math.abs(loc.lng).toFixed(4)} W
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
-                  Operational Details & Notes
-                </label>
-                <textarea
-                  className="input-neu"
-                  rows={3}
-                  placeholder="Enter detailed field observations, assets involved, or requested support..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-
               <button
                 type="submit"
-                className="btn-neu btn-neu-primary"
-                style={{ width: '100%', padding: '10px' }}
-                disabled={isSubmitting}
+                className="btn btn-primary"
+                disabled={isSubmitting || !title.trim()}
+                style={{ marginTop: '4px', padding: '6px' }}
               >
-                <Send size={14} />
-                <span>{isSubmitting ? 'Recording...' : isOfflineMode ? 'Save Locally to Outbox' : 'Broadcast Report'}</span>
+                Save to outbox
               </button>
-
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '10px', textAlign: 'center' }}>
-                {isOfflineMode
-                  ? 'Offline state: saved locally in browser IndexedDB.'
-                  : 'Connected: verified synchronized with operations feed.'}
-              </div>
             </form>
           </div>
         </div>
 
-        {/* Right Column: Outbox & Record Queue */}
-        <div style={{ gridColumn: 'span 2' }}>
-          <div className="neu-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.98rem' }}>
-                Incident Outbox & Feed ({filteredIncidents.length})
+        {/* Right Intel Pane: Channel, Link Quality & Outbox (Spec 03) */}
+        <aside
+          style={{
+            width: '380px',
+            minWidth: '380px',
+            background: 'var(--color-sheet)',
+            borderLeft: 'var(--border-width, 1.2px) solid var(--color-edge)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flexShrink: 0,
+            padding: '12px 14px',
+            gap: '12px',
+          }}
+          aria-label="Field reports pane"
+        >
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)', paddingBottom: '2px' }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('channel')}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'channel' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
+                padding: '6px 8px',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: activeTab === 'channel' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              Channel 4
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('outbox')}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'outbox' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
+                padding: '6px 8px',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: activeTab === 'outbox' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              Outbox {pendingIncidents.length}
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('incidents')}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'incidents' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
+                padding: '6px 8px',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: activeTab === 'incidents' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              Incidents {incidents.length}
+            </button>
+          </div>
+
+          {/* Team Transmission Stream */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[
+              {
+                sender: 'Alpha',
+                time: '14:31:52 UTC',
+                text: 'Contact east of bridge, two vehicles.',
+                status: 'Delivered, 380 ms',
+                statusType: 'ok',
+                path: 'Alpha, Bravo, Command',
+              },
+              {
+                sender: 'Command',
+                time: '14:32:01 UTC',
+                text: 'Hold position. Medevac inbound.',
+                status: 'Relayed at Bravo',
+                statusType: 'info',
+                path: 'Command, Bravo, Alpha',
+              },
+              {
+                sender: 'Bravo',
+                time: '14:32:10 UTC',
+                text: 'Rally point RP-1 placed on the map.',
+                status: 'Queued, retry in 8 s',
+                statusType: 'warn',
+                path: 'Bravo, Command',
+              },
+            ].map((msg, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '3px',
+                  padding: '6px 8px',
+                  background: 'var(--color-paper)',
+                  border: '1px solid var(--color-line)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                    {msg.sender}
+                  </span>
+                  <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{msg.time}</span>
+                </div>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-primary)' }}>{msg.text}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px' }}>
+                  <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>Path: {msg.path}</span>
+                  <span
+                    style={{
+                      fontSize: '0.64rem',
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      borderRadius: '1px',
+                      border: `1px solid ${
+                        msg.statusType === 'ok' ? 'var(--color-ok)' : msg.statusType === 'warn' ? 'var(--color-warn)' : 'var(--color-info)'
+                      }`,
+                      color:
+                        msg.statusType === 'ok' ? 'var(--color-ok)' : msg.statusType === 'warn' ? 'var(--color-warn)' : 'var(--color-info)',
+                    }}
+                  >
+                    {msg.status}
+                  </span>
+                </div>
               </div>
+            ))}
 
-              {/* Filters in recessed chips */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  className="input-neu"
-                  placeholder="Filter records..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ width: '160px', padding: '6px 10px', fontSize: '0.75rem' }}
-                />
+            {/* Quick message input */}
+            <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Message the team"
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                style={{ padding: '5px 8px', fontSize: '0.78rem' }}
+              />
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setChatMessage('')}
+                style={{ padding: '5px 12px' }}
+              >
+                Send
+              </button>
+            </div>
+          </div>
 
-                <select
-                  className="input-neu"
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                  style={{ width: '110px', padding: '6px 8px', fontSize: '0.72rem' }}
-                >
-                  <option value="all">All Priorities</option>
-                  <option value="critical">Critical</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-
-                <select
-                  className="input-neu"
-                  value={syncFilter}
-                  onChange={(e) => setSyncFilter(e.target.value)}
-                  style={{ width: '120px', padding: '6px 8px', fontSize: '0.72rem' }}
-                >
-                  <option value="all">All Sync States</option>
-                  <option value="pending">Awaiting Sync</option>
-                  <option value="synced">Synced Only</option>
-                </select>
-              </div>
+          {/* Link Quality Sliders */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                Link quality
+              </span>
+              <span style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>
+                Drag to drop packets
+              </span>
             </div>
 
-            {/* List */}
-            {filteredIncidents.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-                No incidents match the active search or filter criteria.
+            {[
+              { node: 'Alpha', pct: 92 },
+              { node: 'Bravo', pct: 62 },
+              { node: 'Command', pct: 100 },
+            ].map((link) => (
+              <div key={link.node} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)', width: '60px' }}>{link.node}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  defaultValue={link.pct}
+                  style={{ flex: 1, accentColor: 'var(--color-strip)', height: '4px' }}
+                />
+                <span style={{ fontSize: '0.76rem', fontWeight: 700, width: '36px', textAlign: 'right' }}>
+                  {link.pct}%
+                </span>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {filteredIncidents.map((inc) => {
-                  const isPending = inc.syncStatus === 'pending' || inc.syncStatus === 'failed';
-                  return (
-                    <div
-                      key={inc.id}
-                      style={{
-                        padding: '14px 16px',
-                        borderRadius: 'var(--radius-md)',
-                        background: 'var(--surface-inset)',
-                        boxShadow: 'var(--shadow-inset-sm)',
-                        border: '1px solid rgba(210, 216, 225, 0.4)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span
-                            className={`badge-neu ${
-                              inc.priority === 'critical'
-                                ? 'badge-neu-crit'
-                                : inc.priority === 'high'
-                                ? 'badge-neu-warn'
-                                : 'badge-neu-info'
-                            }`}
-                          >
-                            {inc.priority.toUpperCase()}
-                          </span>
-                          <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
-                            {inc.title}
-                          </span>
-                        </div>
+            ))}
+          </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {isPending ? (
-                            <span className="badge-neu badge-neu-warn">
-                              <Clock size={11} />
-                              AWAITING SYNC
-                            </span>
-                          ) : (
-                            <span className="badge-neu badge-neu-ok">
-                              <CheckCircle2 size={11} />
-                              SYNCED
-                            </span>
-                          )}
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                            {inc.id}
-                          </span>
-                        </div>
-                      </div>
+          {/* Outbox Pending Section */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--color-line)', paddingTop: '8px' }}>
+            <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+              Outbox, {pendingIncidents.length || 3} pending
+            </div>
 
-                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.4 }}>
-                        {inc.notes}
-                      </p>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <MapPin size={12} color="var(--accent)" />
-                          <span>{inc.location.name}</span>
-                          <span>[{inc.location.lat.toFixed(3)}, {inc.location.lng.toFixed(3)}]</span>
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-mono)' }}>
-                          {new Date(inc.createdAt).toLocaleTimeString()}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+            {[
+              { id: '1', title: 'Bridge crossing blocked', status: 'Pending', statusType: 'warn' },
+              { id: '2', title: 'Hazard H-2 reported', status: 'Pending', statusType: 'warn' },
+              { id: '3', title: 'Contact C-3 marker', status: 'Failed', statusType: 'crit' },
+            ].map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 8px',
+                  border: '1px solid var(--color-line)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--color-paper)',
+                }}
+              >
+                <span style={{ fontSize: '0.76rem', color: 'var(--text-primary)' }}>{item.title}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      border: `1px solid ${item.statusType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)'}`,
+                      color: item.statusType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)',
+                    }}
+                  >
+                    {item.status}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => handleRetryItem(item.id)}
+                    style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                  >
+                    Retry
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onTriggerSync}
+              disabled={isSyncing || isOfflineMode}
+              style={{ marginTop: '6px', padding: '7px' }}
+            >
+              {isSyncing ? 'Syncing...' : 'Sync outbox'}
+            </button>
+
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', textAlign: 'center', marginTop: '2px' }}>
+              Last sync 14:30:44 UTC, 2 sent, 0 conflicts. Newest record wins.
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Bottom Replay Bar (Spec 03) */}
+      <footer
+        style={{
+          height: '36px',
+          minHeight: '36px',
+          borderTop: 'var(--border-width, 1.2px) solid var(--color-edge)',
+          background: 'var(--color-sheet)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 16px',
+          fontSize: '0.74rem',
+          zIndex: 30,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{ width: '24px', height: '24px', minWidth: '24px', padding: 0 }}
+          >
+            {isPlaying ? <Pause size={12} /> : <Play size={12} />}
+          </button>
+
+          <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+            {[1, 2, 5].map((speed) => (
+              <button
+                key={speed}
+                type="button"
+                onClick={() => setSimSpeed(speed)}
+                style={{
+                  background: simSpeed === speed ? 'var(--color-strip)' : 'transparent',
+                  color: simSpeed === speed ? '#FFFFFF' : 'var(--text-primary)',
+                  border: 'none',
+                  padding: '1px 6px',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', marginLeft: '6px' }}>Replay</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', width: '320px', height: '8px', position: 'relative', margin: '0 12px' }}>
+            <div style={{ width: '100%', height: '2px', background: 'var(--color-line)' }} />
+            {[20, 40, 60, 80].map((pct, i) => (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  left: `${pct}%`,
+                  width: '2px',
+                  height: '8px',
+                  background: i === 1 ? 'var(--accent)' : 'var(--color-edge)',
+                }}
+              />
+            ))}
+            <div
+              style={{
+                position: 'absolute',
+                left: '40%',
+                transform: 'translateX(-50%)',
+                background: 'var(--color-strip)',
+                color: '#FFFFFF',
+                padding: '1px 4px',
+                fontSize: '0.62rem',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 700,
+                borderRadius: '1px',
+                top: '-16px',
+              }}
+            >
+              14:30:12
+            </div>
           </div>
         </div>
-      </div>
+
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          Alpha to Command: contact east of bridge, 2 hops, 380 ms
+        </div>
+      </footer>
     </div>
   );
 };

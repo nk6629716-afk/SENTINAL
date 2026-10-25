@@ -227,8 +227,8 @@ export const App: React.FC = () => {
     });
   };
 
-  const effectiveSidebarWidth = isSidebarCollapsed ? 72 : 248;
-  const effectiveHeaderHeight = isHeaderMinimized ? 38 : (isHeaderCompact ? 44 : 56);
+  const effectiveSidebarWidth = isSidebarCollapsed ? 76 : 240;
+  const effectiveHeaderHeight = 48;
 
   const pendingSyncCount = incidents.filter(
     (i) => i.syncStatus === 'pending' || i.syncStatus === 'failed'
@@ -332,7 +332,7 @@ export const App: React.FC = () => {
       />
 
       {/* 3. Main Content Area */}
-      <main className="app-main" style={{ padding: '24px' }}>
+      <main className="app-main" style={{ padding: 0 }}>
         {activeModule === 'dashboard' && (
           <Dashboard
             summary={summary}
