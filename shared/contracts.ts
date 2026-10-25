@@ -199,6 +199,7 @@ export interface CasualtyAssessmentInput {
 
 export interface TriageResult {
   category: TriageCategory;
+  triageCategory?: TriageCategory;
   ruleVersion: string;
   triageReason: string;
   decisionTreePath: string[];

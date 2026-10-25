@@ -62,6 +62,7 @@ export function getBaselineSentinelState(): SentinelSystemState {
       pulse: 92,
       mentalStatus: 'alert',
       severeBleeding: false,
+      category: 'delayed_yellow',
       triageCategory: 'delayed_yellow',
       ruleVersion: 'SENTINEL-DEMO-TRIAGE-v1.4',
       triageReason: 'Delayed (Yellow): Non-ambulatory with stable vitals (RR 24, Pulse 92).',
