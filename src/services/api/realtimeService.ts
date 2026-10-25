@@ -10,6 +10,7 @@ import {
   IncidentReport,
   RoadHazardEdge,
   GeoIntelObservation,
+  CasualtyRecord,
 } from '@shared/types';
 
 export type RealtimeConnectionStatus = 'connected' | 'reconnecting' | 'disconnected' | 'stale';
@@ -27,6 +28,7 @@ export type AlertListener = (alert: AirspaceAlert) => void;
 export type IncidentListener = (incident: IncidentReport) => void;
 export type HazardListener = (hazard: RoadHazardEdge) => void;
 export type GeoIntelListener = (observation: GeoIntelObservation) => void;
+export type PatientListener = (casualty: CasualtyRecord) => void;
 export type ResetListener = () => void;
 
 function resolveApiBaseUrl(): string {
@@ -53,6 +55,10 @@ export class RealtimeService {
   private staleTimer: any = null;
   private isExplicitlyDisconnected = false;
 
+  // Safe Event Deduplication Cache
+  private seenEventKeys = new Set<string>();
+  private eventKeyTimestamps: { key: string; time: number }[] = [];
+
   private stateListeners = new Set<RealtimeListener>();
   private telemetryListeners = new Set<TelemetryListener>();
   private alertListeners = new Set<AlertListener>();
@@ -60,6 +66,7 @@ export class RealtimeService {
   private incidentListeners = new Set<IncidentListener>();
   private hazardListeners = new Set<HazardListener>();
   private geoIntelListeners = new Set<GeoIntelListener>();
+  private patientListeners = new Set<PatientListener>();
   private resetListeners = new Set<ResetListener>();
 
   constructor() {
@@ -141,6 +148,27 @@ export class RealtimeService {
       this.lastEventTimestamp = data.timestamp || now;
       this.resetStaleTimer();
 
+      // Deduplication check for discrete events (alerts, incidents, patients, geointel, hazards)
+      if (data.type && data.type !== 'ping' && data.type !== 'connected' && data.type !== 'telemetry:update') {
+        const payloadObj = data.data || data.payload;
+        const targetId = payloadObj?.id || '';
+        const eventKey = `${data.type}:${targetId}:${data.timestamp || ''}`;
+
+        if (this.seenEventKeys.has(eventKey)) {
+          return; // Skip duplicate event transmission
+        }
+
+        this.seenEventKeys.add(eventKey);
+        this.eventKeyTimestamps.push({ key: eventKey, time: Date.now() });
+
+        // Prune entries older than 60 seconds
+        const cutoff = Date.now() - 60000;
+        while (this.eventKeyTimestamps.length > 0 && this.eventKeyTimestamps[0].time < cutoff) {
+          const expired = this.eventKeyTimestamps.shift();
+          if (expired) this.seenEventKeys.delete(expired.key);
+        }
+      }
+
       if (data.type === 'connected') {
         this.setStatus('connected');
       } else if (data.type === 'ping') {
@@ -174,6 +202,11 @@ export class RealtimeService {
         const obs: GeoIntelObservation = data.data || data.payload;
         if (obs) {
           this.geoIntelListeners.forEach((cb) => cb(obs));
+        }
+      } else if (data.type === 'patient:created' || data.type === 'patient:updated') {
+        const patient: CasualtyRecord = data.data || data.payload;
+        if (patient) {
+          this.patientListeners.forEach((cb) => cb(patient));
         }
       } else if (data.type === 'demo:reset') {
         this.resetListeners.forEach((cb) => cb());
@@ -263,6 +296,11 @@ export class RealtimeService {
   public onGeoIntel(listener: GeoIntelListener): () => void {
     this.geoIntelListeners.add(listener);
     return () => this.geoIntelListeners.delete(listener);
+  }
+
+  public onPatient(listener: PatientListener): () => void {
+    this.patientListeners.add(listener);
+    return () => this.patientListeners.delete(listener);
   }
 
   public onReset(listener: ResetListener): () => void {

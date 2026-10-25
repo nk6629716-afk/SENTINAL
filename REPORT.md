@@ -1,5 +1,5 @@
 # SENTINEL Project Report & System Architecture Ledger
-*Automated Operational & Technical Dossier — Generated 2026-10-25T18:27:36.688Z*
+*Automated Operational & Technical Dossier — Generated 2026-10-25T19:19:53.765Z*
 
 ---
 
@@ -18,8 +18,8 @@ The platform provides resilient disaster-zone situational awareness for military
 | Metric | Active Repository Value |
 | :--- | :--- |
 | **Active Branch** | `main` |
-| **Commit SHA** | `474e738dea25a42be95e27e8d61de71d53e06be7` (`474e738`) |
-| **Last Commit Date** | `2026-10-25 23:50:29 +0530` |
+| **Commit SHA** | `0a0729a53e6a0201d84c53679824da2cc147b4cb` (`0a0729a`) |
+| **Last Commit Date** | `2026-10-26 00:49:33 +0530` |
 | **Author** | `nk6629716-afk <nk6629716@gmail.com>` |
 | **Remote URL** | `https://github.com/nk6629716-afk/fallingsun` |
 | **Working Tree Status** | `Clean working directory (all files committed)` |
@@ -33,7 +33,7 @@ The test suite evaluates mission-critical algorithmic behaviors, safety-critical
 
 | Suite | Status | Metrics / Outcome |
 | :--- | :---: | :--- |
-| **Frontend Behavioral & Contract Suite** | **PASSED** | **66 / 66 tests passed (100%)** |
+| **Frontend Behavioral & Contract Suite** | **PASSED** | **114 / 114 tests passed (100%)** |
 | **MediRoute START Triage Rules** | **PASSED** | 6/6 tests (Respiratory > 30, Absent Pulse, Unresponsive Mental Status, Walking Wounded) |
 | **Dijkstra Hazard-Aware Routing** | **PASSED** | 5/5 tests (Open highway 5.5 km, blocked bridge detour 6.6 km, all-blocked failure mode) |
 | **FieldLink Idempotent Sync Contract** | **PASSED** | 3/3 tests (Duplicate clientId detection, already_received resolution, retry queue) |
