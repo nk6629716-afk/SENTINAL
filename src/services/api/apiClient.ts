@@ -74,6 +74,79 @@ export class SentinelApiClient {
     return !this.isBackendOnline;
   }
 
+  public async getHealthInfo(): Promise<{
+    status: string;
+    service: string;
+    version: string;
+    timestamp: string;
+    storageMode: string;
+    supabaseConfigured: boolean;
+    uptimeSeconds: number;
+    isSimulated: boolean;
+  } | null> {
+    if (this.isSimulatedOffline) return null;
+    try {
+      const res = await fetch(`${API_BASE_URL}/health`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // offline
+    }
+    return null;
+  }
+
+  public async getSimulationStatus(): Promise<{
+    isRunning: boolean;
+    lastTickAt: string;
+    trackCount: number;
+    alertCount: number;
+  } | null> {
+    if (this.isSimulatedOffline) return null;
+    try {
+      const res = await fetch(`${API_BASE_URL}/telemetry/status`);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || json;
+      }
+    } catch {
+      // offline
+    }
+    return null;
+  }
+
+  public async pauseSimulation(): Promise<boolean> {
+    if (this.isSimulatedOffline) return false;
+    try {
+      const res = await fetch(`${API_BASE_URL}/telemetry/pause`, { method: 'POST' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  public async resumeSimulation(): Promise<boolean> {
+    if (this.isSimulatedOffline) return false;
+    try {
+      const res = await fetch(`${API_BASE_URL}/telemetry/resume`, { method: 'POST' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  public async stepSimulation(): Promise<any> {
+    if (this.isSimulatedOffline) return null;
+    try {
+      const res = await fetch(`${API_BASE_URL}/telemetry/tick`, { method: 'POST' });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      return null;
+    }
+  }
+
   // 1. Dashboard Summary
   public async getDashboardSummary(): Promise<DashboardSummary> {
     const isOnline = await this.checkBackendAvailability();

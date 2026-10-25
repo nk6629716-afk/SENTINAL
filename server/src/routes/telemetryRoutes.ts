@@ -17,6 +17,50 @@ telemetryRouter.get('/', (_req: Request, res: Response) => {
   });
 });
 
+telemetryRouter.get('/status', (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      isRunning: telemetryService.isRunning(),
+      lastTickAt: telemetryService.getLastTickAt(),
+      trackCount: telemetryService.getTracks().length,
+      alertCount: telemetryService.getAlerts().length,
+      isSimulated: true,
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
+  });
+});
+
+telemetryRouter.post('/pause', (_req: Request, res: Response) => {
+  telemetryService.pause();
+  res.status(200).json({
+    success: true,
+    data: {
+      isRunning: false,
+      message: 'Telemetry simulation paused',
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
+  });
+});
+
+telemetryRouter.post('/resume', (_req: Request, res: Response) => {
+  telemetryService.resume();
+  res.status(200).json({
+    success: true,
+    data: {
+      isRunning: true,
+      message: 'Telemetry simulation resumed',
+    },
+    meta: {
+      timestamp: new Date().toISOString(),
+    },
+  });
+});
+
 telemetryRouter.get('/:id', (req: Request, res: Response) => {
   const track = telemetryService.getTrackById(req.params.id);
   if (!track) {

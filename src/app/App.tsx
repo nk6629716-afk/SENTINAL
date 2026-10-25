@@ -19,6 +19,7 @@ import { FieldLinkModule } from '../modules/fieldlink/FieldLinkModule';
 import { SkyWatchModule } from '../modules/skywatch/SkyWatchModule';
 import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
+import { realtimeService, RealtimeState } from '../services/api/realtimeService';
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModule] = useState<'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute'>('dashboard');
@@ -65,6 +66,9 @@ export const App: React.FC = () => {
   const [observations, setObservations] = useState<GeoIntelObservation[]>([]);
   const [casualties, setCasualties] = useState<CasualtyRecord[]>([]);
   const [hazards, setHazards] = useState<RoadHazardEdge[]>([]);
+  const [realtimeState, setRealtimeState] = useState<RealtimeState>(() => realtimeService.getState());
+  const [backendHealth, setBackendHealth] = useState<any>(null);
+  const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
 
   // 1. Initial Database Seed & Load
   const refreshAllData = useCallback(async () => {
@@ -78,6 +82,8 @@ export const App: React.FC = () => {
         obsList,
         casList,
         hazList,
+        health,
+        simStatus,
       ] = await Promise.all([
         api.getDashboardSummary(),
         api.getIncidents(),
@@ -87,6 +93,8 @@ export const App: React.FC = () => {
         api.getGeoObservations(),
         api.getCasualties(),
         api.getRoadHazards(),
+        api.getHealthInfo(),
+        api.getSimulationStatus(),
       ]);
 
       setSummary(sum);
@@ -97,12 +105,78 @@ export const App: React.FC = () => {
       setObservations(obsList);
       setCasualties(casList);
       setHazards(hazList);
+      if (health) setBackendHealth(health);
+      if (simStatus) setIsSimPaused(!simStatus.isRunning);
     } catch (err) {
       console.error('Error refreshing SENTINEL data:', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  // Real-time SSE Stream Connection & Event Multiplexer
+  useEffect(() => {
+    if (isOfflineMode) {
+      realtimeService.disconnect();
+      return;
+    }
+
+    realtimeService.connect();
+
+    const unsubState = realtimeService.onStateChange(setRealtimeState);
+    const unsubTelemetry = realtimeService.onTelemetry((newTracks) => {
+      setTracks(newTracks);
+    });
+    const unsubAlert = realtimeService.onAlertTriggered((alert) => {
+      setAlerts((prev) => [alert, ...prev.filter((a) => a.id !== alert.id)]);
+    });
+    const unsubAlertAck = realtimeService.onAlertAcknowledged((alert) => {
+      setAlerts((prev) => prev.map((a) => (a.id === alert.id ? alert : a)));
+    });
+    const unsubIncident = realtimeService.onIncident((inc) => {
+      setIncidents((prev) => [inc, ...prev.filter((i) => i.id !== inc.id)]);
+    });
+    const unsubHazard = realtimeService.onHazard((haz) => {
+      setHazards((prev) => prev.map((h) => (h.id === haz.id ? haz : h)));
+    });
+    const unsubGeo = realtimeService.onGeoIntel((obs) => {
+      setObservations((prev) => prev.map((o) => (o.id === obs.id ? obs : o)));
+    });
+    const unsubReset = realtimeService.onReset(() => {
+      refreshAllData();
+    });
+
+    return () => {
+      unsubState();
+      unsubTelemetry();
+      unsubAlert();
+      unsubAlertAck();
+      unsubIncident();
+      unsubHazard();
+      unsubGeo();
+      unsubReset();
+    };
+  }, [isOfflineMode, refreshAllData]);
+
+  const handleToggleSimPause = async () => {
+    if (isSimPaused) {
+      const ok = await api.resumeSimulation();
+      if (ok) setIsSimPaused(false);
+    } else {
+      const ok = await api.pauseSimulation();
+      if (ok) setIsSimPaused(true);
+    }
+  };
+
+  const handleStepSimulation = async () => {
+    const res = await api.stepSimulation();
+    if (res && res.data && res.data.tracks) {
+      setTracks(res.data.tracks);
+      if (res.data.newAlerts && res.data.newAlerts.length > 0) {
+        setAlerts((prev) => [...res.data.newAlerts, ...prev]);
+      }
+    }
+  };
 
   useEffect(() => {
     async function boot() {
@@ -329,6 +403,8 @@ export const App: React.FC = () => {
         onToggleHeaderCompact={handleToggleHeaderCompact}
         isHeaderMinimized={isHeaderMinimized}
         onToggleHeaderMinimized={handleToggleHeaderMinimized}
+        realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}
+        lastEventTimestamp={realtimeState.lastEventTimestamp}
       />
 
       {/* 3. Main Content Area */}
@@ -347,6 +423,12 @@ export const App: React.FC = () => {
             onNavigate={setActiveModule}
             onResetDemo={handleResetDemo}
             isOfflineMode={isOfflineMode}
+            realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}
+            lastEventTimestamp={realtimeState.lastEventTimestamp}
+            backendHealth={backendHealth}
+            onStepSimulation={handleStepSimulation}
+            onToggleSimulationPause={handleToggleSimPause}
+            isSimPaused={isSimPaused}
           />
         )}
 
@@ -366,6 +448,9 @@ export const App: React.FC = () => {
             alerts={alerts}
             zones={zones}
             onRefreshAlerts={refreshAllData}
+            onStepSimulation={handleStepSimulation}
+            onToggleSimulationPause={handleToggleSimPause}
+            isSimPaused={isSimPaused}
           />
         )}
 

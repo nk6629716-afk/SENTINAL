@@ -26,7 +26,7 @@ export const config: ServerConfig = {
   enableSse: process.env.ENABLE_SSE !== 'false',
   sseHeartbeatIntervalMs: parseInt(process.env.SSE_HEARTBEAT_INTERVAL_MS || '15000', 10),
   telemetryTickIntervalMs: parseInt(process.env.TELEMETRY_TICK_INTERVAL_MS || '3000', 10),
-  enableAutoTelemetry: process.env.ENABLE_AUTO_TELEMETRY === 'true',
+  enableAutoTelemetry: process.env.ENABLE_AUTO_TELEMETRY !== 'false',
   supabaseUrl: process.env.SUPABASE_URL || 'https://cajrbzfsfsimxweomrlt.supabase.co',
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || '',
 };

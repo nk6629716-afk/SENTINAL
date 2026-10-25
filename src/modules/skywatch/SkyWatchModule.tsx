@@ -23,6 +23,9 @@ interface SkyWatchModuleProps {
   alerts: AirspaceAlert[];
   zones: RestrictedAirspaceZone[];
   onRefreshAlerts: () => Promise<void>;
+  onStepSimulation?: () => Promise<void>;
+  onToggleSimulationPause?: () => Promise<void>;
+  isSimPaused?: boolean;
 }
 
 export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
@@ -30,6 +33,9 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
   alerts,
   zones,
   onRefreshAlerts,
+  onStepSimulation,
+  onToggleSimulationPause,
+  isSimPaused = false,
 }) => {
   const [tracks, setTracks] = useState<TelemetryTrack[]>(initialTracks);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -85,7 +91,11 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
     return () => clearInterval(interval);
   }, [isPlaying, simSpeed]);
 
-  const handleStepOnce = () => {
+  const handleStepOnce = async () => {
+    if (onStepSimulation) {
+      await onStepSimulation();
+      return;
+    }
     setTracks((prev) =>
       prev.map((t) => ({
         ...t,
@@ -94,6 +104,14 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
         timestamp: new Date().toISOString(),
       }))
     );
+  };
+
+  const handleTogglePlay = async () => {
+    const next = !isPlaying;
+    setIsPlaying(next);
+    if (onToggleSimulationPause) {
+      await onToggleSimulationPause();
+    }
   };
 
   const handleResetTracks = () => {
@@ -134,7 +152,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               className={`btn-neu btn-neu-sm ${!isPlaying ? 'btn-neu-primary' : ''}`}
-              onClick={() => setIsPlaying(!isPlaying)}
+              onClick={handleTogglePlay}
             >
               {isPlaying ? <Pause size={13} /> : <Play size={13} />}
               <span>{isPlaying ? 'Pause Radar' : 'Resume Sim'}</span>

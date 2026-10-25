@@ -15,6 +15,25 @@ export class TelemetryService {
     radiusKm: 0.6,
   };
 
+  private running: boolean = true;
+  private lastTickAt: string = new Date().toISOString();
+
+  public isRunning(): boolean {
+    return this.running;
+  }
+
+  public pause(): void {
+    this.running = false;
+  }
+
+  public resume(): void {
+    this.running = true;
+  }
+
+  public getLastTickAt(): string {
+    return this.lastTickAt;
+  }
+
   public getTracks(): TelemetryTrack[] {
     return db.getTracks();
   }
@@ -51,6 +70,7 @@ export class TelemetryService {
     const tracks = db.getTracks();
     const newAlerts: Alert[] = [];
     const now = new Date().toISOString();
+    this.lastTickAt = now;
 
     for (const track of tracks) {
       const speedKts = track.speedKts ?? (track.speed ? track.speed * 1.94384 : 40);

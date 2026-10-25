@@ -42,6 +42,20 @@ interface DashboardProps {
   onNavigate: (module: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute') => void;
   onResetDemo: () => Promise<void>;
   isOfflineMode: boolean;
+  realtimeStatus?: 'connected' | 'reconnecting' | 'disconnected' | 'stale';
+  lastEventTimestamp?: string | null;
+  backendHealth?: {
+    status: string;
+    service: string;
+    storageMode: string;
+    supabaseConfigured?: boolean;
+    uptimeSeconds?: number;
+    isSimulated?: boolean;
+    timestamp?: string;
+  } | null;
+  onStepSimulation?: () => Promise<void>;
+  onToggleSimulationPause?: () => Promise<void>;
+  isSimPaused?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -57,6 +71,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onNavigate,
   onResetDemo,
   isOfflineMode,
+  realtimeStatus = 'disconnected',
+  lastEventTimestamp = null,
+  backendHealth = null,
+  onStepSimulation,
+  onToggleSimulationPause,
+  isSimPaused = false,
 }) => {
   const [crossModuleStep, setCrossModuleStep] = useState<number>(1);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
@@ -157,43 +177,98 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
 
-            <span className={`badge-neu ${isOfflineMode ? 'badge-neu-warn' : 'badge-neu-ok'}`}>
-              {isOfflineMode ? 'INDEXEDDB LOCAL QUEUE' : 'NOMINAL MULTI-DOMAIN'}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span className={`badge-neu ${isOfflineMode ? 'badge-neu-crit' : realtimeStatus === 'connected' ? 'badge-neu-ok' : 'badge-neu-warn'}`}>
+                {isOfflineMode
+                  ? 'OFFLINE BUFFER'
+                  : realtimeStatus === 'connected'
+                  ? 'LIVE SSE STREAM'
+                  : realtimeStatus === 'reconnecting'
+                  ? 'RECONNECTING...'
+                  : realtimeStatus === 'stale'
+                  ? 'STALE CONNECTION'
+                  : 'DISCONNECTED'}
+              </span>
+
+              <span className="badge-neu badge-neu-neutral" title="Configured backend persistence adapter">
+                STORAGE: {isOfflineMode ? 'LOCAL INDEXEDDB' : (backendHealth?.storageMode ? backendHealth.storageMode.toUpperCase() : 'FILE PERSISTENCE')}
+              </span>
+
+              {/* Simulation Quick Controls */}
+              {onToggleSimulationPause && (
+                <button
+                  className={`btn-neu btn-neu-sm ${isSimPaused ? 'btn-neu-primary' : ''}`}
+                  onClick={onToggleSimulationPause}
+                  title={isSimPaused ? 'Resume simulated telemetry feed' : 'Pause simulated telemetry feed'}
+                  style={{ padding: '3px 8px', fontSize: '0.70rem' }}
+                >
+                  {isSimPaused ? '▶ Resume Sim' : '⏸ Pause Sim'}
+                </button>
+              )}
+
+              {onStepSimulation && (
+                <button
+                  className="btn-neu btn-neu-sm"
+                  onClick={onStepSimulation}
+                  title="Step deterministic simulation forward by 1 tick"
+                  style={{ padding: '3px 8px', fontSize: '0.70rem' }}
+                >
+                  ⚡ Step 1s
+                </button>
+              )}
+            </div>
           </div>
 
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, maxWidth: '680px', lineHeight: 1.45 }}>
+          <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', margin: 0, maxWidth: '780px', lineHeight: 1.45 }}>
             {isOfflineMode
-              ? 'Tactical radio blackout simulated. Field reports and vitals are persistently queued locally in browser IndexedDB with zero telemetry loss.'
-              : 'Real-time situational bus active. Cross-module data synthesizes ground reports, airspace telemetry, geospatial candidate changes, and evacuation routing.'}
+              ? 'Tactical radio blackout simulated. Field reports and vitals are persistently queued locally in browser IndexedDB with zero telemetry loss. Reconnect to sync.'
+              : 'Real-time Server-Sent Events (SSE) telemetry bus active. Cross-module data synthesizes ground reports, airspace tracks, geospatial candidate changes, and evacuation routing.'}
           </p>
 
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '20px',
+              justifyContent: 'space-between',
               borderTop: '1px solid var(--border-subtle)',
               paddingTop: '12px',
               flexWrap: 'wrap',
+              gap: '12px',
               fontSize: '0.78rem',
               color: 'var(--text-secondary)',
             }}
           >
-            <div>
-              <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{tracks.length}</strong> Airspace Tracks
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              <div>
+                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{tracks.length}</strong> Airspace Tracks
+              </div>
+              <span>•</span>
+              <div>
+                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{incidents.length}</strong> Ground Incidents
+              </div>
+              <span>•</span>
+              <div>
+                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{casualties.length}</strong> Evacuation Records
+              </div>
+              <span>•</span>
+              <div>
+                <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{hazards.length}</strong> Road Segments
+              </div>
             </div>
-            <span>•</span>
-            <div>
-              <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{incidents.length}</strong> Ground Incidents
-            </div>
-            <span>•</span>
-            <div>
-              <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{casualties.length}</strong> Evacuation Records
-            </div>
-            <span>•</span>
-            <div>
-              <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{hazards.length}</strong> Road Segments
+
+            {/* Data Freshness Indicator */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-mono)', fontSize: '0.72rem' }}>
+              <Clock size={12} color={realtimeStatus === 'stale' ? 'var(--warning)' : 'var(--accent)'} />
+              <span>
+                {lastEventTimestamp
+                  ? `Telemetry Updated: ${new Date(lastEventTimestamp).toLocaleTimeString()} UTC`
+                  : 'Telemetry: Awaiting stream'}
+              </span>
+              {realtimeStatus === 'stale' && (
+                <span className="badge-neu badge-neu-warn" style={{ padding: '1px 5px', fontSize: '0.62rem' }}>
+                  DATA MAY BE STALE
+                </span>
+              )}
             </div>
           </div>
         </div>

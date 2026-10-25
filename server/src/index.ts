@@ -24,7 +24,9 @@ let telemetryInterval: NodeJS.Timeout | null = null;
 if (config.enableAutoTelemetry) {
   telemetryInterval = setInterval(() => {
     try {
-      telemetryService.stepSimulation();
+      if (telemetryService.isRunning()) {
+        telemetryService.stepSimulation();
+      }
     } catch (err) {
       console.error('[Telemetry] Auto-tick error:', err);
     }

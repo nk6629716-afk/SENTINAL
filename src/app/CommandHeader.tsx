@@ -34,6 +34,8 @@ export interface CommandHeaderProps {
   onToggleHeaderCompact?: () => void;
   isHeaderMinimized?: boolean;
   onToggleHeaderMinimized?: () => void;
+  realtimeStatus?: 'connected' | 'reconnecting' | 'disconnected' | 'stale';
+  lastEventTimestamp?: string | null;
 }
 
 export const CommandHeader: React.FC<CommandHeaderProps> = ({
@@ -51,6 +53,8 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   onToggleHeaderCompact,
   isHeaderMinimized = false,
   onToggleHeaderMinimized,
+  realtimeStatus = 'disconnected',
+  lastEventTimestamp = null,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getMode());
@@ -471,6 +475,63 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             </button>
           </div>
         )}
+
+        {/* Live SSE Stream Status Indicator */}
+        <div
+          className="neu-inset"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 9px',
+            borderRadius: 'var(--radius-pill)',
+            fontSize: '0.68rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 700,
+            color: isOfflineMode
+              ? 'var(--critical)'
+              : realtimeStatus === 'connected'
+              ? 'var(--healthy)'
+              : realtimeStatus === 'reconnecting'
+              ? 'var(--warning)'
+              : realtimeStatus === 'stale'
+              ? 'var(--warning)'
+              : 'var(--text-muted)',
+            height: '32px',
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}
+          title={`Realtime Data Stream: ${isOfflineMode ? 'OFFLINE SIMULATION' : realtimeStatus.toUpperCase()}${lastEventTimestamp ? ` (Updated ${new Date(lastEventTimestamp).toLocaleTimeString()})` : ''}`}
+        >
+          <span
+            style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: isOfflineMode
+                ? 'var(--critical)'
+                : realtimeStatus === 'connected'
+                ? 'var(--healthy)'
+                : realtimeStatus === 'reconnecting'
+                ? 'var(--warning)'
+                : realtimeStatus === 'stale'
+                ? 'var(--warning)'
+                : 'var(--text-muted)',
+              boxShadow: realtimeStatus === 'connected' && !isOfflineMode ? '0 0 6px var(--healthy)' : 'none',
+            }}
+          />
+          <span>
+            {isOfflineMode
+              ? 'OFFLINE'
+              : realtimeStatus === 'connected'
+              ? 'LIVE SSE'
+              : realtimeStatus === 'reconnecting'
+              ? 'RECONNECT'
+              : realtimeStatus === 'stale'
+              ? 'STALE'
+              : 'DISCONNECTED'}
+          </span>
+        </div>
 
         {/* Live UTC Clock (Always visible; compact format on mobile) */}
         <div

@@ -50,3 +50,18 @@ test('GET /api/alerts and PATCH /api/alerts/:id acknowledge alert', async () => 
   const found = updatedListRes.body.data.find((a: any) => a.id === targetAlert.id);
   assert.ok(found);
 });
+
+test('GET /api/telemetry/status and POST /pause /resume controls simulation state', async () => {
+  const statusRes = await request(app).get('/api/telemetry/status');
+  assert.strictEqual(statusRes.status, 200);
+  assert.strictEqual(statusRes.body.success, true);
+  assert.strictEqual(statusRes.body.data.isSimulated, true);
+
+  const pauseRes = await request(app).post('/api/telemetry/pause');
+  assert.strictEqual(pauseRes.status, 200);
+  assert.strictEqual(pauseRes.body.data.isRunning, false);
+
+  const resumeRes = await request(app).post('/api/telemetry/resume');
+  assert.strictEqual(resumeRes.status, 200);
+  assert.strictEqual(resumeRes.body.data.isRunning, true);
+});
