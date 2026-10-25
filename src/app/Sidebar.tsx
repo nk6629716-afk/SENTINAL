@@ -313,6 +313,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           gap: '6px',
           overflowY: 'auto',
           overflowX: 'hidden',
+          overscrollBehavior: 'contain',
+          scrollbarWidth: 'thin',
         }}
         aria-label="Primary Navigation"
       >
