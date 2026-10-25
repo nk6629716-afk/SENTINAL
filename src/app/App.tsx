@@ -25,6 +25,7 @@ export const App: React.FC = () => {
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Core Data States
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -201,6 +202,8 @@ export const App: React.FC = () => {
         pendingSyncCount={pendingSyncCount}
         unackAlertsCount={unackAlertsCount}
         isOfflineMode={isOfflineMode}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       {/* 2. Main Content Area */}
@@ -213,6 +216,7 @@ export const App: React.FC = () => {
           onTriggerSync={handleTriggerSync}
           onResetDemo={handleResetDemo}
           isSyncing={isSyncing}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         />
 
         <main style={{ flex: 1, padding: '24px' }}>

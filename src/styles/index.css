@@ -1,46 +1,51 @@
 /* ==========================================================================
-   SENTINEL NEUMORPHIC DESIGN SYSTEM
-   Soft Tactical Interface: Subtle Paired Shadows, Recessed Panels, Rounded Geometry
-   Reference Tokens: Canvas #E8EBF0, Inset #DDE1E8, Ink #202936, Accent #4669A8
+   SENTINEL — Neumorphic Operations Editorial Design System
+   Dual-Theme Engine: Warm Editorial Light & Tactical Instrument Dark
+   Accessible Contrast, Subtle Elevations, Recessed Insets, Asymmetric Composition
    ========================================================================== */
 
-:root {
-  /* Surface & Canvas Palette */
-  --surface: #E8EBF0;
-  --surface-raised: #E8EBF0;
-  --surface-inset: #DDE1E8;
-  --surface-card: #E8EBF0;
+/* 1. Light Theme Tokens (Warm Neutral Editorial) */
+:root,
+:root[data-theme="light"] {
+  /* Surfaces */
+  --surface: #F3F1EB;
+  --surface-raised: #F8F7F3;
+  --surface-elevated: #FFFFFF;
+  --surface-inset: #E8E7E0;
+  --surface-card: #F8F7F3;
   --surface-highlight: #FFFFFF;
+  --map-canvas: #E4E2DA;
 
   /* Typography */
-  --text-primary: #202936;
-  --text-secondary: #667085;
-  --text-muted: #8F9CAE;
+  --text-primary: #202521;
+  --text-secondary: #5A645D;
+  --text-muted: #7E8981;
 
-  /* Subtle Structural Borders */
-  --border-subtle: #D2D8E1;
-  --border-light: rgba(255, 255, 255, 0.6);
+  /* Borders & Dividers */
+  --border-subtle: #DBD8CF;
+  --border-light: rgba(255, 255, 255, 0.85);
 
   /* Meaningful Status Accents */
-  --accent: #4669A8;
-  --accent-light: #EDF2FA;
-  --healthy: #397653;
-  --healthy-bg: #E9F4EE;
-  --warning: #A86B12;
-  --warning-bg: #FAF3E8;
-  --critical: #B93838;
-  --critical-bg: #FAEEEE;
-  --informational: #356B8C;
-  --informational-bg: #EBF3F8;
+  --accent: #2B547E;
+  --accent-light: #EAF1F8;
+  --healthy: #286643;
+  --healthy-bg: #E7F3EB;
+  --warning: #945B11;
+  --warning-bg: #FAF0E3;
+  --critical: #A82E2E;
+  --critical-bg: #FAECEC;
+  --informational: #2B5F80;
+  --informational-bg: #E8F2F7;
 
-  /* Paired Neumorphic Shadows */
-  --shadow-raised: 6px 6px 14px rgba(163, 174, 192, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.85);
-  --shadow-raised-sm: 3px 3px 8px rgba(163, 174, 192, 0.35), -3px -3px 8px rgba(255, 255, 255, 0.8);
-  --shadow-raised-hover: 8px 8px 18px rgba(163, 174, 192, 0.55), -8px -8px 18px rgba(255, 255, 255, 0.95);
-  --shadow-inset: inset 3px 3px 7px rgba(163, 174, 192, 0.35), inset -3px -3px 7px rgba(255, 255, 255, 0.8);
-  --shadow-inset-sm: inset 2px 2px 4px rgba(163, 174, 192, 0.3), inset -2px -2px 4px rgba(255, 255, 255, 0.75);
+  /* Neumorphic Shadows (Light Mode: Soft Warm Highlights & Muted Shadows) */
+  --shadow-raised: 5px 5px 13px rgba(175, 170, 158, 0.35), -5px -5px 13px rgba(255, 255, 255, 0.9);
+  --shadow-raised-sm: 3px 3px 8px rgba(175, 170, 158, 0.28), -3px -3px 8px rgba(255, 255, 255, 0.85);
+  --shadow-raised-hover: 7px 7px 18px rgba(175, 170, 158, 0.45), -7px -7px 18px rgba(255, 255, 255, 0.95);
+  --shadow-inset: inset 3px 3px 6px rgba(175, 170, 158, 0.32), inset -3px -3px 6px rgba(255, 255, 255, 0.82);
+  --shadow-inset-sm: inset 2px 2px 4px rgba(175, 170, 158, 0.26), inset -2px -2px 4px rgba(255, 255, 255, 0.76);
+  --shadow-sidebar: 4px 0 16px rgba(175, 170, 158, 0.2);
 
-  /* Geometry & Rounded Corners */
+  /* Geometry & Layout */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 18px;
@@ -51,9 +56,50 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
-  /* Header & Sidebar Dimensions */
+  /* Dimensions */
   --header-height: 64px;
   --sidebar-width: 260px;
+}
+
+/* 2. Dark Theme Tokens (Genuine Tactical Dark - No blinding white highlights) */
+:root[data-theme="dark"] {
+  /* Surfaces */
+  --surface: #171B20;
+  --surface-raised: #20262D;
+  --surface-elevated: #252D35;
+  --surface-inset: #13161A;
+  --surface-card: #20262D;
+  --surface-highlight: rgba(255, 255, 255, 0.05);
+  --map-canvas: #15191E;
+
+  /* Typography */
+  --text-primary: #EDF1F4;
+  --text-secondary: #95A1AD;
+  --text-muted: #6B7683;
+
+  /* Borders & Dividers */
+  --border-subtle: #2C3540;
+  --border-light: rgba(255, 255, 255, 0.06);
+
+  /* Meaningful Status Accents */
+  --accent: #5283BD;
+  --accent-light: rgba(82, 131, 189, 0.16);
+  --healthy: #44A670;
+  --healthy-bg: rgba(68, 166, 112, 0.16);
+  --warning: #D89128;
+  --warning-bg: rgba(216, 145, 40, 0.16);
+  --critical: #E35353;
+  --critical-bg: rgba(227, 83, 83, 0.16);
+  --informational: #4898CF;
+  --informational-bg: rgba(72, 152, 207, 0.16);
+
+  /* Neumorphic Shadows (Dark Mode: Restrained Ambient Shadows & Thin Elevation) */
+  --shadow-raised: 0 6px 16px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-raised-sm: 0 3px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-raised-hover: 0 8px 22px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-inset: inset 0 2px 6px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.03);
+  --shadow-inset-sm: inset 0 1px 4px rgba(0, 0, 0, 0.45);
+  --shadow-sidebar: 4px 0 18px rgba(0, 0, 0, 0.4);
 }
 
 /* Reset & Base Canvas */
@@ -73,6 +119,7 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #root {
@@ -81,12 +128,28 @@ html, body {
   flex-direction: column;
 }
 
+/* Accessible Focus States */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Typography Hierarchy */
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .mono {
@@ -102,7 +165,7 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-inset);
 }
 ::-webkit-scrollbar-thumb {
-  background: #B9C3D2;
+  background: var(--border-subtle);
   border-radius: var(--radius-pill);
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -114,18 +177,19 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-raised);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-raised);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-subtle);
   padding: 20px;
   position: relative;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
 .neu-card-sm {
   background: var(--surface-raised);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-raised-sm);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-subtle);
   padding: 14px;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
 }
 
 /* Recessed Neumorphic Panel */
@@ -133,7 +197,8 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--surface-inset);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-inset);
-  border: 1px solid rgba(210, 216, 225, 0.4);
+  border: 1px solid var(--border-subtle);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 /* Tactile Neumorphic Buttons */
@@ -148,7 +213,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   border-radius: var(--radius-md);
   cursor: pointer;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-subtle);
   background: var(--surface-raised);
   color: var(--text-primary);
   box-shadow: var(--shadow-raised-sm);
@@ -171,32 +236,30 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-neu-primary {
   background: var(--accent);
-  color: #FFFFFF;
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 4px 4px 10px rgba(70, 105, 168, 0.35), -4px -4px 10px rgba(255, 255, 255, 0.8);
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .btn-neu-primary:hover {
-  background: #3a578c;
-  color: #FFFFFF;
-  box-shadow: 5px 5px 14px rgba(70, 105, 168, 0.45), -5px -5px 14px rgba(255, 255, 255, 0.9);
+  filter: brightness(1.08);
+  box-shadow: var(--shadow-raised);
 }
 
 .btn-neu-primary:active {
-  background: #314a77;
-  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.3);
+  filter: brightness(0.92);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .btn-neu-critical {
   background: var(--critical);
-  color: #FFFFFF;
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 4px 4px 10px rgba(185, 56, 56, 0.3), -4px -4px 10px rgba(255, 255, 255, 0.8);
+  color: #FFFFFF !important;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: var(--shadow-raised-sm);
 }
 
 .btn-neu-critical:hover {
-  background: #a32f2f;
-  color: #FFFFFF;
+  filter: brightness(1.08);
 }
 
 .btn-neu-sm {
@@ -205,7 +268,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-neu:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
   box-shadow: none;
@@ -216,7 +279,7 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   background: var(--surface-inset);
   box-shadow: var(--shadow-inset-sm);
-  border: 1px solid rgba(210, 216, 225, 0.6);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 9px 14px;
   color: var(--text-primary);
@@ -228,7 +291,7 @@ h1, h2, h3, h4, h5, h6 {
 .input-neu:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: var(--shadow-inset), 0 0 0 2px rgba(70, 105, 168, 0.15);
+  box-shadow: var(--shadow-inset), 0 0 0 2px var(--accent-light);
 }
 
 .input-neu::placeholder {
@@ -258,25 +321,25 @@ select.input-neu {
 .badge-neu-ok {
   background: var(--healthy-bg);
   color: var(--healthy);
-  border-color: rgba(57, 118, 83, 0.25);
+  border-color: rgba(40, 102, 67, 0.25);
 }
 
 .badge-neu-warn {
   background: var(--warning-bg);
   color: var(--warning);
-  border-color: rgba(168, 107, 18, 0.25);
+  border-color: rgba(148, 91, 17, 0.25);
 }
 
 .badge-neu-crit {
   background: var(--critical-bg);
   color: var(--critical);
-  border-color: rgba(185, 56, 56, 0.25);
+  border-color: rgba(168, 46, 46, 0.25);
 }
 
 .badge-neu-info {
   background: var(--informational-bg);
   color: var(--informational);
-  border-color: rgba(53, 107, 140, 0.25);
+  border-color: rgba(43, 95, 128, 0.25);
 }
 
 .badge-neu-neutral {
@@ -320,7 +383,8 @@ select.input-neu {
   flex-direction: column;
   flex-shrink: 0;
   z-index: 40;
-  box-shadow: 4px 0 16px rgba(163, 174, 192, 0.25);
+  box-shadow: var(--shadow-sidebar);
+  transition: transform 0.25s ease, background 0.2s ease;
 }
 
 .app-main {
@@ -336,8 +400,20 @@ select.input-neu {
     flex-direction: column;
   }
   .app-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--border-subtle);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    height: 100vh;
+    transform: translateX(-100%);
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+  }
+  .app-sidebar.open {
+    transform: translateX(0);
+  }
+  .btn-mobile-nav {
+    display: inline-flex !important;
   }
 }

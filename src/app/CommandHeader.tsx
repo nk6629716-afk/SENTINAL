@@ -5,12 +5,12 @@ import {
   RefreshCw,
   RotateCcw,
   Clock,
-  Layers,
-  Radio,
-  Crosshair,
-  Compass,
-  HeartPulse,
+  Sun,
+  Moon,
+  Monitor,
+  Menu,
 } from 'lucide-react';
+import { themeService, ThemeMode } from '../services/theme/themeService';
 
 interface CommandHeaderProps {
   activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
@@ -20,6 +20,7 @@ interface CommandHeaderProps {
   onTriggerSync: () => Promise<void>;
   onResetDemo: () => Promise<void>;
   isSyncing: boolean;
+  onToggleMobileMenu?: () => void;
 }
 
 export const CommandHeader: React.FC<CommandHeaderProps> = ({
@@ -30,8 +31,10 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   onTriggerSync,
   onResetDemo,
   isSyncing,
+  onToggleMobileMenu,
 }) => {
   const [currentTime, setCurrentTime] = useState<string>('');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getMode());
 
   useEffect(() => {
     const update = () => {
@@ -43,18 +46,50 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = themeService.subscribe((mode) => {
+      setThemeMode(mode);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleThemeChange = (newMode: ThemeMode) => {
+    themeService.setMode(newMode);
+    setThemeMode(newMode);
+  };
+
   const getModuleTitle = () => {
     switch (activeModule) {
       case 'dashboard':
-        return { title: 'Common Operational Picture', subtitle: 'Cross-module situational synthesis & active incident overview' };
+        return {
+          tag: 'OPERATIONAL LEVEL 1',
+          title: 'Common Operational Picture',
+          subtitle: 'Multi-domain threat synthesis, tactical asset map, and incident response overview',
+        };
       case 'fieldlink':
-        return { title: 'FieldLink Tactical Reports', subtitle: 'Offline-first battlefield communication & IndexedDB outbox' };
+        return {
+          tag: 'TACTICAL COMMUNICATIONS',
+          title: 'FieldLink Ground Reports',
+          subtitle: 'Offline-first asynchronous incident reporting and resilient outbox dispatch',
+        };
       case 'skywatch':
-        return { title: 'SkyWatch Airspace Security', subtitle: 'Counter-drone radar tracking & explainable anomaly detection' };
+        return {
+          tag: 'AIR DEFENSE & RADAR',
+          title: 'SkyWatch Airspace Security',
+          subtitle: 'Real-time telemetry tracking, geofence monitoring, and explainable rule heuristics',
+        };
       case 'geointel':
-        return { title: 'GeoIntel Reconnaissance', subtitle: 'Multi-temporal satellite change analysis & candidate review' };
+        return {
+          tag: 'GEOSPATIAL INTELLIGENCE',
+          title: 'GeoIntel Reconnaissance',
+          subtitle: 'Multi-spectral satellite difference analysis and analyst review candidate workflow',
+        };
       case 'mediroute':
-        return { title: 'MediRoute Logistics', subtitle: 'Algorithmic START triage & hazard-aware evacuation routing' };
+        return {
+          tag: 'CASUALTY & EVACUATION',
+          title: 'MediRoute Logistics',
+          subtitle: 'Algorithmic START triage justification and hazard-aware Dijkstra corridor routing',
+        };
     }
   };
 
@@ -63,49 +98,160 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   return (
     <header
       style={{
-        background: 'var(--surface)',
+        background: 'var(--surface-raised)',
         borderBottom: '1px solid var(--border-subtle)',
-        padding: '16px 28px',
+        padding: '14px 28px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: '16px',
+        gap: '14px',
         position: 'sticky',
         top: 0,
         zIndex: 30,
-        boxShadow: '0 2px 10px rgba(163, 174, 192, 0.15)',
+        boxShadow: 'var(--shadow-raised-sm)',
+        transition: 'background 0.2s ease, border-color 0.2s ease',
       }}
     >
-      {/* Title & Context */}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+      {/* Title & Editorial Context */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        {onToggleMobileMenu && (
+          <button
+            className="btn-neu btn-neu-sm btn-mobile-nav"
+            onClick={onToggleMobileMenu}
+            style={{ display: 'none' }}
+            aria-label="Open Navigation Menu"
+          >
+            <Menu size={16} />
+          </button>
+        )}
+
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+              style={{
+                fontSize: '0.66rem',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
+                color: 'var(--accent)',
+                letterSpacing: '0.08em',
+              }}
+            >
+              {moduleInfo.tag}
+            </span>
+            <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.62rem', padding: '1px 6px' }}>
+              SIMULATED TELEMETRY
+            </span>
+          </div>
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', margin: '2px 0 0 0' }}>
             {moduleInfo.title}
           </h1>
-          <span className="badge-neu badge-neu-neutral" style={{ fontSize: '0.65rem' }}>
-            SIMULATED
-          </span>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+            {moduleInfo.subtitle}
+          </p>
         </div>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          {moduleInfo.subtitle}
-        </p>
       </div>
 
-      {/* Quick Controls & Status Area */}
+      {/* Quick Controls, Theme Selector & Status Area */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-        {/* Clock */}
+        {/* System / Light / Dark Appearance Mode Segmented Control */}
         <div
+          className="neu-inset"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '3px',
+            borderRadius: 'var(--radius-pill)',
+            gap: '2px',
+          }}
+          role="group"
+          aria-label="Appearance Mode"
+        >
+          <button
+            type="button"
+            onClick={() => handleThemeChange('system')}
+            title="System Mode (Follows OS preference)"
+            style={{
+              border: 'none',
+              background: themeMode === 'system' ? 'var(--surface-raised)' : 'transparent',
+              boxShadow: themeMode === 'system' ? 'var(--shadow-raised-sm)' : 'none',
+              color: themeMode === 'system' ? 'var(--accent)' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 8px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Monitor size={12} />
+            <span>Auto</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleThemeChange('light')}
+            title="Light Theme (Warm Neutral Editorial)"
+            style={{
+              border: 'none',
+              background: themeMode === 'light' ? 'var(--surface-raised)' : 'transparent',
+              boxShadow: themeMode === 'light' ? 'var(--shadow-raised-sm)' : 'none',
+              color: themeMode === 'light' ? 'var(--warning)' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 8px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Sun size={12} />
+            <span>Light</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleThemeChange('dark')}
+            title="Dark Theme (Tactical Instrument)"
+            style={{
+              border: 'none',
+              background: themeMode === 'dark' ? 'var(--surface-raised)' : 'transparent',
+              boxShadow: themeMode === 'dark' ? 'var(--shadow-raised-sm)' : 'none',
+              color: themeMode === 'dark' ? 'var(--accent)' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-pill)',
+              padding: '4px 8px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Moon size={12} />
+            <span>Dark</span>
+          </button>
+        </div>
+
+        {/* Live UTC Clock */}
+        <div
+          className="neu-inset"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            padding: '6px 12px',
+            padding: '5px 12px',
             borderRadius: 'var(--radius-pill)',
-            background: 'var(--surface-inset)',
-            boxShadow: 'var(--shadow-inset-sm)',
             fontSize: '0.74rem',
             fontFamily: 'var(--font-mono)',
+            fontWeight: 600,
             color: 'var(--text-secondary)',
           }}
         >
@@ -117,10 +263,10 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         <button
           className={`btn-neu btn-neu-sm ${isOfflineMode ? 'btn-neu-critical' : ''}`}
           onClick={onToggleOffline}
-          title={isOfflineMode ? 'Click to restore online network connectivity' : 'Click to simulate field network blackout'}
+          title={isOfflineMode ? 'Restore online network link' : 'Simulate remote field network blackout'}
         >
           {isOfflineMode ? <WifiOff size={13} /> : <Wifi size={13} />}
-          <span>{isOfflineMode ? 'Offline Active' : 'Go Offline'}</span>
+          <span>{isOfflineMode ? 'Offline Mode' : 'Go Offline'}</span>
         </button>
 
         {/* Outbox Sync Trigger */}
@@ -128,20 +274,24 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           className={`btn-neu btn-neu-sm ${pendingSyncCount > 0 ? 'btn-neu-primary' : ''}`}
           onClick={onTriggerSync}
           disabled={isSyncing || isOfflineMode || pendingSyncCount === 0}
-          title="Synchronize local outbox records with command center"
+          title="Synchronize pending outbox records"
         >
           <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
-          <span>{isSyncing ? 'Syncing...' : `Sync Outbox (${pendingSyncCount})`}</span>
+          <span>{isSyncing ? 'Syncing...' : `Sync (${pendingSyncCount})`}</span>
         </button>
 
-        {/* Reset Demo Button */}
+        {/* Distinct Reset Baseline Button */}
         <button
           className="btn-neu btn-neu-sm"
           onClick={onResetDemo}
-          title="Reset all modules to deterministic baseline fixtures for judge demonstration"
+          style={{
+            borderColor: 'var(--warning)',
+            color: 'var(--text-primary)',
+          }}
+          title="Reset scenario data to deterministic baseline fixtures"
         >
-          <RotateCcw size={13} />
-          <span>Reset Baseline</span>
+          <RotateCcw size={13} color="var(--warning)" />
+          <span>Reset Scenario</span>
         </button>
       </div>
     </header>

@@ -4,9 +4,21 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234669a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='12 2 2 7 12 12 22 7 12 2'/><polyline points='2 17 12 22 22 17'/><polyline points='2 12 12 17 22 12'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#E8EBF0" />
-    <meta name="description" content="SENTINEL - Integrated Situational Awareness & Emergency Response Platform. Neumorphic soft tactical interface." />
-    <title>SENTINEL — Tactical Operations Platform</title>
+    <meta name="theme-color" content="#F3F1EB" />
+    <meta name="description" content="SENTINEL - Integrated Situational Awareness & Emergency Response Platform. Neumorphic operations editorial interface." />
+    <title>SENTINEL — Operations Platform</title>
+    <!-- Prevent theme flash before hydration -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('sentinel_theme_mode');
+          var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = (saved === 'dark' || (saved !== 'light' && dark)) ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = theme;
+        } catch(e) {}
+      })();
+    </script>
     <!-- Fonts: Inter (Clean Modern Sans) & JetBrains Mono (Telemetry/Metadata) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
