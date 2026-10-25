@@ -2,10 +2,13 @@ import { app } from './app';
 import { config } from './config';
 import { telemetryService } from './services/telemetryService';
 
-const server = app.listen(config.port, () => {
+const HOST = '0.0.0.0';
+
+const server = app.listen(config.port, HOST, () => {
   console.log(`=======================================================`);
   console.log(`  SENTINEL Backend Service Active`);
   console.log(`  Environment:  ${config.nodeEnv}`);
+  console.log(`  Host:         ${HOST}`);
   console.log(`  Port:         ${config.port}`);
   console.log(`  Storage Mode: ${config.storageMode}`);
   console.log(`  Data Dir:     ${config.dataDir}`);
