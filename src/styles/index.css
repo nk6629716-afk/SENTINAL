@@ -423,28 +423,6 @@ select.input-neu {
   flex-shrink: 0;
 }
 
-.app-sidebar.resizing {
-  transition: none !important;
-}
-
-/* Right-edge drag handle for manual width adjustment */
-.sidebar-resizer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 6px;
-  height: 100%;
-  cursor: col-resize;
-  z-index: 50;
-  transition: background-color 0.15s ease;
-}
-
-.sidebar-resizer:hover,
-.sidebar-resizer.active {
-  background-color: var(--accent);
-  box-shadow: 0 0 8px var(--accent-light);
-}
-
 /* Nav Item & Fixed 40px Icon Column */
 .sidebar-nav-item {
   display: flex;
@@ -538,7 +516,10 @@ select.input-neu {
 }
 
 .command-header.minimized {
-  padding: 0 14px;
+  height: var(--header-height, 38px);
+  min-height: var(--header-height, 38px);
+  max-height: var(--header-height, 38px);
+  padding: 0 16px;
   border-bottom: 1px solid var(--accent);
 }
 
@@ -637,9 +618,6 @@ select.input-neu {
   }
   .app-sidebar.open {
     transform: translateX(0);
-  }
-  .sidebar-resizer {
-    display: none !important;
   }
   .sidebar-backdrop {
     position: fixed;
