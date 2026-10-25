@@ -10,8 +10,11 @@ export * from '../shared/contracts';
 // Module 1: FieldLink (Offline Queue & Sync Reconciliation)
 export * from './algorithms/fieldlink/queueManager';
 
-// Module 2: SkyWatch (Flight Simulator & Explainable Anomaly Detection)
-export * from './algorithms/skywatch/simulator';
+export type { FlightScenarioDefinition } from './algorithms/skywatch/simulator';
+export {
+  haversineDistanceMeters,
+  SkyWatchSimulator,
+} from './algorithms/skywatch/simulator';
 export * from './algorithms/skywatch/anomalyDetector';
 
 // Module 3: GeoIntel (Matrix Diffing, Region Clustering & Review)

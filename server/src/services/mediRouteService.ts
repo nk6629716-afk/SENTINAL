@@ -39,6 +39,7 @@ export class MediRouteService {
       triageCategory: category,
       ruleVersion: 'DEMO_START_TRIAGE_V1',
       triageReason: reason,
+      status: input.workflowStatus || 'awaiting_assessment',
       workflowStatus: input.workflowStatus || 'awaiting_assessment',
       vitals: input.vitals,
       location: input.location,
@@ -115,6 +116,7 @@ export class MediRouteService {
     if (!nodeIds.has(req.startNodeId)) {
       return {
         routeFound: false,
+        destinationNodeId: req.destinationNodeId,
         pathNodeIds: [],
         edgesTraversed: [],
         totalDistanceKm: 0,
@@ -126,6 +128,7 @@ export class MediRouteService {
     if (!nodeIds.has(req.destinationNodeId)) {
       return {
         routeFound: false,
+        destinationNodeId: req.destinationNodeId,
         pathNodeIds: [],
         edgesTraversed: [],
         totalDistanceKm: 0,
@@ -138,6 +141,7 @@ export class MediRouteService {
     if (req.startNodeId === req.destinationNodeId) {
       return {
         routeFound: true,
+        destinationNodeId: req.destinationNodeId,
         pathNodeIds: [req.startNodeId],
         edgesTraversed: [],
         totalDistanceKm: 0,
@@ -161,8 +165,10 @@ export class MediRouteService {
         continue; // Skip blocked edge!
       }
 
-      adj.get(edge.from)?.push({ to: edge.to, distanceKm: edge.distanceKm, edge });
-      adj.get(edge.to)?.push({ to: edge.from, distanceKm: edge.distanceKm, edge });
+      const fromId = edge.fromNodeId || edge.from || '';
+      const toId = edge.toNodeId || edge.to || '';
+      adj.get(fromId)?.push({ to: toId, distanceKm: edge.distanceKm, edge });
+      adj.get(toId)?.push({ to: fromId, distanceKm: edge.distanceKm, edge });
     }
 
     // Dijkstra's Algorithm
@@ -216,6 +222,7 @@ export class MediRouteService {
     if (!destDist || destDist === Infinity) {
       return {
         routeFound: false,
+        destinationNodeId: req.destinationNodeId,
         pathNodeIds: [],
         edgesTraversed: [],
         totalDistanceKm: 0,
@@ -236,10 +243,10 @@ export class MediRouteService {
       if (prevStep) {
         edgesTraversed.unshift({
           id: prevStep.edge.id,
-          from: prevStep.edge.from,
-          to: prevStep.edge.to,
+          from: prevStep.edge.from || prevStep.edge.fromNodeId || '',
+          to: prevStep.edge.to || prevStep.edge.toNodeId || '',
           distanceKm: prevStep.edge.distanceKm,
-          roadName: prevStep.edge.roadName,
+          roadName: prevStep.edge.roadName || '',
         });
         curr = prevStep.node;
       } else {
@@ -252,11 +259,15 @@ export class MediRouteService {
 
     return {
       routeFound: true,
+      hasRoute: true,
       pathNodeIds: pathNodes,
-      edgesTraversed,
+      edgesTraversed: edgesTraversed.map((e) => e.id),
+      pathEdges: edgesTraversed,
       totalDistanceKm: parseFloat(destDist.toFixed(2)),
       estimatedTimeMinutes: Math.max(1, estMinutes),
+      estimatedMinutes: Math.max(1, estMinutes),
       hazardsAvoided: Array.from(bypassedHazards),
+      destinationNodeId: req.destinationNodeId,
       message: bypassedHazards.size > 0
         ? `Route safely calculated avoiding ${bypassedHazards.size} active road hazard(s)`
         : 'Direct optimal path selected',

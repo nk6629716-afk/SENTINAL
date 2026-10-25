@@ -29,7 +29,7 @@ test('Database persists records to disk and reloads them on fresh instantiation 
     status: 'active',
     title: 'Persistent Fuel Depot Leak',
     notes: 'Stored in persistent disk database.',
-    location: { lat: 34.05, lng: -118.25 },
+    location: { lat: 34.05, lng: -118.25, name: 'Fuel Depot' },
     createdAt: now,
     updatedAt: now,
     syncedAt: now,

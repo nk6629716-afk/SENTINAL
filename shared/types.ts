@@ -4,7 +4,7 @@
  * ALL records must explicitly carry `isSimulated: true` for honest simulation labeling.
  */
 
-export type ModuleSource = 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'system';
+export type ModuleSource = 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'system' | 'manual';
 export type SourceModule = ModuleSource;
 
 export type PriorityLevel = 'low' | 'medium' | 'high' | 'critical';
@@ -13,6 +13,7 @@ export interface GeoLocation {
   name?: string;
   lat: number;
   lng: number;
+  label?: string;
 }
 export type GeoPoint = GeoLocation;
 
@@ -50,7 +51,7 @@ export type IncidentType =
   | 'recon'
   | 'general';
 
-export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'pending_sync' | 'archived';
+export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'pending_sync' | 'archived' | 'open' | 'triaged';
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
 export interface IncidentReport {
@@ -103,7 +104,7 @@ export type SyncItemOutcome = 'accepted' | 'already_received' | 'rejected';
 
 export interface SyncResponseItem {
   clientId: string;
-  serverId?: string;
+  serverId?: string | null;
   outcome: SyncItemOutcome;
   status?: SyncItemOutcome; // alias for outcome
   errorCode?: string;
@@ -138,6 +139,7 @@ export interface BatchSyncResult {
   acceptedCount: number;
   duplicateCount: number;
   rejectedCount: number;
+  failedCount?: number;
   items: SyncResponseItem[];
   results?: SyncResponseItem[];
   processedCount?: number;
@@ -161,7 +163,7 @@ export type TrackStatus = 'tracking' | 'suspicious' | 'hostile' | 'lost_signal';
 export interface Waypoint {
   lat: number;
   lng: number;
-  altitude: number;
+  altitude?: number;
   timestamp: string;
 }
 
@@ -176,17 +178,17 @@ export interface TelemetryTrack {
   callsign: string;
   type?: TrackType;
   position?: TelemetryPosition;
-  lat?: number;
-  lng?: number;
-  altitude?: number; // meters AGL
+  lat: number;
+  lng: number;
+  altitude: number; // meters AGL
   altitudeMeters?: number;
-  speed?: number; // m/s
+  speed: number; // m/s
   speedKts?: number;
-  heading?: number; // 0-360 degrees
+  heading: number; // 0-360 degrees
   headingDeg?: number;
   timestamp: string;
-  status?: TrackStatus;
-  flightHistory?: Waypoint[];
+  status: TrackStatus;
+  flightHistory: Waypoint[];
   anomalyFlags?: string[];
   isSimulated: true;
 }
@@ -200,7 +202,11 @@ export type AnomalyRuleName =
   | 'FLIGHT_PATH_DEVIATION'
   | 'ROUTE_DEVIATION'
   | 'STALE_TELEMETRY_SIGNAL'
-  | 'STALE_TELEMETRY';
+  | 'STALE_TELEMETRY'
+  | 'speed_anomaly'
+  | 'route_deviation'
+  | 'restricted_zone_entry'
+  | 'stale_telemetry';
 
 export type AlertSeverity = 'info' | 'warning' | 'high' | 'critical' | 'low' | 'medium';
 
@@ -268,25 +274,29 @@ export type GeoIntelReviewStatus =
   | 'confirmed_candidate'
   | 'escalated'
   | 'dismissed'
-  | 'dismissed_false_positive';
+  | 'dismissed_false_positive'
+  | 'unreviewed'
+  | 'confirmed';
 
 export interface GeoIntelObservation {
   id: string;
-  title?: string;
-  zoneName?: string;
+  title: string;
+  zoneName: string;
   samplePairId?: string;
   beforeImageId?: string;
   afterImageId?: string;
+  captureDateBefore: string;
+  captureDateAfter: string;
   beforeImageUrl?: string;
   afterImageUrl?: string;
-  coordinates?: GeoLocation;
+  coordinates: GeoLocation;
   geoCoordinates?: GeoLocation;
   resolutionMeters?: number;
   normalizedCoordinates?: BoundingBox;
   differenceScore?: number;
   explanation?: string;
-  candidates?: ChangeCandidate[];
-  algorithmSettings?: {
+  candidates: ChangeCandidate[];
+  algorithmSettings: {
     sensitivityThreshold?: number;
     kernelSize?: number;
     noiseReduction?: boolean;
@@ -326,7 +336,16 @@ export interface UpdateGeoObservationInput {
 // -------------------------------------------------------------
 // MODULE 4: MEDIROUTE (Emergency Medical Triage & Evacuation)
 // -------------------------------------------------------------
-export type TriageCategory = 'immediate' | 'delayed' | 'minimal' | 'expectant';
+export type TriageCategory = 
+  | 'immediate'
+  | 'delayed'
+  | 'minimal'
+  | 'expectant'
+  | 'immediate_red'
+  | 'delayed_yellow'
+  | 'minimal_green'
+  | 'expectant_black'
+  | 'undetermined';
 
 export type PatientStatus =
   | 'awaiting_assessment'
@@ -344,8 +363,10 @@ export interface PatientVitals {
   radialPulsePresent?: boolean;
   pulsePresent?: boolean;
   canFollowCommands?: boolean;
-  mentalStatus?: 'can_follow_commands' | 'unresponsive' | 'altered';
+  mentalStatus?: 'alert' | 'verbal' | 'pain' | 'unresponsive' | 'can_follow_commands' | 'altered';
   severeBleedingControlled?: boolean;
+  pulse?: number;
+  severeBleeding?: boolean;
 }
 
 export interface CasualtyRecord {
@@ -353,11 +374,18 @@ export interface CasualtyRecord {
   patientCode?: string;
   fictionalName?: string;
   age?: number;
+  ageGroup?: 'pediatric' | 'adult' | 'geriatric';
   gender?: string;
   location: GeoLocation;
-  vitals: PatientVitals;
+  vitals?: PatientVitals;
+  canWalk?: boolean;
+  respiratoryRate?: number;
+  pulse?: number;
+  mentalStatus?: 'alert' | 'verbal' | 'pain' | 'unresponsive' | 'can_follow_commands' | 'altered';
+  severeBleeding?: boolean;
   triageCategory: TriageCategory;
-  ruleVersion: string; // e.g. "START_TACTICAL_DEMO_v1.0"
+  category?: TriageCategory;
+  ruleVersion: string;
   triageReason: string;
   status: PatientStatus;
   workflowStatus?: PatientStatus; // alias
@@ -365,8 +393,10 @@ export interface CasualtyRecord {
   assignedFacilityId?: string; // alias
   notes?: string;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   isSimulated: true;
+  decisionTreePath?: string[];
+  missingDataWarnings?: string[];
 }
 
 export type Patient = CasualtyRecord;
@@ -419,11 +449,11 @@ export interface CreateHazardInput {
 export interface EvacuationNode {
   id: string;
   name: string;
+  label?: string;
   type: 'hospital' | 'aid_station' | 'casualty_pickup' | 'intersection' | 'casualty_site';
-  coordinates?: GeoLocation;
+  coordinates: GeoLocation;
   lat?: number;
   lng?: number;
-  label?: string;
   capacity?: number;
   occupied?: number;
 }
@@ -432,28 +462,39 @@ export type RoadGraphNode = EvacuationNode;
 
 export interface RoadGraphEdge {
   id: string;
-  from: string;
-  to: string;
+  from?: string;
+  to?: string;
+  fromNodeId: string;
+  toNodeId: string;
   distanceKm: number;
   roadName: string;
+  name?: string;
+  isBlocked?: boolean;
+  blocked?: boolean;
+  baseTravelTimeMin: number;
 }
 
 export interface CalculatedRoute {
   id?: string;
   routeFound?: boolean;
   sourceNodeId?: string;
-  destinationNodeId?: string;
+  originNodeId?: string;
+  destinationNodeId: string;
   startNodeId?: string;
   totalDistanceKm: number;
+  totalTimeMin?: number;
   estimatedMinutes?: number;
   estimatedTimeMinutes?: number;
   pathNodeIds: string[];
-  edgesTraversed?: any[];
+  edgesTraversed: string[] | any[];
+  pathEdges?: any[];
   avoidedHazardIds?: string[];
   hazardsAvoided?: string[];
+  blockedEdgesAvoided?: string[];
   algorithmUsed?: 'Dijkstra-Hazard-Aware' | 'A*-Terrain-Cost';
   hasActiveBlockage?: boolean;
   alternativeFound?: boolean;
+  hasRoute?: boolean;
   explanation?: string;
   message?: string;
   calculatedAt?: string;

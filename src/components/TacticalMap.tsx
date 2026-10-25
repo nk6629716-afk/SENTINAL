@@ -372,7 +372,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   fontWeight="500"
                   textAnchor="middle"
                 >
-                  {node.name.split(' ')[0]}
+                  {(node.name || node.label || 'Node').split(' ')[0]}
                 </text>
               </g>
             );

@@ -17,14 +17,19 @@ export class SyncService {
     let duplicateCount = 0;
     let rejectedCount = 0;
 
-    for (const item of batch.items) {
+    const items = batch.items || (batch.reports?.map((r) => r.report)) || [];
+
+    for (const item of items) {
       if (!item || typeof item !== 'object' || !item.clientId) {
         results.push({
           clientId: item?.clientId || 'unknown',
-          serverId: null,
+          serverId: undefined,
+          outcome: 'rejected',
           status: 'rejected',
           reason: 'Missing or invalid clientId on sync item',
+          errorMessage: 'Missing or invalid clientId on sync item',
           syncedAt: now,
+          syncTimestamp: now,
         });
         rejectedCount++;
         continue;
@@ -36,9 +41,11 @@ export class SyncService {
         results.push({
           clientId: item.clientId,
           serverId: existingRecorded.serverId,
+          outcome: 'already_received',
           status: 'already_received',
           reason: 'Item was previously processed and confirmed',
           syncedAt: existingRecorded.syncedAt,
+          syncTimestamp: existingRecorded.syncedAt,
         });
         duplicateCount++;
         continue;
@@ -50,9 +57,11 @@ export class SyncService {
         const itemResult: SyncItemResult = {
           clientId: item.clientId,
           serverId: existingIncident.id,
+          outcome: 'already_received',
           status: 'already_received',
           reason: 'Incident with matching clientId already exists in store',
           syncedAt: existingIncident.syncedAt || now,
+          syncTimestamp: existingIncident.syncedAt || now,
         };
         db.recordSyncOutcome(itemResult);
         results.push(itemResult);
@@ -87,8 +96,10 @@ export class SyncService {
         const itemResult: SyncItemResult = {
           clientId: item.clientId,
           serverId,
+          outcome: 'accepted',
           status: 'accepted',
           syncedAt: now,
+          syncTimestamp: now,
         };
 
         db.recordSyncOutcome(itemResult);
@@ -100,9 +111,12 @@ export class SyncService {
         const itemResult: SyncItemResult = {
           clientId: item.clientId,
           serverId: null,
+          outcome: 'rejected',
           status: 'rejected',
           reason: err.message || 'Validation failed for sync item',
+          errorMessage: err.message || 'Validation failed for sync item',
           syncedAt: now,
+          syncTimestamp: now,
         };
         db.recordSyncOutcome(itemResult);
         results.push(itemResult);
@@ -112,10 +126,13 @@ export class SyncService {
 
     const response: SyncBatchResponse = {
       results,
+      items: results,
+      totalSubmitted: results.length,
       processedCount: results.length,
       acceptedCount,
       duplicateCount,
       rejectedCount,
+      failedCount: rejectedCount,
       processedAt: now,
     };
 

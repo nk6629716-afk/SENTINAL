@@ -5,13 +5,13 @@
  */
 
 import {
-  Incident,
+  IncidentReport,
   TelemetryTrack,
-  Alert,
+  AirspaceAlert,
   GeoIntelObservation,
-  Patient,
-  HazardEdge,
-  RoadGraphNode,
+  CasualtyRecord,
+  RoadHazardEdge,
+  EvacuationNode,
   RoadGraphEdge,
 } from './types';
 
@@ -20,7 +20,7 @@ export const DEMO_BASELINE_TIMESTAMP = '2026-10-25T08:00:00.000Z';
 // --------------------------------------------------------------------------
 // 1. Initial Incidents
 // --------------------------------------------------------------------------
-export const INITIAL_INCIDENTS: Incident[] = [
+export const INITIAL_INCIDENTS: IncidentReport[] = [
   {
     id: 'INC-101',
     clientId: 'cli-inc-101',
@@ -87,13 +87,25 @@ export const INITIAL_TRACKS: TelemetryTrack[] = [
   {
     id: 'TRK-001',
     callsign: 'SENTINEL-RECON-1',
+    type: 'friendly_uav',
+    lat: 34.0550,
+    lng: -118.2450,
+    altitude: 120,
+    altitudeMeters: 120,
+    speed: 21.6,
+    speedKts: 42,
+    heading: 85,
+    headingDeg: 85,
+    status: 'tracking',
+    flightHistory: [
+      { lat: 34.053, lng: -118.248, altitude: 120, timestamp: '2026-10-25T07:59:00.000Z' },
+      { lat: 34.055, lng: -118.245, altitude: 120, timestamp: '2026-10-25T08:00:00.000Z' },
+    ],
     position: {
       lat: 34.0550,
       lng: -118.2450,
       altitudeMeters: 120,
     },
-    speedKts: 42,
-    headingDeg: 85,
     timestamp: '2026-10-25T08:00:00.000Z',
     isSimulated: true,
     anomalyFlags: [],
@@ -101,13 +113,25 @@ export const INITIAL_TRACKS: TelemetryTrack[] = [
   {
     id: 'TRK-002',
     callsign: 'UAS-UNKNOWN-X7',
+    type: 'unknown_quadcopter',
+    lat: 34.0585,
+    lng: -118.2515,
+    altitude: 350,
+    altitudeMeters: 350,
+    speed: 40.1,
+    speedKts: 78,
+    heading: 195,
+    headingDeg: 195,
+    status: 'suspicious',
+    flightHistory: [
+      { lat: 34.057, lng: -118.250, altitude: 320, timestamp: '2026-10-25T07:59:00.000Z' },
+      { lat: 34.0585, lng: -118.2515, altitude: 350, timestamp: '2026-10-25T08:00:00.000Z' },
+    ],
     position: {
       lat: 34.0585,
       lng: -118.2515,
       altitudeMeters: 350,
     },
-    speedKts: 78,
-    headingDeg: 195,
     timestamp: '2026-10-25T08:00:00.000Z',
     isSimulated: true,
     anomalyFlags: ['SUDDEN_ACCELERATION', 'ZONE_INCURSION'],
@@ -115,20 +139,32 @@ export const INITIAL_TRACKS: TelemetryTrack[] = [
   {
     id: 'TRK-003',
     callsign: 'MEDEVAC-HELI-3',
+    type: 'commercial_fixed_wing',
+    lat: 34.0680,
+    lng: -118.2300,
+    altitude: 450,
+    altitudeMeters: 450,
+    speed: 56.5,
+    speedKts: 110,
+    heading: 230,
+    headingDeg: 230,
+    status: 'tracking',
+    flightHistory: [
+      { lat: 34.065, lng: -118.232, altitude: 450, timestamp: '2026-10-25T07:59:00.000Z' },
+      { lat: 34.068, lng: -118.230, altitude: 450, timestamp: '2026-10-25T08:00:00.000Z' },
+    ],
     position: {
       lat: 34.0680,
       lng: -118.2300,
       altitudeMeters: 450,
     },
-    speedKts: 110,
-    headingDeg: 230,
     timestamp: '2026-10-25T08:00:00.000Z',
     isSimulated: true,
     anomalyFlags: [],
   },
 ];
 
-export const INITIAL_ALERTS: Alert[] = [
+export const INITIAL_ALERTS: AirspaceAlert[] = [
   {
     id: 'ALT-201',
     trackId: 'TRK-002',
@@ -161,19 +197,28 @@ export const INITIAL_ALERTS: Alert[] = [
 export const INITIAL_GEO_OBSERVATIONS: GeoIntelObservation[] = [
   {
     id: 'GEO-301',
+    title: 'Supply Depot Roadway Junction Scan',
+    zoneName: 'Sector Alpha Logistics',
     samplePairId: 'PAIR-ALPHA-2026',
     beforeImageId: 'IMG-BASE-001',
     afterImageId: 'IMG-POST-001',
+    captureDateBefore: '2026-10-18T08:00:00Z',
+    captureDateAfter: '2026-10-25T07:45:00Z',
+    coordinates: {
+      name: 'Supply Depot Roadway Junction',
+      lat: 34.0535,
+      lng: -118.2460,
+    },
+    geoCoordinates: {
+      name: 'Supply Depot Roadway Junction',
+      lat: 34.0535,
+      lng: -118.2460,
+    },
     normalizedCoordinates: {
       x: 0.32,
       y: 0.44,
       width: 0.18,
       height: 0.15,
-    },
-    geoCoordinates: {
-      lat: 34.0535,
-      lng: -118.2460,
-      name: 'Supply Depot Roadway Junction',
     },
     differenceScore: 0.74,
     algorithmSettings: {
@@ -188,22 +233,43 @@ export const INITIAL_GEO_OBSERVATIONS: GeoIntelObservation[] = [
     createdAt: '2026-10-25T07:48:00.000Z',
     updatedAt: '2026-10-25T07:52:00.000Z',
     isSimulated: true,
+    candidates: [
+      {
+        id: 'CAN-301-1',
+        boundingBox: { x: 32, y: 44, width: 18, height: 15 },
+        differenceScore: 0.74,
+        label: 'Crater Debris Anomaly',
+        anomalyType: 'terrain_disturbance',
+        explanation: 'Debris blockage detected on primary arterial road',
+        reviewed: true,
+        confidence: 0.88,
+      },
+    ],
   },
   {
     id: 'GEO-302',
+    title: 'East Canal Embankment',
+    zoneName: 'East Canal',
     samplePairId: 'PAIR-BRAVO-2026',
     beforeImageId: 'IMG-BASE-002',
     afterImageId: 'IMG-POST-002',
+    captureDateBefore: '2026-10-18T08:00:00Z',
+    captureDateAfter: '2026-10-25T07:45:00Z',
+    coordinates: {
+      name: 'East Canal Embankment',
+      lat: 34.0610,
+      lng: -118.2390,
+    },
+    geoCoordinates: {
+      name: 'East Canal Embankment',
+      lat: 34.0610,
+      lng: -118.2390,
+    },
     normalizedCoordinates: {
       x: 0.65,
       y: 0.20,
       width: 0.12,
       height: 0.10,
-    },
-    geoCoordinates: {
-      lat: 34.0610,
-      lng: -118.2390,
-      name: 'East Canal Embankment',
     },
     differenceScore: 0.42,
     algorithmSettings: {
@@ -217,27 +283,45 @@ export const INITIAL_GEO_OBSERVATIONS: GeoIntelObservation[] = [
     createdAt: '2026-10-25T07:56:00.000Z',
     updatedAt: '2026-10-25T07:56:00.000Z',
     isSimulated: true,
+    candidates: [
+      {
+        id: 'CAN-302-1',
+        boundingBox: { x: 65, y: 20, width: 12, height: 10 },
+        differenceScore: 0.42,
+        label: 'Reflectance Shift',
+        anomalyType: 'terrain_disturbance',
+        explanation: 'Reflectance shift on embankment',
+        reviewed: false,
+        confidence: 0.55,
+      },
+    ],
   },
 ];
 
 // --------------------------------------------------------------------------
 // 4. MediRoute Patients & Road Graph
 // --------------------------------------------------------------------------
-export const INITIAL_PATIENTS: Patient[] = [
+export const INITIAL_PATIENTS: CasualtyRecord[] = [
   {
     id: 'PAT-401',
+    patientCode: 'CAS-001',
     fictionalName: 'Casualty Alpha-1 (Simulated)',
     age: 34,
     gender: 'Female',
     triageCategory: 'immediate',
     ruleVersion: 'DEMO_START_TRIAGE_V1',
     triageReason: 'Respiratory rate > 30/min; capillary refill > 2s. High priority evacuation required.',
+    status: 'assessed',
     workflowStatus: 'assessed',
     vitals: {
       respiratoryRate: 34,
       pulsePresent: true,
       canFollowCommands: false,
       ambulatory: false,
+      canWalk: false,
+      radialPulsePresent: true,
+      mentalStatus: 'unresponsive',
+      severeBleedingControlled: true,
     },
     location: {
       lat: 34.0620,
@@ -251,18 +335,24 @@ export const INITIAL_PATIENTS: Patient[] = [
   },
   {
     id: 'PAT-402',
+    patientCode: 'CAS-002',
     fictionalName: 'Casualty Alpha-2 (Simulated)',
     age: 46,
     gender: 'Male',
     triageCategory: 'delayed',
     ruleVersion: 'DEMO_START_TRIAGE_V1',
     triageReason: 'Non-ambulatory, breathing normally (RR 18), radial pulse present, follows commands. Stable under monitoring.',
+    status: 'awaiting_assessment',
     workflowStatus: 'awaiting_assessment',
     vitals: {
       respiratoryRate: 18,
       pulsePresent: true,
       canFollowCommands: true,
       ambulatory: false,
+      canWalk: false,
+      radialPulsePresent: true,
+      mentalStatus: 'can_follow_commands',
+      severeBleedingControlled: true,
     },
     location: {
       lat: 34.0618,
@@ -275,18 +365,24 @@ export const INITIAL_PATIENTS: Patient[] = [
   },
   {
     id: 'PAT-403',
+    patientCode: 'CAS-003',
     fictionalName: 'Casualty Alpha-3 (Simulated)',
     age: 22,
     gender: 'Non-binary',
     triageCategory: 'minimal',
     ruleVersion: 'DEMO_START_TRIAGE_V1',
     triageReason: 'Ambulatory walking wounded with minor abrasions. Self-sufficient.',
+    status: 'assigned',
     workflowStatus: 'assigned',
     vitals: {
       respiratoryRate: 16,
       pulsePresent: true,
       canFollowCommands: true,
       ambulatory: true,
+      canWalk: true,
+      radialPulsePresent: true,
+      mentalStatus: 'can_follow_commands',
+      severeBleedingControlled: true,
     },
     location: {
       lat: 34.0615,
@@ -300,38 +396,34 @@ export const INITIAL_PATIENTS: Patient[] = [
   },
 ];
 
-// Fictional Road Network Graph for MediRoute
-export const ROAD_GRAPH_NODES: RoadGraphNode[] = [
-  { id: 'NODE-CASUALTY-1', label: 'Casualty Site Alpha', lat: 34.0620, lng: -118.2380, type: 'casualty_site' },
-  { id: 'NODE-JUNCTION-A', label: 'Route 10 North Junction', lat: 34.0590, lng: -118.2410, type: 'intersection' },
-  { id: 'NODE-JUNCTION-B', label: 'Main St & 5th Ave', lat: 34.0560, lng: -118.2430, type: 'intersection' },
-  { id: 'NODE-JUNCTION-C', label: 'River Bypass Road', lat: 34.0650, lng: -118.2350, type: 'intersection' },
-  { id: 'NODE-JUNCTION-D', label: 'East Hill Boulevard', lat: 34.0680, lng: -118.2320, type: 'intersection' },
-  { id: 'NODE-HOSPITAL-CENTRAL', label: 'Sentinel Central Medical Center', lat: 34.0510, lng: -118.2470, type: 'hospital' },
-  { id: 'NODE-AID-STATION-EAST', label: 'East Perimeter Aid Post', lat: 34.0700, lng: -118.2280, type: 'aid_station' },
+export const ROAD_GRAPH_NODES: EvacuationNode[] = [
+  { id: 'NODE-CASUALTY-1', name: 'Casualty Site Alpha', coordinates: { name: 'Casualty Site Alpha', lat: 34.0620, lng: -118.2380 }, lat: 34.0620, lng: -118.2380, type: 'casualty_site' },
+  { id: 'NODE-JUNCTION-A', name: 'Route 10 North Junction', coordinates: { name: 'Route 10 North Junction', lat: 34.0590, lng: -118.2410 }, lat: 34.0590, lng: -118.2410, type: 'intersection' },
+  { id: 'NODE-JUNCTION-B', name: 'Main St & 5th Ave', coordinates: { name: 'Main St & 5th Ave', lat: 34.0560, lng: -118.2430 }, lat: 34.0560, lng: -118.2430, type: 'intersection' },
+  { id: 'NODE-JUNCTION-C', name: 'River Bypass Road', coordinates: { name: 'River Bypass Road', lat: 34.0650, lng: -118.2350 }, lat: 34.0650, lng: -118.2350, type: 'intersection' },
+  { id: 'NODE-JUNCTION-D', name: 'East Hill Boulevard', coordinates: { name: 'East Hill Boulevard', lat: 34.0680, lng: -118.2320 }, lat: 34.0680, lng: -118.2320, type: 'intersection' },
+  { id: 'NODE-HOSPITAL-CENTRAL', name: 'Sentinel Central Medical Center', coordinates: { name: 'Sentinel Central Medical Center', lat: 34.0510, lng: -118.2470 }, lat: 34.0510, lng: -118.2470, type: 'hospital' },
+  { id: 'NODE-AID-STATION-EAST', name: 'East Perimeter Aid Post', coordinates: { name: 'East Perimeter Aid Post', lat: 34.0700, lng: -118.2280 }, lat: 34.0700, lng: -118.2280, type: 'aid_station' },
 ];
 
 export const ROAD_GRAPH_EDGES: RoadGraphEdge[] = [
-  // Primary Direct Corridor: Casualty Site -> Junction A -> Junction B -> Central Hospital
-  { id: 'EDGE-1', from: 'NODE-CASUALTY-1', to: 'NODE-JUNCTION-A', distanceKm: 1.2, roadName: 'Grand Expressway South' },
-  { id: 'EDGE-2', from: 'NODE-JUNCTION-A', to: 'NODE-JUNCTION-B', distanceKm: 1.0, roadName: 'Arterial Central Parkway' },
-  { id: 'EDGE-3', from: 'NODE-JUNCTION-B', to: 'NODE-HOSPITAL-CENTRAL', distanceKm: 1.4, roadName: 'Medical Center Access Way' },
-
-  // Alternate Bypass Corridor: Casualty Site -> Junction C -> Junction D -> East Aid / South Connector
-  { id: 'EDGE-4', from: 'NODE-CASUALTY-1', to: 'NODE-JUNCTION-C', distanceKm: 0.9, roadName: 'Bypass North Access' },
-  { id: 'EDGE-5', from: 'NODE-JUNCTION-C', to: 'NODE-JUNCTION-D', distanceKm: 1.5, roadName: 'East Ridge Scenic Drive' },
-  { id: 'EDGE-6', from: 'NODE-JUNCTION-D', to: 'NODE-AID-STATION-EAST', distanceKm: 0.8, roadName: 'Perimeter Auxiliary Road' },
-  
-  // Cross-link connector from Bypass to Hospital via Junction B
-  { id: 'EDGE-7', from: 'NODE-JUNCTION-C', to: 'NODE-JUNCTION-B', distanceKm: 2.1, roadName: 'Western Cross Connector' },
+  { id: 'EDGE-1', from: 'NODE-CASUALTY-1', to: 'NODE-JUNCTION-A', fromNodeId: 'NODE-CASUALTY-1', toNodeId: 'NODE-JUNCTION-A', distanceKm: 1.2, roadName: 'Grand Expressway South', baseTravelTimeMin: 2.0 },
+  { id: 'EDGE-2', from: 'NODE-JUNCTION-A', to: 'NODE-JUNCTION-B', fromNodeId: 'NODE-JUNCTION-A', toNodeId: 'NODE-JUNCTION-B', distanceKm: 1.0, roadName: 'Arterial Central Parkway', baseTravelTimeMin: 1.5 },
+  { id: 'EDGE-3', from: 'NODE-JUNCTION-B', to: 'NODE-HOSPITAL-CENTRAL', fromNodeId: 'NODE-JUNCTION-B', toNodeId: 'NODE-HOSPITAL-CENTRAL', distanceKm: 1.4, roadName: 'Medical Center Access Way', baseTravelTimeMin: 2.5 },
+  { id: 'EDGE-4', from: 'NODE-CASUALTY-1', to: 'NODE-JUNCTION-C', fromNodeId: 'NODE-CASUALTY-1', toNodeId: 'NODE-JUNCTION-C', distanceKm: 0.9, roadName: 'Bypass North Access', baseTravelTimeMin: 1.5 },
+  { id: 'EDGE-5', from: 'NODE-JUNCTION-C', to: 'NODE-JUNCTION-D', fromNodeId: 'NODE-JUNCTION-C', toNodeId: 'NODE-JUNCTION-D', distanceKm: 1.5, roadName: 'East Ridge Scenic Drive', baseTravelTimeMin: 2.5 },
+  { id: 'EDGE-6', from: 'NODE-JUNCTION-D', to: 'NODE-AID-STATION-EAST', fromNodeId: 'NODE-JUNCTION-D', toNodeId: 'NODE-AID-STATION-EAST', distanceKm: 0.8, roadName: 'Perimeter Auxiliary Road', baseTravelTimeMin: 1.2 },
+  { id: 'EDGE-7', from: 'NODE-JUNCTION-C', to: 'NODE-JUNCTION-B', fromNodeId: 'NODE-JUNCTION-C', toNodeId: 'NODE-JUNCTION-B', distanceKm: 2.1, roadName: 'Western Cross Connector', baseTravelTimeMin: 3.5 },
 ];
 
-export const INITIAL_HAZARDS: HazardEdge[] = [
+export const INITIAL_HAZARDS: RoadHazardEdge[] = [
   {
     id: 'HAZ-501',
-    edgeId: 'EDGE-2', // Arterial Central Parkway is blocked!
+    edgeId: 'EDGE-2',
     fromNode: 'NODE-JUNCTION-A',
     toNode: 'NODE-JUNCTION-B',
+    fromNodeId: 'NODE-JUNCTION-A',
+    toNodeId: 'NODE-JUNCTION-B',
     hazardType: 'road_blocked',
     blocked: true,
     reportedBy: 'Ground Scout Team 4',

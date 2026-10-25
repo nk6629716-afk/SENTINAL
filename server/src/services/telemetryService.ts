@@ -53,20 +53,33 @@ export class TelemetryService {
     const now = new Date().toISOString();
 
     for (const track of tracks) {
-      // Simulate slight kinetic progress based on heading & speed
-      const speedKmPerMin = (track.speedKts * 1.852) / 60;
-      const headingRad = (track.headingDeg * Math.PI) / 180;
+      const speedKts = track.speedKts ?? (track.speed ? track.speed * 1.94384 : 40);
+      const headingDeg = track.headingDeg ?? track.heading ?? 0;
+      const speedKmPerMin = (speedKts * 1.852) / 60;
+      const headingRad = (headingDeg * Math.PI) / 180;
       
-      // Rough projection: 1 deg lat ~ 111km, 1 deg lng ~ 111km * cos(lat)
+      const trackLat = track.position?.lat ?? track.lat ?? 0;
+      const trackLng = track.position?.lng ?? track.lng ?? 0;
+      const altitudeMeters = track.position?.altitudeMeters ?? track.altitude ?? 120;
+
       const deltaLat = (Math.cos(headingRad) * (speedKmPerMin * 0.05)) / 111;
-      const deltaLng = (Math.sin(headingRad) * (speedKmPerMin * 0.05)) / (111 * Math.cos((track.position.lat * Math.PI) / 180));
+      const deltaLng = (Math.sin(headingRad) * (speedKmPerMin * 0.05)) / (111 * Math.cos((trackLat * Math.PI) / 180));
+
+      const newLat = parseFloat((trackLat + deltaLat).toFixed(6));
+      const newLng = parseFloat((trackLng + deltaLng).toFixed(6));
 
       const updatedTrack: TelemetryTrack = {
         ...track,
+        lat: newLat,
+        lng: newLng,
+        heading: headingDeg,
+        speed: track.speed ?? Math.round(speedKts / 1.94384),
+        speedKts,
+        headingDeg,
         position: {
-          lat: parseFloat((track.position.lat + deltaLat).toFixed(6)),
-          lng: parseFloat((track.position.lng + deltaLng).toFixed(6)),
-          altitudeMeters: track.position.altitudeMeters,
+          lat: newLat,
+          lng: newLng,
+          altitudeMeters,
         },
         timestamp: now,
       };
@@ -76,8 +89,8 @@ export class TelemetryService {
       // Check Anomaly Rules
       // 1. Zone incursion
       const distToZone = this.calculateDistanceKm(
-        updatedTrack.position.lat,
-        updatedTrack.position.lng,
+        newLat,
+        newLng,
         this.restrictedZone.centerLat,
         this.restrictedZone.centerLng
       );
@@ -102,13 +115,13 @@ export class TelemetryService {
       }
 
       // 2. High speed / sudden acceleration rule
-      if (updatedTrack.speedKts > 75 && !updatedTrack.anomalyFlags?.includes('SUDDEN_ACCELERATION')) {
+      if (speedKts > 75 && !updatedTrack.anomalyFlags?.includes('SUDDEN_ACCELERATION')) {
         const alert: Alert = {
           id: `ALT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
           trackId: updatedTrack.id,
           severity: 'high',
           ruleName: 'SUDDEN_ACCELERATION',
-          observedValue: `${updatedTrack.speedKts} kts observed`,
+          observedValue: `${speedKts} kts observed`,
           threshold: '> 75 kts maximum authorized ceiling',
           explanation: 'Target speed exceeded authorized civilian corridor speed threshold.',
           timestamp: now,

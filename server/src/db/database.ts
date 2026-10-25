@@ -69,6 +69,7 @@ export class Database {
         syncRegistry[inc.clientId] = {
           clientId: inc.clientId,
           serverId: inc.id,
+          outcome: 'accepted',
           status: 'accepted',
           syncedAt: inc.syncedAt || inc.createdAt,
         };
@@ -144,7 +145,11 @@ export class Database {
     }
 
     try {
-      const tempPath = `${this.filePath}.tmp.${Date.now()}`;
+      const dir = path.dirname(this.filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const tempPath = `${this.filePath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
       fs.writeFileSync(tempPath, JSON.stringify(stateToSave, null, 2), 'utf-8');
       fs.renameSync(tempPath, this.filePath);
     } catch (err) {
@@ -215,6 +220,7 @@ export class Database {
       this.state.syncRegistry[incident.clientId] = {
         clientId: incident.clientId,
         serverId: incident.id,
+        outcome: 'accepted',
         status: 'accepted',
         syncedAt: incident.syncedAt || new Date().toISOString(),
       };

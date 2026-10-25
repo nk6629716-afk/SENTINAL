@@ -117,7 +117,7 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
       const q = searchQuery.toLowerCase();
       const matchTitle = inc.title.toLowerCase().includes(q);
       const matchNotes = inc.notes.toLowerCase().includes(q);
-      const matchLoc = inc.location.name.toLowerCase().includes(q);
+      const matchLoc = (inc.location.name || '').toLowerCase().includes(q);
       if (!matchTitle && !matchNotes && !matchLoc) return false;
     }
     if (priorityFilter !== 'all' && inc.priority !== priorityFilter) return false;

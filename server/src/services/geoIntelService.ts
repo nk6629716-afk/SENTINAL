@@ -22,9 +22,14 @@ export class GeoIntelService {
 
     const observation: GeoIntelObservation = {
       id,
+      title: `Surveillance Scan - ${input.samplePairId}`,
+      zoneName: 'Target Surveillance Sector',
       samplePairId: input.samplePairId,
       beforeImageId: input.beforeImageId,
       afterImageId: input.afterImageId,
+      captureDateBefore: now,
+      captureDateAfter: now,
+      coordinates: input.geoCoordinates || { lat: 0, lng: 0, name: 'Target Area' },
       normalizedCoordinates: input.normalizedCoordinates,
       geoCoordinates: input.geoCoordinates,
       differenceScore: input.differenceScore,
@@ -32,6 +37,23 @@ export class GeoIntelService {
       explanation: input.explanation,
       analystNotes: input.analystNotes || '',
       reviewStatus: 'pending_review',
+      candidates: [
+        {
+          id: `CAN-${id}`,
+          boundingBox: {
+            x: input.normalizedCoordinates.x * 100,
+            y: input.normalizedCoordinates.y * 100,
+            width: input.normalizedCoordinates.width * 100,
+            height: input.normalizedCoordinates.height * 100,
+          },
+          differenceScore: input.differenceScore,
+          label: 'Candidate Ground Anomaly',
+          anomalyType: 'terrain_disturbance',
+          explanation: input.explanation,
+          reviewed: false,
+          confidence: input.differenceScore,
+        },
+      ],
       createdAt: now,
       updatedAt: now,
       isSimulated: true,
