@@ -14,7 +14,6 @@
     "test:all": "npm test && npm run test --prefix server && python3 tests/run_verification.py"
   },
   "dependencies": {
-    "framer-motion": "^14.6.0",
     "lucide-react": "^1.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
