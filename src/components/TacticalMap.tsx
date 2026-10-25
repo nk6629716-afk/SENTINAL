@@ -93,13 +93,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         position: 'relative',
         height,
         width: '100%',
-        backgroundColor: '#E2E6ED', // Soft slate canvas
+        backgroundColor: 'var(--map-canvas)',
         borderRadius: 'var(--radius-lg)',
-        boxShadow: 'var(--shadow-inset-sm)',
+        boxShadow: 'var(--shadow-inset)',
         border: '1px solid var(--border-subtle)',
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none',
+        transition: 'background-color 0.2s ease',
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -150,19 +151,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
       {/* Layer Toggles (Recessed Pill Bar) */}
       <div
+        className="neu-card-sm"
         style={{
           position: 'absolute',
           top: '14px',
           left: '14px',
           zIndex: 10,
-          background: 'var(--surface-raised)',
           borderRadius: 'var(--radius-pill)',
-          boxShadow: 'var(--shadow-raised-sm)',
-          border: '1px solid var(--border-light)',
           padding: '6px 14px',
           display: 'flex',
           alignItems: 'center',
-          gap: '14px',
+          gap: '12px',
           fontSize: '0.74rem',
         }}
         onClick={(e) => e.stopPropagation()}
@@ -176,27 +175,27 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             type="checkbox"
             checked={activeLayers.incidents}
             onChange={() => toggleLayer('incidents')}
-            style={{ accentColor: '#4669A8' }}
+            style={{ accentColor: 'var(--accent)' }}
           />
-          Incidents ({incidents.length})
+          Ground ({incidents.length})
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)' }}>
           <input
             type="checkbox"
             checked={activeLayers.airspace}
             onChange={() => toggleLayer('airspace')}
-            style={{ accentColor: '#4669A8' }}
+            style={{ accentColor: 'var(--accent)' }}
           />
-          Airspace ({tracks.length})
+          Air ({tracks.length})
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)' }}>
           <input
             type="checkbox"
             checked={activeLayers.routes}
             onChange={() => toggleLayer('routes')}
-            style={{ accentColor: '#4669A8' }}
+            style={{ accentColor: 'var(--accent)' }}
           />
-          Evacuation ({nodes.length})
+          Corridors ({nodes.length})
         </label>
       </div>
 
@@ -209,7 +208,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       >
         <defs>
           <filter id="neu-marker-shadow" x="-30%" y="-30%" width="160%" height="160%">
-            <feDropShadow dx="2" dy="2" stdDeviation="2.5" floodColor="#8F9CAE" floodOpacity="0.4" />
+            <feDropShadow dx="1.5" dy="1.5" stdDeviation="2" floodColor="rgba(0,0,0,0.35)" />
           </filter>
         </defs>
 
@@ -217,25 +216,25 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         {activeLayers.grid && (
           <g opacity="0.35">
             {Array.from({ length: 17 }).map((_, i) => (
-              <line key={`gx-${i}`} x1={i * 50} y1="0" x2={i * 50} y2="600" stroke="#B0BAC9" strokeWidth="0.8" strokeDasharray="3,4" />
+              <line key={`gx-${i}`} x1={i * 50} y1="0" x2={i * 50} y2="600" stroke="var(--border-subtle)" strokeWidth="0.8" strokeDasharray="3,4" />
             ))}
             {Array.from({ length: 13 }).map((_, i) => (
-              <line key={`gy-${i}`} x1="0" y1={i * 50} x2="800" y2={i * 50} stroke="#B0BAC9" strokeWidth="0.8" strokeDasharray="3,4" />
+              <line key={`gy-${i}`} x1="0" y1={i * 50} x2="800" y2={i * 50} stroke="var(--border-subtle)" strokeWidth="0.8" strokeDasharray="3,4" />
             ))}
           </g>
         )}
 
         {/* 2. Concentric Range Marks */}
         {showRadarSweep && (
-          <g opacity="0.45" pointerEvents="none">
-            <circle cx={400 + pan.x} cy={300 + pan.y} r={90 * zoom} fill="none" stroke="#9AA8BC" strokeWidth="1" strokeDasharray="4,4" />
-            <circle cx={400 + pan.x} cy={300 + pan.y} r={180 * zoom} fill="none" stroke="#9AA8BC" strokeWidth="1" strokeDasharray="4,4" />
-            <circle cx={400 + pan.x} cy={300 + pan.y} r={270 * zoom} fill="none" stroke="#9AA8BC" strokeWidth="1" strokeDasharray="4,4" />
-            <line x1={400 + pan.x - 300 * zoom} y1={300 + pan.y} x2={400 + pan.x + 300 * zoom} y2={300 + pan.y} stroke="#9AA8BC" strokeWidth="0.8" />
-            <line x1={400 + pan.x} y1={300 + pan.y - 300 * zoom} x2={400 + pan.x} y2={300 + pan.y + 300 * zoom} stroke="#9AA8BC" strokeWidth="0.8" />
-            <text x={400 + pan.x + 95 * zoom} y={300 + pan.y - 6} fill="#667085" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">5 KM</text>
-            <text x={400 + pan.x + 185 * zoom} y={300 + pan.y - 6} fill="#667085" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">10 KM</text>
-            <text x={400 + pan.x + 275 * zoom} y={300 + pan.y - 6} fill="#667085" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">15 KM</text>
+          <g opacity="0.4" pointerEvents="none">
+            <circle cx={400 + pan.x} cy={300 + pan.y} r={90 * zoom} fill="none" stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="4,4" />
+            <circle cx={400 + pan.x} cy={300 + pan.y} r={180 * zoom} fill="none" stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="4,4" />
+            <circle cx={400 + pan.x} cy={300 + pan.y} r={270 * zoom} fill="none" stroke="var(--text-muted)" strokeWidth="1" strokeDasharray="4,4" />
+            <line x1={400 + pan.x - 300 * zoom} y1={300 + pan.y} x2={400 + pan.x + 300 * zoom} y2={300 + pan.y} stroke="var(--text-muted)" strokeWidth="0.8" />
+            <line x1={400 + pan.x} y1={300 + pan.y - 300 * zoom} x2={400 + pan.x} y2={300 + pan.y + 300 * zoom} stroke="var(--text-muted)" strokeWidth="0.8" />
+            <text x={400 + pan.x + 95 * zoom} y={300 + pan.y - 6} fill="var(--text-secondary)" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">5 KM</text>
+            <text x={400 + pan.x + 185 * zoom} y={300 + pan.y - 6} fill="var(--text-secondary)" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">10 KM</text>
+            <text x={400 + pan.x + 275 * zoom} y={300 + pan.y - 6} fill="var(--text-secondary)" fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">15 KM</text>
           </g>
         )}
 
@@ -250,21 +249,21 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   cx={pos.x}
                   cy={pos.y}
                   r={radiusPx}
-                  fill={zone.type === 'no_fly' ? 'rgba(185, 56, 56, 0.08)' : 'rgba(53, 107, 140, 0.06)'}
-                  stroke={zone.type === 'no_fly' ? '#B93838' : '#356B8C'}
+                  fill={zone.type === 'no_fly' ? 'rgba(168, 46, 46, 0.12)' : 'rgba(43, 95, 128, 0.1)'}
+                  stroke={zone.type === 'no_fly' ? 'var(--critical)' : 'var(--informational)'}
                   strokeWidth="1.5"
                   strokeDasharray="5,4"
                 />
                 <text
                   x={pos.x}
                   y={pos.y - radiusPx - 6}
-                  fill={zone.type === 'no_fly' ? '#B93838' : '#356B8C'}
+                  fill={zone.type === 'no_fly' ? 'var(--critical)' : 'var(--informational)'}
                   fontSize="9"
                   fontFamily="var(--font-mono)"
                   textAnchor="middle"
                   fontWeight="700"
                 >
-                  {zone.name} [MAX {zone.ceilingMeters}m]
+                  {zone.name} [CEILING {zone.ceilingMeters}m]
                 </text>
               </g>
             );
@@ -290,17 +289,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   y2={p2.y}
                   stroke={
                     edge.blocked
-                      ? '#B93838'
+                      ? 'var(--critical)'
                       : isRouteEdge
-                      ? '#397653'
-                      : '#8392A7'
+                      ? 'var(--healthy)'
+                      : 'var(--text-muted)'
                   }
                   strokeWidth={isRouteEdge ? 4 : edge.blocked ? 3 : 2}
                   strokeDasharray={edge.blocked ? '6,4' : undefined}
                 />
                 {edge.blocked && (
                   <g transform={`translate(${(p1.x + p2.x) / 2 - 10}, ${(p1.y + p2.y) / 2 - 10})`}>
-                    <rect x="0" y="0" width="20" height="20" rx="4" fill="#B93838" stroke="#FFFFFF" strokeWidth="1.5" filter="url(#neu-marker-shadow)" />
+                    <rect x="0" y="0" width="20" height="20" rx="4" fill="var(--critical)" stroke="#FFFFFF" strokeWidth="1.5" filter="url(#neu-marker-shadow)" />
                     <text x="10" y="14" fill="#FFFFFF" fontSize="11" textAnchor="middle" fontWeight="bold">✕</text>
                   </g>
                 )}
@@ -308,7 +307,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             );
           })}
 
-        {/* 5. MediRoute Nodes (Rounded Square Markers) */}
+        {/* 5. MediRoute Nodes (Evacuation Facilities) */}
         {activeLayers.routes &&
           nodes.map((node) => {
             const pos = project(node.coordinates.lat, node.coordinates.lng);
@@ -331,7 +330,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   width="22"
                   height="22"
                   rx="6"
-                  fill={node.type === 'hospital' ? '#397653' : node.type === 'casualty_pickup' ? '#B93838' : '#4669A8'}
+                  fill={node.type === 'hospital' ? 'var(--healthy)' : node.type === 'casualty_pickup' ? 'var(--critical)' : 'var(--accent)'}
                   stroke="#FFFFFF"
                   strokeWidth={isSelected ? 3 : 1.5}
                   filter="url(#neu-marker-shadow)"
@@ -348,10 +347,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 </text>
                 <text
                   y="22"
-                  fill="#202936"
+                  fill="var(--text-primary)"
                   fontSize="10"
                   fontFamily="var(--font-sans)"
-                  fontWeight="600"
+                  fontWeight="700"
                   textAnchor="middle"
                 >
                   {(node.name || node.label || 'Node').split(' ')[0]}
@@ -388,10 +387,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   points="0,-12 11,0 0,12 -11,0"
                   fill={
                     inc.priority === 'critical'
-                      ? '#B93838'
+                      ? 'var(--critical)'
                       : inc.priority === 'high'
-                      ? '#A86B12'
-                      : '#4669A8'
+                      ? 'var(--warning)'
+                      : 'var(--accent)'
                   }
                   stroke="#FFFFFF"
                   strokeWidth={isSelected ? 3 : 1.5}
@@ -400,7 +399,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 <text
                   x="14"
                   y="4"
-                  fill="#202936"
+                  fill="var(--text-primary)"
                   fontSize="9"
                   fontFamily="var(--font-mono)"
                   fontWeight="700"
@@ -431,7 +430,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   <polyline
                     points={historyPath}
                     fill="none"
-                    stroke={isHostile ? '#B93838' : '#4669A8'}
+                    stroke={isHostile ? 'var(--critical)' : 'var(--accent)'}
                     strokeWidth="1.5"
                     strokeDasharray="3,3"
                     opacity="0.6"
@@ -457,79 +456,55 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   <circle
                     r="10"
                     fill="var(--surface-raised)"
-                    stroke={isHostile ? '#B93838' : '#4669A8'}
+                    stroke={isHostile ? 'var(--critical)' : 'var(--accent)'}
                     strokeWidth={isSelected ? 3 : 2}
                     filter="url(#neu-marker-shadow)"
                   />
-                  <line x1="0" y1="0" x2="0" y2="-18" stroke={isHostile ? '#B93838' : '#4669A8'} strokeWidth="2" />
-                  <polygon points="0,-20 -3,-14 3,-14" fill={isHostile ? '#B93838' : '#4669A8'} />
+                  <path
+                    d="M 0,-7 L 4,5 L 0,2 L -4,5 Z"
+                    fill={isHostile ? 'var(--critical)' : 'var(--accent)'}
+                  />
                 </g>
 
-                <g transform={`translate(${pos.x + 14}, ${pos.y - 6})`} pointerEvents="none">
-                  <text fill={isHostile ? '#B93838' : '#202936'} fontSize="9" fontFamily="var(--font-mono)" fontWeight="700">
-                    {track.callsign}
-                  </text>
-                  <text fill="#667085" fontSize="8" fontFamily="var(--font-mono)" y="9">
-                    {track.altitude}M • {track.speed}M/S
-                  </text>
-                </g>
+                <text
+                  x={pos.x + 14}
+                  y={pos.y + 4}
+                  fill="var(--text-primary)"
+                  fontSize="9"
+                  fontFamily="var(--font-mono)"
+                  fontWeight="700"
+                >
+                  {track.callsign}
+                </text>
               </g>
             );
           })}
       </svg>
 
-      {/* Floating Hover Card (Soft Neumorphic Card) */}
+      {/* Hover Entity HUD Tooltip */}
       {hoveredEntity && (
         <div
+          className="neu-card-sm"
           style={{
             position: 'absolute',
-            bottom: '14px',
-            left: '14px',
-            background: 'var(--surface-raised)',
-            borderRadius: 'var(--radius-md)',
-            boxShadow: 'var(--shadow-raised)',
-            border: '1px solid var(--border-light)',
-            padding: '10px 14px',
+            bottom: '16px',
+            left: '16px',
+            zIndex: 10,
+            padding: '8px 14px',
             pointerEvents: 'none',
-            zIndex: 20,
-            maxWidth: '300px',
           }}
         >
-          <div style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '0.66rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
             {hoveredEntity.type}
           </div>
-          <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
+          <div style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
             {hoveredEntity.title}
           </div>
-          <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
             {hoveredEntity.subtitle}
           </div>
         </div>
       )}
-
-      {/* Scale & Coordinate Stamp */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '14px',
-          right: '14px',
-          background: 'var(--surface-raised)',
-          borderRadius: 'var(--radius-pill)',
-          boxShadow: 'var(--shadow-raised-sm)',
-          border: '1px solid var(--border-light)',
-          padding: '4px 10px',
-          fontSize: '0.7rem',
-          fontFamily: 'var(--font-mono)',
-          color: 'var(--text-secondary)',
-          display: 'flex',
-          gap: '8px',
-          pointerEvents: 'none',
-        }}
-      >
-        <span>CENTER: 34.060N 118.245W</span>
-        <span>•</span>
-        <span>SCALE: 1:{(10000 / zoom).toFixed(0)}</span>
-      </div>
     </div>
   );
 };
