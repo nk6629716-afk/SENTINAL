@@ -13,12 +13,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Navigation,
-  RotateCcw,
   Plus,
-  ShieldAlert,
   Info,
-  Clock,
-  MapPin,
 } from 'lucide-react';
 import { TacticalMap } from '../../components/TacticalMap';
 import { api } from '../../services/api/apiClient';
@@ -237,43 +233,60 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
   const getTriageBadge = (category: TriageCategory) => {
     switch (category) {
       case 'immediate':
-        return <span className="badge badge-danger">IMMEDIATE (RED)</span>;
+        return <span className="badge-neu badge-neu-crit">IMMEDIATE (RED)</span>;
       case 'delayed':
-        return <span className="badge badge-warning">DELAYED (YELLOW)</span>;
+        return <span className="badge-neu badge-neu-warn">DELAYED (YELLOW)</span>;
       case 'minimal':
-        return <span className="badge badge-nominal">MINIMAL (GREEN)</span>;
+        return <span className="badge-neu badge-neu-ok">MINIMAL (GREEN)</span>;
       case 'expectant':
-        return <span className="badge badge-simulated">EXPECTANT (BLACK)</span>;
+        return <span className="badge-neu badge-neu-neutral">EXPECTANT (BLACK)</span>;
     }
   };
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
+    <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header Banner */}
       <div
-        className="card"
+        className="neu-card"
         style={{
-          marginBottom: '1.5rem',
-          borderLeft: '4px solid var(--status-nominal)',
-          background: 'linear-gradient(90deg, rgba(14, 20, 36, 0.9) 0%, rgba(10, 16, 28, 0.8) 100%)',
+          borderLeft: '4px solid var(--healthy)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <HeartPulse size={22} color="var(--status-nominal)" />
-              <h2 style={{ fontSize: '1.25rem' }}>MediRoute Emergency Triage & Evacuation Logistics</h2>
-              <span className="badge badge-simulated">SIMPLIFIED CLINICAL DEMO LOGIC</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--surface-inset)',
+                  boxShadow: 'var(--shadow-inset-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--healthy)',
+                }}
+              >
+                <HeartPulse size={20} />
+              </div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                MediRoute Emergency Triage & Evacuation Logistics
+              </h2>
+              <span className="badge-neu badge-neu-warn">SIMPLIFIED CLINICAL DEMO LOGIC</span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '6px', fontSize: '0.84rem', margin: '6px 0 0 0' }}>
               Standardized triage evaluation with visible algorithmic justification, patient evacuation workflow,
               and hazard-aware road network routing around impassable bridges and blockages.
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
-              className="btn btn-primary btn-sm"
+              className="btn-neu btn-neu-primary btn-neu-sm"
               onClick={handleRecalculateRoute}
               disabled={isCalculatingRoute}
             >
@@ -285,65 +298,64 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
 
         {/* Clinical Disclaimer */}
         <div
+          className="neu-inset"
           style={{
-            marginTop: '0.75rem',
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-sm)',
-            background: 'rgba(245, 158, 11, 0.1)',
-            border: '1px solid var(--border-warning)',
-            color: '#fef08a',
-            fontSize: '0.74rem',
+            padding: '8px 12px',
+            fontSize: '0.76rem',
+            color: 'var(--warning)',
+            fontWeight: 600,
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
           }}
         >
-          <Info size={14} />
+          <Info size={16} style={{ flexShrink: 0 }} />
           <span>
-            DISCLAIMER: Illustrative workflow logic for hackathon demonstration. Not validated for actual clinical care or life support decisions.
+            DISCLAIMER: Illustrative workflow logic for hackathon demonstration. Not validated for actual clinical care or real-world evacuation routing.
           </span>
         </div>
       </div>
 
       {/* Main Grid: Left Intake Form (1 span), Center Map & Routing (2 spans) */}
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-3" style={{ alignItems: 'start' }}>
         {/* Left Column: Casualty Intake Form & Transparent Rule Engine */}
-        <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <Plus size={18} color="var(--accent-cyan)" />
+        <div style={{ gridColumn: 'span 1', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="neu-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                <Plus size={18} color="var(--accent)" />
                 <span>Casualty Triage Intake</span>
               </div>
-              <span className="badge badge-cyan">START v1.0</span>
+              <span className="badge-neu badge-neu-info">START v1.0</span>
             </div>
 
             {intakeSuccess && (
               <div
+                className="neu-inset"
                 style={{
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid var(--status-nominal)',
                   padding: '8px 12px',
-                  borderRadius: 'var(--radius-md)',
-                  marginBottom: '1rem',
-                  fontSize: '0.78rem',
-                  color: '#86efac',
+                  marginBottom: '14px',
+                  fontSize: '0.8rem',
+                  color: 'var(--healthy)',
+                  fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
                 }}
               >
-                <CheckCircle2 size={14} />
+                <CheckCircle2 size={16} />
                 <span>{intakeSuccess}</span>
               </div>
             )}
 
-            <form onSubmit={handleCasualtyIntake}>
-              <div className="form-group">
-                <label className="form-label">Patient Code Identifier</label>
+            <form onSubmit={handleCasualtyIntake} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  Patient Code Identifier
+                </label>
                 <input
                   type="text"
-                  className="form-control"
+                  className="input-neu"
                   value={patientCode}
                   onChange={(e) => setPatientCode(e.target.value)}
                   style={{ fontFamily: 'var(--font-mono)' }}
@@ -351,71 +363,83 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
               </div>
 
               {/* Triage Physiological Parameters */}
-              <div className="form-group">
-                <label className="form-label">
-                  <span>Respiratory Rate: {respiratoryRate} /min</span>
-                  <span style={{ color: respiratoryRate > 30 || respiratoryRate < 10 ? '#ef4444' : '#10b981' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  <span>Respiration Rate: {respiratoryRate} /min</span>
+                  <span
+                    className={`badge-neu ${
+                      respiratoryRate > 30 || respiratoryRate < 10 ? 'badge-neu-crit' : 'badge-neu-ok'
+                    }`}
+                  >
                     {respiratoryRate > 30 ? 'CRITICAL HIGH' : respiratoryRate < 10 ? 'CRITICAL LOW' : 'NORMAL'}
                   </span>
-                </label>
+                </div>
                 <input
                   type="range"
                   min="0"
                   max="45"
                   value={respiratoryRate}
                   onChange={(e) => setRespiratoryRate(Number(e.target.value))}
-                  style={{ accentColor: '#00f2fe' }}
+                  style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <label
+                  className="neu-inset"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '0.75rem',
-                    background: 'rgba(14, 20, 36, 0.7)',
-                    padding: '8px',
-                    borderRadius: 'var(--radius-sm)',
+                    gap: '8px',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-md)',
                     cursor: 'pointer',
+                    userSelect: 'none',
+                    color: 'var(--text-primary)',
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={canWalk}
                     onChange={(e) => setCanWalk(e.target.checked)}
-                    style={{ accentColor: '#10b981' }}
+                    style={{ accentColor: 'var(--healthy)' }}
                   />
-                  <span>Can Walk (Ambulatory)</span>
+                  <span>Ambulatory (Walks)</span>
                 </label>
 
                 <label
+                  className="neu-inset"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '0.75rem',
-                    background: 'rgba(14, 20, 36, 0.7)',
-                    padding: '8px',
-                    borderRadius: 'var(--radius-sm)',
+                    gap: '8px',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    padding: '8px 10px',
+                    borderRadius: 'var(--radius-md)',
                     cursor: 'pointer',
+                    userSelect: 'none',
+                    color: 'var(--text-primary)',
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={radialPulsePresent}
                     onChange={(e) => setRadialPulsePresent(e.target.checked)}
-                    style={{ accentColor: '#00f2fe' }}
+                    style={{ accentColor: 'var(--accent)' }}
                   />
-                  <span>Radial Pulse Present</span>
+                  <span>Radial Pulse</span>
                 </label>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Mental Status / Command Response</label>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  Mental Status / Command Response
+                </label>
                 <select
-                  className="form-control"
+                  className="input-neu"
                   value={mentalStatus}
                   onChange={(e) => setMentalStatus(e.target.value as any)}
                 >
@@ -427,27 +451,29 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
 
               {/* Real-time Triage Algorithm Preview (Transparent Rule Result) */}
               <div
+                className="neu-inset"
                 style={{
-                  background: 'rgba(7, 10, 18, 0.9)',
-                  border: '1px solid var(--border-subtle)',
+                  padding: '12px',
                   borderRadius: 'var(--radius-md)',
-                  padding: '10px',
-                  marginBottom: '1rem',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ALGORITHMIC RESULT:</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                    ALGORITHMIC RESULT:
+                  </span>
                   {getTriageBadge(previewTriage.category)}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.35, marginTop: '4px' }}>
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                   {previewTriage.reason}
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Casualty Field Notes</label>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px' }}>
+                  Casualty Field Notes
+                </label>
                 <textarea
-                  className="form-control"
+                  className="input-neu"
                   rows={2}
                   placeholder="Injuries, tourniquet placement time, known allergies..."
                   value={notes}
@@ -457,11 +483,11 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
 
               <button
                 type="submit"
-                className="btn btn-primary"
-                style={{ width: '100%' }}
+                className="btn-neu btn-neu-primary"
+                style={{ width: '100%', marginTop: '4px' }}
                 disabled={isSubmitting}
               >
-                <HeartPulse size={15} />
+                <HeartPulse size={16} />
                 <span>Register & Queue Casualty</span>
               </button>
             </form>
@@ -469,16 +495,16 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
         </div>
 
         {/* Center & Right Column (2 spans): Map with Hazards & Evacuation Queue */}
-        <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {/* Tactical Evacuation Map */}
-          <div className="card" style={{ padding: '0.75rem' }}>
-            <div style={{ padding: '0.5rem 0.5rem 0.75rem 0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="card-title">
-                <Navigation size={18} color="var(--accent-cyan)" />
+          <div className="neu-card" style={{ padding: '1rem' }}>
+            <div style={{ padding: '0.25rem 0.5rem 0.75rem 0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                <Navigation size={18} color="var(--accent)" />
                 <span>Road Network & Hazard-Aware Evacuation Map</span>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <span className="badge badge-warning">
+                <span className="badge-neu badge-neu-warn">
                   {hazards.filter((h) => h.blocked).length} ROAD BLOCKAGES
                 </span>
               </div>
@@ -488,34 +514,32 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
               nodes={nodes}
               edges={hazards}
               activeRoute={activeRoute}
-              height="400px"
+              height="380px"
             />
 
             {/* Active Route Calculation Banner */}
             {activeRoute && (
               <div
+                className="neu-inset"
                 style={{
-                  marginTop: '10px',
-                  padding: '10px 14px',
+                  marginTop: '12px',
+                  padding: '12px 16px',
                   borderRadius: 'var(--radius-md)',
-                  background: activeRoute.hasActiveBlockage
-                    ? 'rgba(245, 158, 11, 0.12)'
-                    : 'rgba(16, 185, 129, 0.12)',
-                  border: `1px solid ${
-                    activeRoute.hasActiveBlockage ? 'var(--status-warning)' : 'var(--status-nominal)'
+                  borderLeft: `4px solid ${
+                    activeRoute.hasActiveBlockage ? 'var(--warning)' : 'var(--healthy)'
                   }`,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.88rem', color: '#ffffff' }}>
-                    <Truck size={16} color="var(--accent-cyan)" />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                    <Truck size={16} color="var(--accent)" />
                     <span>Calculated Evacuation Corridor</span>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-cyan)' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', fontWeight: 700, color: 'var(--accent)' }}>
                     {activeRoute.totalDistanceKm} KM • ~{activeRoute.estimatedMinutes} MIN TRANSIT
                   </div>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                   {activeRoute.explanation}
                 </div>
               </div>
@@ -523,43 +547,44 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
           </div>
 
           {/* Interactive Road Hazard Manager */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <AlertTriangle size={18} color="var(--status-warning)" />
+          <div className="neu-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                <AlertTriangle size={18} color="var(--warning)" />
                 <span>Road Network Segments & Hazard Simulation</span>
               </div>
-              <span className="badge badge-simulated">CLICK TO TOGGLE BLOCKAGE</span>
+              <span className="badge-neu badge-neu-warn">CLICK TO TOGGLE BLOCKAGE</span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px' }}>
               {hazards.map((edge) => (
                 <div
                   key={edge.id}
                   onClick={() => handleToggleHazard(edge.id, edge.blocked)}
+                  className="btn-neu"
                   style={{
-                    padding: '8px 12px',
+                    padding: '10px 14px',
                     borderRadius: 'var(--radius-md)',
-                    background: edge.blocked ? 'rgba(239, 68, 68, 0.1)' : 'rgba(14, 20, 36, 0.6)',
-                    border: `1px solid ${edge.blocked ? 'var(--border-danger)' : 'var(--border-subtle)'}`,
-                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    transition: 'all 0.15s ease',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    background: edge.blocked ? 'var(--surface-inset)' : 'var(--surface-raised)',
+                    borderColor: edge.blocked ? 'rgba(185, 56, 56, 0.4)' : 'var(--border-light)',
                   }}
                   title="Click to toggle road blockage status"
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.82rem', color: edge.blocked ? '#fca5a5' : '#ffffff' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.84rem', color: edge.blocked ? 'var(--critical)' : 'var(--text-primary)' }}>
                       {edge.name}
                     </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      Distance: {edge.distanceKm} km {edge.hazardType ? `• Reason: ${edge.hazardType}` : ''}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      {edge.distanceKm} km {edge.hazardType ? `• ${edge.hazardType}` : ''}
                     </div>
                   </div>
 
-                  <span className={`badge ${edge.blocked ? 'badge-danger' : 'badge-nominal'}`}>
+                  <span className={`badge-neu ${edge.blocked ? 'badge-neu-crit' : 'badge-neu-ok'}`}>
                     {edge.blocked ? 'BLOCKED ✕' : 'OPEN ✓'}
                   </span>
                 </div>
@@ -568,42 +593,41 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
           </div>
 
           {/* Active Patient Evacuation Queue */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <Truck size={18} color="var(--accent-cyan)" />
+          <div className="neu-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                <Truck size={18} color="var(--accent)" />
                 <span>Casualty Evacuation Queue ({casualties.length})</span>
               </div>
-              <span className="badge badge-danger">
+              <span className="badge-neu badge-neu-crit">
                 {casualties.filter((c) => c.triageCategory === 'immediate' && c.status !== 'evacuated').length} CRITICAL
               </span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {casualties.map((cas) => (
                 <div
                   key={cas.id}
+                  className="neu-inset"
                   style={{
-                    padding: '10px 14px',
+                    padding: '12px 16px',
                     borderRadius: 'var(--radius-md)',
-                    background: 'rgba(14, 20, 36, 0.6)',
-                    border: '1px solid var(--border-subtle)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
-                    gap: '8px',
+                    gap: '10px',
                   }}
                 >
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#ffffff' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.88rem' }}>
                         {cas.patientCode}
                       </span>
                       {getTriageBadge(cas.triageCategory)}
-                      <span className="badge badge-cyan">{cas.status.toUpperCase()}</span>
+                      <span className="badge-neu badge-neu-info">{cas.status.toUpperCase()}</span>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
                       {cas.notes} • <span style={{ color: 'var(--text-muted)' }}>{cas.triageReason}</span>
                     </div>
                   </div>
@@ -612,8 +636,8 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {cas.status !== 'evacuated' ? (
                       <button
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '0.72rem', padding: '3px 8px' }}
+                        className="btn-neu btn-neu-sm"
+                        style={{ fontSize: '0.74rem' }}
                         onClick={() =>
                           handleUpdateStatus(
                             cas.id,
@@ -625,7 +649,7 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                         {cas.status === 'assessed' ? 'Assign Hospital' : 'Mark Evacuated'}
                       </button>
                     ) : (
-                      <span className="badge badge-nominal">EVACUATION COMPLETE</span>
+                      <span className="badge-neu badge-neu-ok">EVACUATED ✓</span>
                     )}
                   </div>
                 </div>

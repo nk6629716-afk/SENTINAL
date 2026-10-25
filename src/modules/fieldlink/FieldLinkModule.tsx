@@ -10,13 +10,11 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  Filter,
   RefreshCw,
   Search,
-  WifiOff,
   MapPin,
   FileText,
-  ShieldAlert,
+  WifiOff,
 } from 'lucide-react';
 import { api } from '../../services/api/apiClient';
 
@@ -80,7 +78,7 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
     try {
       const location = PRESET_LOCATIONS[selectedLocationIdx];
       const newReport: IncidentReport = {
-        id: isOfflineMode ? `OFFLINE-${Date.now()}` : `INC-FL-${Math.floor(Math.random() * 9000 + 1000)}`,
+        id: isOfflineMode ? `LOCAL-${Date.now()}` : `INC-FL-${Math.floor(Math.random() * 9000 + 1000)}`,
         sourceModule: 'fieldlink',
         type,
         priority,
@@ -101,9 +99,9 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
       setTitle('');
       setNotes('');
       if (isOfflineMode) {
-        setFormSuccessMessage('Report saved locally to IndexedDB. Queued for server sync once connectivity is restored.');
+        setFormSuccessMessage('Report saved locally in IndexedDB outbox. Queued for server sync upon reconnection.');
       } else {
-        setFormSuccessMessage('Incident broadcasted and synchronized with Tactical Command.');
+        setFormSuccessMessage('Incident broadcasted and confirmed synchronized with command center.');
       }
     } catch (err: any) {
       setFormError(err.message || 'Failed to submit tactical report.');
@@ -129,87 +127,72 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
   });
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
-      {/* Top Banner & Module Explainer */}
-      <div
-        className="card"
-        style={{
-          marginBottom: '1.5rem',
-          borderLeft: '4px solid var(--accent-cyan)',
-          background: 'linear-gradient(90deg, rgba(14, 20, 36, 0.9) 0%, rgba(10, 16, 28, 0.8) 100%)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* 1. Header Banner Card */}
+      <div className="neu-card" style={{ padding: '16px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Radio size={22} color="var(--accent-cyan)" />
-              <h2 style={{ fontSize: '1.25rem' }}>FieldLink Tactical Reporting & Battlefield Awareness</h2>
-              <span className="badge badge-simulated">SIMULATED PROTOCOL</span>
+              <Radio size={20} color="var(--accent)" />
+              <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                FieldLink Tactical Report Desk
+              </div>
+              <span className="badge-neu badge-neu-neutral">OFFLINE-FIRST</span>
             </div>
-            <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
-              Offline-first communication channel. Enables personnel to submit incident telemetry without network connectivity.
-              Reports persist in browser IndexedDB with deterministic deduplication on sync.
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              Local-first battlefield reports backed by IndexedDB. Zero-loss offline queue with idempotent server synchronization.
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-md)',
-                background: isOfflineMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                border: `1px solid ${isOfflineMode ? 'var(--status-danger)' : 'var(--status-nominal)'}`,
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.78rem',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-pill)',
+                background: isOfflineMode ? 'var(--critical-bg)' : 'var(--healthy-bg)',
+                boxShadow: 'var(--shadow-inset-sm)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: isOfflineMode ? 'var(--critical)' : 'var(--healthy)',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className={`beacon ${isOfflineMode ? 'beacon-danger' : 'beacon-nominal'}`} />
-                <span style={{ fontWeight: 700, color: isOfflineMode ? '#fca5a5' : '#86efac' }}>
-                  {isOfflineMode ? 'LINK SEVERED (OFFLINE)' : 'LINK SYNCHRONIZED'}
-                </span>
-              </div>
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', marginTop: '2px' }}>
-                Pending in Outbox: {pendingCount}
-              </div>
+              {isOfflineMode ? '● Offline Mode Active' : '● Synchronized Online'}
             </div>
 
             <button
-              className="btn btn-primary btn-sm"
+              className={`btn-neu btn-neu-sm ${pendingCount > 0 ? 'btn-neu-primary' : ''}`}
               onClick={onTriggerSync}
               disabled={isSyncing || isOfflineMode || pendingCount === 0}
-              title="Submit queued outbox to backend"
             >
-              <RefreshCw size={14} className={isSyncing ? 'animate-spin' : ''} />
-              <span>{isSyncing ? 'Reconciling...' : `Sync Queue (${pendingCount})`}</span>
+              <RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />
+              <span>{isSyncing ? 'Reconciling...' : `Sync Outbox (${pendingCount})`}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Form on Left, Incidents Feed on Right */}
+      {/* 2. Main Grid: Composer on Left, Incident Queue on Right */}
       <div className="grid grid-cols-3">
-        {/* Left Column: Tactical Incident Intake Form */}
+        {/* Left Column: Form Composer */}
         <div style={{ gridColumn: 'span 1' }}>
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <FileText size={18} color="var(--accent-cyan)" />
-                <span>Submit Field Incident</span>
+          <div className="neu-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FileText size={16} color="var(--accent)" />
+                <span>Submit Field Report</span>
               </div>
-              <span className="badge badge-cyan">{isOfflineMode ? 'Local Cache' : 'Direct Dispatch'}</span>
+              <span className="badge-neu badge-neu-info">{isOfflineMode ? 'Local Outbox' : 'Direct Sync'}</span>
             </div>
 
             {formError && (
               <div
                 style={{
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid var(--border-danger)',
-                  padding: '8px 12px',
+                  background: 'var(--critical-bg)',
                   borderRadius: 'var(--radius-md)',
-                  marginBottom: '1rem',
-                  fontSize: '0.8rem',
-                  color: '#fca5a5',
+                  padding: '10px 12px',
+                  marginBottom: '14px',
+                  fontSize: '0.78rem',
+                  color: 'var(--critical)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
@@ -223,13 +206,12 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
             {formSuccessMessage && (
               <div
                 style={{
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  padding: '8px 12px',
+                  background: 'var(--healthy-bg)',
                   borderRadius: 'var(--radius-md)',
-                  marginBottom: '1rem',
-                  fontSize: '0.8rem',
-                  color: '#86efac',
+                  padding: '10px 12px',
+                  marginBottom: '14px',
+                  fontSize: '0.78rem',
+                  color: 'var(--healthy)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
@@ -241,52 +223,60 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
             )}
 
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label className="form-label">Incident Classification</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
+                  Incident Classification
+                </label>
                 <select
-                  className="form-control"
+                  className="input-neu"
                   value={type}
                   onChange={(e) => setType(e.target.value as IncidentType)}
                 >
                   <option value="security_breach">Security Breach / Perimeter Trip</option>
                   <option value="road_blockage">Road Blockage / Hazard</option>
                   <option value="medical_evac">Medical Evacuation Request</option>
-                  <option value="drone_incursion">Hostile UAV / Airspace Incursion</option>
+                  <option value="drone_incursion">Hostile UAV Incursion</option>
                   <option value="recon_anomaly">Reconnaissance Observation</option>
                   <option value="infrastructure_damage">Infrastructure Damage</option>
                   <option value="communication_loss">Comms Jamming / Loss</option>
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Tactical Priority</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
+                  Tactical Priority
+                </label>
                 <select
-                  className="form-control"
+                  className="input-neu"
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as PriorityLevel)}
                 >
-                  <option value="critical">CRITICAL (Immediate Action)</option>
-                  <option value="high">HIGH (Urgent Threat)</option>
-                  <option value="medium">MEDIUM (Standard Priority)</option>
-                  <option value="low">LOW (Advisory / Observation)</option>
+                  <option value="critical">Critical (Immediate Response)</option>
+                  <option value="high">High (Urgent Threat)</option>
+                  <option value="medium">Medium (Standard Priority)</option>
+                  <option value="low">Low (Advisory Note)</option>
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Incident Summary</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
+                  Incident Summary Title
+                </label>
                 <input
                   type="text"
-                  className="form-control"
-                  placeholder="e.g. Hostile scout squad spotted near perimeter"
+                  className="input-neu"
+                  placeholder="e.g. Seismic sensor triggered at Sector Alpha"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Sector Location Coordinates</label>
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
+                  Sector Location Coordinates
+                </label>
                 <select
-                  className="form-control"
+                  className="input-neu"
                   value={selectedLocationIdx}
                   onChange={(e) => setSelectedLocationIdx(Number(e.target.value))}
                 >
@@ -298,12 +288,14 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Operational Notes & Details</label>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '4px', display: 'block' }}>
+                  Operational Details & Notes
+                </label>
                 <textarea
-                  className="form-control"
+                  className="input-neu"
                   rows={3}
-                  placeholder="Enter detailed observations, assets involved, or support requested..."
+                  placeholder="Enter detailed field observations, assets involved, or requested support..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
@@ -311,63 +303,49 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
 
               <button
                 type="submit"
-                className="btn btn-primary"
-                style={{ width: '100%', marginTop: '0.5rem' }}
+                className="btn-neu btn-neu-primary"
+                style={{ width: '100%', padding: '10px' }}
                 disabled={isSubmitting}
               >
-                <Send size={15} />
+                <Send size={14} />
                 <span>{isSubmitting ? 'Recording...' : isOfflineMode ? 'Save Locally to Outbox' : 'Broadcast Report'}</span>
               </button>
 
-              <div
-                style={{
-                  fontSize: '0.72rem',
-                  color: 'var(--text-muted)',
-                  marginTop: '0.75rem',
-                  textAlign: 'center',
-                }}
-              >
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '10px', textAlign: 'center' }}>
                 {isOfflineMode
-                  ? '🔒 Offline Mode: Record will be stored in IndexedDB and marked PENDING SYNC.'
-                  : '📡 Online Mode: Record synchronized directly with central feed.'}
+                  ? 'Offline state: saved locally in browser IndexedDB.'
+                  : 'Connected: verified synchronized with operations feed.'}
               </div>
             </form>
           </div>
         </div>
 
-        {/* Right Column: Tactical Incident Feed & Outbox */}
+        {/* Right Column: Outbox & Record Queue */}
         <div style={{ gridColumn: 'span 2' }}>
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">
-                <Radio size={18} color="var(--accent-cyan)" />
-                <span>Active Incident Log ({filteredIncidents.length})</span>
+          <div className="neu-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.98rem' }}>
+                Incident Outbox & Feed ({filteredIncidents.length})
               </div>
 
-              {/* Filters */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ position: 'relative' }}>
-                  <Search
-                    size={13}
-                    style={{ position: 'absolute', left: '8px', top: '9px', color: 'var(--text-muted)' }}
-                  />
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="Search incident logs..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ paddingLeft: '26px', fontSize: '0.75rem', height: '30px', width: '160px' }}
-                  />
-                </div>
+              {/* Filters in recessed chips */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="input-neu"
+                  placeholder="Filter records..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ width: '160px', padding: '6px 10px', fontSize: '0.75rem' }}
+                />
 
                 <select
-                  className="form-control"
+                  className="input-neu"
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
-                  style={{ fontSize: '0.75rem', height: '30px', width: '110px', padding: '0 6px' }}
+                  style={{ width: '110px', padding: '6px 8px', fontSize: '0.72rem' }}
                 >
-                  <option value="all">All Priority</option>
+                  <option value="all">All Priorities</option>
                   <option value="critical">Critical</option>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
@@ -375,32 +353,22 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                 </select>
 
                 <select
-                  className="form-control"
+                  className="input-neu"
                   value={syncFilter}
                   onChange={(e) => setSyncFilter(e.target.value)}
-                  style={{ fontSize: '0.75rem', height: '30px', width: '110px', padding: '0 6px' }}
+                  style={{ width: '120px', padding: '6px 8px', fontSize: '0.72rem' }}
                 >
-                  <option value="all">All Sync</option>
-                  <option value="pending">Pending Outbox</option>
+                  <option value="all">All Sync States</option>
+                  <option value="pending">Awaiting Sync</option>
                   <option value="synced">Synced Only</option>
                 </select>
               </div>
             </div>
 
-            {/* Incident Cards List */}
+            {/* List */}
             {filteredIncidents.length === 0 ? (
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '3rem 1rem',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                <Radio size={36} style={{ margin: '0 auto 12px auto', opacity: 0.3 }} />
-                <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>No incident reports matching filters</div>
-                <div style={{ fontSize: '0.8rem', marginTop: '4px' }}>
-                  Submit a new report from the left panel or clear your filter criteria.
-                </div>
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                No incidents match the active search or filter criteria.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -410,93 +378,62 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                     <div
                       key={inc.id}
                       style={{
-                        padding: '1rem',
-                        background: isPending ? 'rgba(245, 158, 11, 0.05)' : 'rgba(14, 20, 36, 0.7)',
+                        padding: '14px 16px',
                         borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${
-                          isPending ? 'var(--border-warning)' : 'var(--border-subtle)'
-                        }`,
-                        transition: 'all 0.15s ease',
+                        background: 'var(--surface-inset)',
+                        boxShadow: 'var(--shadow-inset-sm)',
+                        border: '1px solid rgba(210, 216, 225, 0.4)',
                       }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          marginBottom: '6px',
-                        }}
-                      >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span
-                            className={`badge ${
+                            className={`badge-neu ${
                               inc.priority === 'critical'
-                                ? 'badge-danger'
+                                ? 'badge-neu-crit'
                                 : inc.priority === 'high'
-                                ? 'badge-warning'
-                                : 'badge-cyan'
+                                ? 'badge-neu-warn'
+                                : 'badge-neu-info'
                             }`}
                           >
                             {inc.priority.toUpperCase()}
                           </span>
-                          <span
-                            style={{
-                              fontWeight: 700,
-                              fontSize: '0.95rem',
-                              color: '#ffffff',
-                            }}
-                          >
+                          <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
                             {inc.title}
                           </span>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           {isPending ? (
-                            <span
-                              className="badge badge-warning"
-                              title="Saved locally in IndexedDB, awaiting sync"
-                            >
-                              <Clock size={12} />
+                            <span className="badge-neu badge-neu-warn">
+                              <Clock size={11} />
                               AWAITING SYNC
                             </span>
                           ) : (
-                            <span className="badge badge-nominal" title="Confirmed synchronized">
-                              <CheckCircle2 size={12} />
+                            <span className="badge-neu badge-neu-ok">
+                              <CheckCircle2 size={11} />
                               SYNCED
                             </span>
                           )}
-                          <span
-                            style={{
-                              fontFamily: 'var(--font-mono)',
-                              fontSize: '0.72rem',
-                              color: 'var(--text-muted)',
-                            }}
-                          >
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                             {inc.id}
                           </span>
                         </div>
                       </div>
 
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '8px' }}>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.4 }}>
                         {inc.notes}
                       </p>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          fontSize: '0.72rem',
-                          color: 'var(--text-muted)',
-                          fontFamily: 'var(--font-mono)',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <MapPin size={13} color="var(--accent-cyan)" />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <MapPin size={12} color="var(--accent)" />
                           <span>{inc.location.name}</span>
-                          <span>({inc.location.lat.toFixed(3)}, {inc.location.lng.toFixed(3)})</span>
+                          <span>[{inc.location.lat.toFixed(3)}, {inc.location.lng.toFixed(3)}]</span>
                         </div>
-                        <div>{new Date(inc.createdAt).toLocaleTimeString()}</div>
+                        <div style={{ fontFamily: 'var(--font-mono)' }}>
+                          {new Date(inc.createdAt).toLocaleTimeString()}
+                        </div>
                       </div>
                     </div>
                   );
