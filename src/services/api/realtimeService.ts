@@ -30,11 +30,16 @@ export type GeoIntelListener = (observation: GeoIntelObservation) => void;
 export type ResetListener = () => void;
 
 function resolveApiBaseUrl(): string {
-  const envUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
-  if (!envUrl) {
+  try {
+    const raw = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.VITE_API_URL : '';
+    const envUrl = (raw || '').trim().replace(/\/+$/, '');
+    if (!envUrl) {
+      return '/api';
+    }
+    return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+  } catch {
     return '/api';
   }
-  return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
