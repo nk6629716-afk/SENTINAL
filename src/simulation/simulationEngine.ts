@@ -21,6 +21,7 @@ import type {
   Waypoint
 } from '../../shared/types.ts';
 import { SeededRNG } from './seededRNG.ts';
+import { sanitizeTrack, clampThreatScore } from '../utils/numericSafety.ts';
 
 export const RESTRICTED_AIRSPACE_ZONES: RestrictedAirspaceZone[] = [
   {
@@ -729,7 +730,7 @@ export class SimulationEngine {
         { lat: newLat, lng: newLng, altitude: newAltitude, timestamp },
       ];
 
-      return {
+      const updatedTrack = {
         ...track,
         lat: newLat,
         lng: newLng,
@@ -739,6 +740,8 @@ export class SimulationEngine {
         flightHistory: updatedHistory,
         timestamp,
       };
+
+      return sanitizeTrack(updatedTrack, track);
     });
 
     // Compute 60-second forward trajectory projection & transparent threat score
@@ -841,7 +844,7 @@ export class SimulationEngine {
       const headingScore = closestZone && minCpaDist < (closestZone.radiusKm * 1000 + 1000) ? 10 : 0;
 
       const rawTotal = speedScore + altitudeScore + transponderScore + breachScore + loiterScore + headingScore;
-      const totalScore = track.type === 'friendly_uav' ? 5 : Math.min(100, Math.max(0, rawTotal));
+      const totalScore = track.type === 'friendly_uav' ? 5 : clampThreatScore(rawTotal);
 
       track.threatScore = totalScore;
       track.threatFactors = {

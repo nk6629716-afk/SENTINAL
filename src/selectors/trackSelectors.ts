@@ -1,6 +1,7 @@
 import { TelemetryTrack, RestrictedAirspaceZone, AirspaceAlert } from '@shared/types';
 import { classifyTrack, TRACK_CLASSIFICATION_LABELS, TrackClassification } from '../utils/trackClassification';
 import { formatSpeed, formatAltitude } from '../utils/units';
+import { clampThreatScore } from '../utils/numericSafety';
 
 export interface RankedTrackThreat {
   id: string;
@@ -93,7 +94,7 @@ export function calculateTrackThreatScore(
     }
   }
 
-  const finalScore = Math.min(Math.max(score, 5), 99);
+  const finalScore = clampThreatScore(score);
 
   let severity: 'critical' | 'high' | 'medium' | 'low' = 'low';
   if (finalScore >= 80) severity = 'critical';
