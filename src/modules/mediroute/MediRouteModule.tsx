@@ -3,36 +3,44 @@ import {
   CasualtyRecord,
   RoadHazardEdge,
   EvacuationNode,
-  CalculatedRoute,
   TriageCategory,
 } from '@shared/types';
 import {
+  Activity,
   HeartPulse,
-  AlertTriangle,
+  ClipboardList,
+  Route as RouteIcon,
+  Building2,
+  Ambulance,
   Play,
   Pause,
-  X,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  GripVertical,
-  FilePlus,
-  Route as RouteIcon,
-  CheckCircle,
-  RotateCw,
+  RotateCcw,
+  Zap,
 } from 'lucide-react';
-import { TacticalMap } from '../../components/TacticalMap';
-import { api } from '../../services/api/apiClient';
 import {
-  selectCasualties,
-  selectImmediateCasualties,
-  selectBlockedHazards,
-  selectActiveRouteEta,
-  selectRerouteCount,
-} from '../../selectors';
-import { formatIST } from '../../utils/time';
+  MediRouteSubTab,
+  MedicalFacility,
+  TransportUnit,
+  ExtendedCasualtyRecord,
+  EvacuationTask,
+  MedicalActivityItem,
+  VitalAnomaly,
+} from './medirouteTypes';
+import {
+  INITIAL_FACILITIES,
+  INITIAL_TRANSPORT_UNITS,
+  INITIAL_EXTENDED_CASUALTIES,
+  INITIAL_EVACUATION_TASKS,
+  INITIAL_MEDICAL_ACTIVITIES,
+} from './medirouteData';
+import { MedicalOverviewTab } from './components/MedicalOverviewTab';
+import { PatientMonitoringTab } from './components/PatientMonitoringTab';
+import { TriageBoardTab } from './components/TriageBoardTab';
+import { EvacuationRoutingTab } from './components/EvacuationRoutingTab';
+import { FacilityCapacityTab } from './components/FacilityCapacityTab';
+import { TransportDispatchTab } from './components/TransportDispatchTab';
 
-interface MediRouteModuleProps {
+export interface MediRouteModuleProps {
   casualties: CasualtyRecord[];
   hazards: RoadHazardEdge[];
   nodes: EvacuationNode[];
@@ -40,9 +48,11 @@ interface MediRouteModuleProps {
   onRefreshHazards: () => Promise<void>;
   onToggleSimulationPause?: () => void;
   isSimPaused?: boolean;
+  initialSubTab?: MediRouteSubTab;
+  onSubTabChange?: (tab: MediRouteSubTab) => void;
 }
 
-// Algorithmic Simplified START Triage Evaluation Function (Preserved exactly)
+// Algorithmic Simplified START Triage Evaluation Function (Preserved exactly for contract safety)
 export function calculateStartTriage(vitals: {
   canWalk: boolean;
   respiratoryRate: number;
@@ -97,1229 +107,797 @@ export function calculateStartTriage(vitals: {
 }
 
 export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
-  casualties,
-  hazards,
+  casualties: initialCasualtiesProps,
+  hazards: initialHazardsProps,
   nodes,
   onRefreshCasualties,
   onRefreshHazards,
   onToggleSimulationPause,
   isSimPaused = false,
+  initialSubTab = 'overview',
+  onSubTabChange,
 }) => {
-  // Intake Form Modal State
-  const [isIntakeModalOpen, setIsIntakeModalOpen] = useState(false);
-  const [patientCode, setPatientCode] = useState(`CAS-${Math.floor(Math.random() * 8000 + 1000)}`);
-  const [canWalk, setCanWalk] = useState(false);
-  const [respiratoryRate, setRespiratoryRate] = useState(24);
-  const [radialPulsePresent, setRadialPulsePresent] = useState(true);
-  const [mentalStatus, setMentalStatus] = useState<'can_follow_commands' | 'unresponsive' | 'altered'>('can_follow_commands');
-  const [severeBleedingControlled, setSevereBleedingControlled] = useState(true);
-  const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [intakeSuccess, setIntakeSuccess] = useState<string | null>(null);
+  // Active Sub-Tab Navigation
+  const [activeSubTab, setActiveSubTab] = useState<MediRouteSubTab>(initialSubTab);
 
-  // Hazard Report Modal State
-  const [isHazardModalOpen, setIsHazardModalOpen] = useState(false);
-  const [selectedHazardEdgeId, setSelectedHazardEdgeId] = useState<string>('');
-  const [hazardAction, setHazardAction] = useState<'block' | 'unblock'>('block');
-
-  // Active Calculated Route State
-  const [activeRoute, setActiveRoute] = useState<CalculatedRoute | null>(null);
-  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
-  const [rerouteCounter, setRerouteCounter] = useState(0);
-
-  // Simulation Replay Bar State
-  const [simElapsedSeconds, setSimElapsedSeconds] = useState(18);
-  const [isHazardsPanelCollapsed, setIsHazardsPanelCollapsed] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 1100 || window.innerHeight < 700;
+  // Sync if initialSubTab changes from parent
+  useEffect(() => {
+    if (initialSubTab && initialSubTab !== activeSubTab) {
+      setActiveSubTab(initialSubTab);
     }
-    return false;
-  });
+  }, [initialSubTab]);
 
-  // Resize listener for default collapsed state
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1100 || window.innerHeight < 700) {
-        setIsHazardsPanelCollapsed(true);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const handleSubTabChange = (tab: MediRouteSubTab) => {
+    setActiveSubTab(tab);
+    if (onSubTabChange) {
+      onSubTabChange(tab);
+    }
+  };
 
-  // Timer for elapsed sim seconds
-  useEffect(() => {
-    if (isSimPaused) return;
-    const interval = setInterval(() => {
-      setSimElapsedSeconds((s) => s + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isSimPaused]);
+  // Module Core States
+  const [facilities, setFacilities] = useState<MedicalFacility[]>(INITIAL_FACILITIES);
+  const [transportUnits, setTransportUnits] = useState<TransportUnit[]>(INITIAL_TRANSPORT_UNITS);
+  const [evacuationTasks, setEvacuationTasks] = useState<EvacuationTask[]>(INITIAL_EVACUATION_TASKS);
+  const [activities, setActivities] = useState<MedicalActivityItem[]>(INITIAL_MEDICAL_ACTIVITIES);
+  const [selectedCasualtyId, setSelectedCasualtyId] = useState<string | null>(
+    INITIAL_EXTENDED_CASUALTIES[0]?.id || null
+  );
 
-  // Initial Route Calculation on mount
-  useEffect(() => {
-    handleRecalculateRoute();
-  }, []);
-
-  // Algorithmic Triage Preview
-  const previewTriage = calculateStartTriage({
-    canWalk,
-    respiratoryRate,
-    radialPulsePresent,
-    mentalStatus,
-    severeBleedingControlled,
-  });
-
-  const handleCasualtyIntake = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setIntakeSuccess(null);
-
-    try {
-      const triage = calculateStartTriage({
-        canWalk,
-        respiratoryRate,
-        radialPulsePresent,
-        mentalStatus,
-        severeBleedingControlled,
-      });
-
-      const newCasualty: CasualtyRecord = {
-        id: patientCode,
-        patientCode,
-        location: { name: 'Collection Point A', lat: 34.055, lng: -118.255 },
-        vitals: {
-          canWalk,
-          respiratoryRate,
-          radialPulsePresent,
-          mentalStatus,
-          severeBleedingControlled,
-        },
-        triageCategory: triage.category,
-        ruleVersion: 'START_TACTICAL_DEMO_v1.0',
-        triageReason: triage.reason,
-        status: 'assessed',
-        notes: notes || 'Field intake registered by triage team.',
-        createdAt: new Date().toISOString(),
+  // Hazards local state (synced with props or toggled)
+  const [hazards, setHazards] = useState<RoadHazardEdge[]>(() => {
+    if (initialHazardsProps && initialHazardsProps.length > 0) {
+      return initialHazardsProps;
+    }
+    return [
+      {
+        id: 'EDGE-1',
+        edgeId: 'E-INT-BRG',
+        fromNodeId: 'INT-01',
+        toNodeId: 'BRG-01',
+        name: 'Bridge Highway Alpha Span',
+        blocked: true,
+        hazardType: 'structural_damage',
+        reportedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isSimulated: true,
+      },
+      {
+        id: 'EDGE-2',
+        edgeId: 'E-AID-CAS',
+        fromNodeId: 'AID-01',
+        toNodeId: 'CAS-01',
+        name: 'Forward Approach Corridor',
+        blocked: false,
+        reportedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isSimulated: true,
+      },
+    ];
+  });
+
+  // Merge extended casualties with props
+  const [casualties, setCasualties] = useState<ExtendedCasualtyRecord[]>(() => {
+    return INITIAL_EXTENDED_CASUALTIES;
+  });
+
+  // Local Simulation Run State
+  const [localSimPaused, setLocalSimPaused] = useState<boolean>(isSimPaused);
+
+  const toggleSimPause = () => {
+    if (onToggleSimulationPause) {
+      onToggleSimulationPause();
+    }
+    setLocalSimPaused((prev) => !prev);
+  };
+
+  // Log activity helper
+  const addActivity = useCallback(
+    (
+      title: string,
+      description: string,
+      type: MedicalActivityItem['type'],
+      severity: MedicalActivityItem['severity'],
+      targetTab?: MediRouteSubTab,
+      targetId?: string
+    ) => {
+      const item: MedicalActivityItem = {
+        id: `ACT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        timestamp: new Date().toISOString(),
+        title,
+        description,
+        type,
+        severity,
+        targetTab,
+        targetId,
       };
-
-      await api.createCasualty(newCasualty);
-      await onRefreshCasualties();
-
-      setIntakeSuccess(`Casualty ${patientCode} registered as ${triage.category.toUpperCase()}.`);
-      setPatientCode(`CAS-${Math.floor(Math.random() * 8000 + 1000)}`);
-      setNotes('');
-      setTimeout(() => {
-        setIsIntakeModalOpen(false);
-        setIntakeSuccess(null);
-      }, 1200);
-    } catch (err: any) {
-      console.error('Failed to submit casualty:', err);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleToggleHazard = async (edgeId: string, currentBlocked: boolean) => {
-    try {
-      await api.toggleRoadBlockage(edgeId, !currentBlocked);
-      await onRefreshHazards();
-      setRerouteCounter((c) => c + 1);
-      await handleRecalculateRoute();
-    } catch (err) {
-      console.error('Failed to toggle road hazard:', err);
-    }
-  };
-
-  const handleRecalculateRoute = async () => {
-    setIsCalculatingRoute(true);
-    try {
-      const route = await api.calculateRoute('NODE-CAS-3', 'NODE-HOSP-1', true);
-      setActiveRoute(route);
-    } catch (err) {
-      console.error('Failed to compute route via engine:', err);
-    } finally {
-      setIsCalculatingRoute(false);
-    }
-  };
-
-  const handleApplyHazardModal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const edge = hazards.find((h) => h.id === selectedHazardEdgeId);
-    if (!edge) return;
-
-    try {
-      const shouldBlock = hazardAction === 'block';
-      await api.toggleRoadBlockage(edge.id, shouldBlock);
-      await onRefreshHazards();
-      setRerouteCounter((c) => c + 1);
-      await handleRecalculateRoute();
-      setIsHazardModalOpen(false);
-    } catch (err) {
-      console.error('Failed to update road hazard:', err);
-    }
-  };
-
-  // Resizable Right Information Tab State
-  const [rightPaneWidth, setRightPaneWidth] = useState<number>(360);
-  const [isRightPaneCollapsed, setIsRightPaneCollapsed] = useState<boolean>(false);
-  const isDraggingSplitter = useRef(false);
-  const startDragX = useRef(0);
-  const startWidth = useRef(360);
-
-  const handleSplitterMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingSplitter.current = true;
-    startDragX.current = e.clientX;
-    startWidth.current = rightPaneWidth;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!isDraggingSplitter.current) return;
-      const deltaX = startDragX.current - moveEvent.clientX;
-      const newWidth = Math.max(240, Math.min(650, startWidth.current + deltaX));
-      setRightPaneWidth(newWidth);
-      setIsRightPaneCollapsed(false);
-    };
-
-    const handleMouseUp = () => {
-      isDraggingSplitter.current = false;
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-  }, [rightPaneWidth]);
-
-  // Metrics from Single Source of Truth
-  const realCasualties = selectCasualties(casualties);
-  const immediateCasualtiesCount = selectImmediateCasualties(casualties).length;
-  const blockedRoadCount = selectBlockedHazards(hazards).length;
-  const etaMinutes = selectActiveRouteEta(activeRoute);
-  const rerouteCount = selectRerouteCount(activeRoute, rerouteCounter);
-
-  const latestActivity = activeRoute ? {
-    module: 'MEDIROUTE',
-    description: `${activeRoute.explanation} (${formatIST(activeRoute.calculatedAt, { seconds: false })})`,
-  } : null;
-
-  const getNodeLabel = (nodeId: string) => {
-    const node = nodes.find((n) => n.id === nodeId);
-    if (node) return node.name;
-    if (nodeId === 'NODE-CAS-3') return 'Casualty Hub Delta';
-    if (nodeId === 'NODE-HOSP-1') return 'Hospital Alpha';
-    if (nodeId === 'NODE-AID-2') return 'Aid Station Bravo';
-    if (nodeId === 'NODE-INT-4' || nodeId === 'NODE-INT-5') return `Junction ${nodeId.slice(-1)}`;
-    return nodeId;
-  };
-
-  // Top-left Metrics Toolbar Content (paired with Mode Switch)
-  const topLeftMetrics = (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        background: 'var(--color-sheet)',
-        border: 'var(--border-width, 1.2px) solid var(--color-edge)',
-        borderRadius: 'var(--radius-sm)',
-        padding: '6px 14px',
-        gap: '20px',
-        boxShadow: 'var(--shadow-flat)',
-      }}
-    >
-      <div>
-        <div
-          className="numeral"
-          style={{
-            fontSize: '1.35rem',
-            fontFamily: 'var(--font-numerals)',
-            fontVariantNumeric: 'tabular-nums',
-            fontWeight: 800,
-            color: 'var(--color-ink)',
-            lineHeight: 1,
-          }}
-        >
-          {realCasualties.length}
-        </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
-          Casualties
-        </div>
-      </div>
-
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
-        <div
-          className="numeral"
-          style={{
-            fontSize: '1.35rem',
-            fontFamily: 'var(--font-numerals)',
-            fontVariantNumeric: 'tabular-nums',
-            fontWeight: 800,
-            color: immediateCasualtiesCount > 0 ? 'var(--color-crit)' : 'var(--color-ink)',
-            lineHeight: 1,
-          }}
-        >
-          {immediateCasualtiesCount}
-        </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
-          Immediate
-        </div>
-      </div>
-
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
-        <div
-          className="numeral"
-          style={{
-            fontSize: '1.35rem',
-            fontFamily: 'var(--font-numerals)',
-            fontVariantNumeric: 'tabular-nums',
-            fontWeight: 800,
-            color: blockedRoadCount > 0 ? 'var(--color-warn)' : 'var(--color-ink)',
-            lineHeight: 1,
-          }}
-        >
-          {blockedRoadCount}
-        </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
-          Blocked road
-        </div>
-      </div>
-
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
-        <div
-          className="numeral"
-          style={{
-            fontSize: '1.35rem',
-            fontFamily: 'var(--font-numerals)',
-            fontVariantNumeric: 'tabular-nums',
-            fontWeight: 800,
-            color: 'var(--color-ink)',
-            lineHeight: 1,
-          }}
-        >
-          {rerouteCount}
-        </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
-          Reroutes
-        </div>
-      </div>
-
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
-        <div
-          className="numeral"
-          style={{
-            fontSize: '1.35rem',
-            fontFamily: 'var(--font-numerals)',
-            fontVariantNumeric: 'tabular-nums',
-            fontWeight: 800,
-            color: 'var(--color-ink)',
-            lineHeight: 1,
-          }}
-        >
-          {etaMinutes ? etaMinutes : '--'}
-        </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
-          Mean ETA
-        </div>
-      </div>
-    </div>
+      setActivities((prev) => [item, ...prev.slice(0, 40)]);
+    },
+    []
   );
 
-  // Bottom-left Collapsible Road Hazards Panel
-  const bottomLeftHazards = isHazardsPanelCollapsed ? (
-    <button
-      type="button"
-      className="overlay-chip-btn"
-      onClick={() => setIsHazardsPanelCollapsed(false)}
-      title="Open Road hazards panel"
-    >
-      <AlertTriangle size={13} />
-      <span>Road Hazards ({blockedRoadCount})</span>
-    </button>
-  ) : (
-    <div
-      className="overlay-collapsible-panel"
-      style={{
-        width: '280px',
-        maxHeight: 'calc(100vh - 180px)',
-        overflowY: 'auto',
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '8px',
-          paddingBottom: '4px',
-          borderBottom: '1px solid var(--color-line)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span
-            style={{
-              fontSize: '0.85rem',
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 700,
-              color: 'var(--color-ink)',
-            }}
-          >
-            Road hazards
-          </span>
-          <span
-            className="numeral"
-            style={{
-              fontSize: '0.68rem',
-              fontWeight: 700,
-              padding: '1px 5px',
-              borderRadius: '2px',
-              background: blockedRoadCount > 0 ? 'var(--color-crit)' : 'var(--color-paper)',
-              color: blockedRoadCount > 0 ? '#FFFFFF' : 'var(--color-ink-2)',
-              fontFamily: 'var(--font-numerals)',
-            }}
-          >
-            {blockedRoadCount} blocked
-          </span>
-        </div>
+  // Advance deterministic simulation by one step
+  const stepSimulation = useCallback(() => {
+    setCasualties((prevCasualties) => {
+      return prevCasualties.map((c) => {
+        // Minor realistic drift
+        const hrDrift = Math.floor(Math.random() * 5) - 2;
+        const currentHr = Math.max(45, Math.min(180, (c.heartRate || 80) + hrDrift));
 
-        <button
-          type="button"
-          onClick={() => setIsHazardsPanelCollapsed(true)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--color-ink-2)',
-            cursor: 'pointer',
-            padding: '2px',
-            display: 'flex',
-            alignItems: 'center',
-          }}
-          title="Collapse road hazards panel"
-        >
-          <ChevronDown size={14} />
-        </button>
-      </div>
+        const spo2Drift = Math.floor(Math.random() * 3) - 1;
+        const currentSpo2 = Math.max(75, Math.min(100, (c.spo2 || 96) + spo2Drift));
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {hazards.map((edge) => (
-          <div
-            key={edge.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              padding: '4px 6px',
-              border: '1px solid var(--color-line)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-paper)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
-              <div
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: edge.blocked ? 'var(--status-critical, #FF3B5C)' : 'var(--status-safe, #00E676)',
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: '0.74rem',
-                  fontWeight: 600,
-                  color: 'var(--color-ink)',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'anywhere',
-                }}
-              >
-                {edge.name}
-              </span>
-            </div>
+        const rrDrift = Math.floor(Math.random() * 3) - 1;
+        const currentRr = Math.max(8, Math.min(48, (c.respiratoryRate || 18) + rrDrift));
 
-            <button
-              type="button"
-              onClick={() => handleToggleHazard(edge.id, edge.blocked)}
-              className="btn btn-sm"
-              style={{
-                padding: '2px 8px',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                flexShrink: 0,
-                minWidth: '58px',
-                textAlign: 'center',
-                color: edge.blocked ? 'var(--status-safe, #00E676)' : 'var(--status-critical, #FF3B5C)',
-                borderColor: edge.blocked ? 'var(--status-safe, #00E676)' : 'var(--status-critical, #FF3B5C)',
-              }}
-            >
-              {edge.blocked ? 'Unblock' : 'Block'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+        const tempDrift = (Math.random() * 0.2 - 0.1);
+        const currentTemp = Number(Math.max(34.0, Math.min(41.0, (c.temperature || 37.0) + tempDrift)).toFixed(1));
+
+        // Detect critical threshold anomalies
+        const activeAnomalies: VitalAnomaly[] = [];
+
+        if (currentSpo2 < 90) {
+          activeAnomalies.push({
+            id: `ANOM-SPO2-${c.id}-${Date.now()}`,
+            patientId: c.id,
+            metric: 'spo2',
+            severity: 'critical',
+            title: 'Critical Hypoxemia Alert',
+            explanation: `Blood oxygen saturation dropped to ${currentSpo2}% (threshold < 90%). Supplemental high-flow oxygen indicated.`,
+            observedValue: `${currentSpo2}%`,
+            threshold: '< 90%',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (currentHr > 130) {
+          activeAnomalies.push({
+            id: `ANOM-HR-${c.id}-${Date.now()}`,
+            patientId: c.id,
+            metric: 'hr',
+            severity: 'critical',
+            title: 'Severe Tachycardia Alert',
+            explanation: `Heart rate spiked to ${currentHr} bpm (threshold > 130 bpm). Possible hemorrhagic decompensation.`,
+            observedValue: `${currentHr} bpm`,
+            threshold: '> 130 bpm',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (currentRr > 30) {
+          activeAnomalies.push({
+            id: `ANOM-RR-${c.id}-${Date.now()}`,
+            patientId: c.id,
+            metric: 'rr',
+            severity: 'critical',
+            title: 'Tachypnea Distress Alert',
+            explanation: `Respiratory rate elevated to ${currentRr}/min (threshold > 30/min). Airway evaluation recommended.`,
+            observedValue: `${currentRr} /min`,
+            threshold: '> 30 /min',
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        const now = new Date().toISOString();
+        const updatedHistory = [
+          ...(c.vitalsHistory || []).slice(-9),
+          {
+            timestamp: now,
+            heartRate: currentHr,
+            spo2: currentSpo2,
+            respiratoryRate: currentRr,
+            bpSystolic: c.bpSystolic || 120,
+            bpDiastolic: c.bpDiastolic || 80,
+          },
+        ];
+
+        return {
+          ...c,
+          heartRate: currentHr,
+          spo2: currentSpo2,
+          respiratoryRate: currentRr,
+          temperature: currentTemp,
+          lastReadingTime: now,
+          activeAnomalies,
+          vitalsHistory: updatedHistory,
+        };
+      });
+    });
+  }, []);
+
+  // Periodic Simulation Tick (every 4 seconds when unpaused)
+  useEffect(() => {
+    if (localSimPaused) return;
+
+    const interval = setInterval(() => {
+      stepSimulation();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [localSimPaused, stepSimulation]);
+
+  // Reset Simulation
+  const handleResetSimulation = () => {
+    setCasualties(INITIAL_EXTENDED_CASUALTIES);
+    setFacilities(INITIAL_FACILITIES);
+    setTransportUnits(INITIAL_TRANSPORT_UNITS);
+    setEvacuationTasks(INITIAL_EVACUATION_TASKS);
+    setActivities(INITIAL_MEDICAL_ACTIVITIES);
+    addActivity('Simulation Reset', 'Telemetry, facilities, and fleet reset to baseline training parameters.', 'vital_anomaly', 'info');
+  };
+
+  // Inject Anomaly for Demonstration
+  const handleInjectAnomaly = (patientId: string, metric: 'hr' | 'spo2' | 'rr' | 'temp') => {
+    setCasualties((prev) =>
+      prev.map((c) => {
+        if (c.id !== patientId) return c;
+
+        const updated = { ...c };
+        const now = new Date().toISOString();
+
+        if (metric === 'spo2') {
+          updated.spo2 = 86;
+          const anom: VitalAnomaly = {
+            id: `ANOM-SPO2-INJ-${Date.now()}`,
+            patientId: c.id,
+            metric: 'spo2',
+            severity: 'critical',
+            title: 'Injected Test Anomaly: Acute Desaturation',
+            explanation: 'SpO2 forced to 86% by operator demonstration trigger.',
+            observedValue: '86%',
+            threshold: '< 90%',
+            timestamp: now,
+          };
+          updated.activeAnomalies = [anom, ...(updated.activeAnomalies || [])];
+          // Escalate triage to immediate
+          updated.triageCategory = 'immediate';
+          updated.triageReason = 'Acute hypoxemic desaturation (SpO2 86%) requiring immediate airway protection.';
+        } else if (metric === 'hr') {
+          updated.heartRate = 148;
+          const anom: VitalAnomaly = {
+            id: `ANOM-HR-INJ-${Date.now()}`,
+            patientId: c.id,
+            metric: 'hr',
+            severity: 'critical',
+            title: 'Injected Test Anomaly: Severe Tachycardia',
+            explanation: 'Heart rate spiked to 148 bpm by operator demonstration trigger.',
+            observedValue: '148 bpm',
+            threshold: '> 130 bpm',
+            timestamp: now,
+          };
+          updated.activeAnomalies = [anom, ...(updated.activeAnomalies || [])];
+        }
+
+        updated.lastReadingTime = now;
+        return updated;
+      })
+    );
+
+    addActivity(
+      `Operator Injected Anomaly on ${patientId}`,
+      `Triggered simulated ${metric.toUpperCase()} abnormal vital event. Triage and alert triggered.`,
+      'vital_anomaly',
+      'critical',
+      'monitoring',
+      patientId
+    );
+  };
+
+  // Triage Update / Override Handler
+  const handleUpdateTriage = (
+    casualtyId: string,
+    category: TriageCategory,
+    overrideReason: string,
+    isManualOverride: boolean
+  ) => {
+    setCasualties((prev) =>
+      prev.map((c) => {
+        if (c.id !== casualtyId) return c;
+        return {
+          ...c,
+          triageCategory: category,
+          triageReason: overrideReason,
+          updatedAt: new Date().toISOString(),
+          triageHistory: [
+            ...(c.triageHistory || []),
+            {
+              timestamp: new Date().toISOString(),
+              category,
+              reason: overrideReason,
+              triggerVitals: `HR ${c.heartRate}, SpO2 ${c.spo2}%, RR ${c.respiratoryRate}`,
+            },
+          ],
+        };
+      })
+    );
+
+    addActivity(
+      `${isManualOverride ? 'Operator Override' : 'START Algorithmic'} Triage: ${casualtyId} &rarr; ${category.toUpperCase()}`,
+      overrideReason,
+      'triage_update',
+      category === 'immediate' ? 'critical' : category === 'delayed' ? 'warning' : 'info',
+      'triage',
+      casualtyId
+    );
+  };
+
+  // Road Blockage Toggle Handler
+  const handleToggleHazardBlock = (edgeId: string, isBlocked: boolean, reason?: string) => {
+    setHazards((prev) =>
+      prev.map((h) => {
+        if (h.id === edgeId || h.edgeId === edgeId) {
+          return {
+            ...h,
+            blocked: isBlocked,
+            hazardType: isBlocked ? 'structural_damage' : undefined,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return h;
+      })
+    );
+
+    addActivity(
+      `Road Segment ${edgeId} ${isBlocked ? 'BLOCKED' : 'CLEARED'}`,
+      isBlocked
+        ? `Hazard activated: ${reason || 'Segment impassable'}. Evacuation routing recalculated.`
+        : 'Road segment inspected and reopened for emergency traffic.',
+      'route_recalculated',
+      isBlocked ? 'warning' : 'success',
+      'routing',
+      edgeId
+    );
+  };
+
+  // Facility Capacity Update Handler
+  const handleUpdateFacilityCapacity = (
+    facilityId: string,
+    totalBeds: number,
+    availableBeds: number,
+    surgicalAvailable: number
+  ) => {
+    setFacilities((prev) =>
+      prev.map((f) => {
+        if (f.id !== facilityId) return f;
+        const newStatus =
+          availableBeds === 0 ? 'full' : availableBeds < 3 ? 'limited' : 'available';
+
+        return {
+          ...f,
+          totalBeds,
+          availableBeds,
+          surgicalAvailable,
+          status: newStatus,
+          lastUpdated: new Date().toISOString(),
+        };
+      })
+    );
+
+    addActivity(
+      `Capacity Updated: ${facilityId}`,
+      `Total Beds: ${totalBeds}, Available: ${availableBeds}, Surgical: ${surgicalAvailable}`,
+      'facility_update',
+      availableBeds === 0 ? 'warning' : 'info',
+      'facilities',
+      facilityId
+    );
+  };
+
+  // Casualty Admission to Facility Handler
+  const handleAssignCasualtyToFacility = (casualtyId: string, facilityId: string) => {
+    setFacilities((prev) =>
+      prev.map((f) => {
+        if (f.id !== facilityId) return f;
+        const newAvail = Math.max(0, f.availableBeds - 1);
+        return {
+          ...f,
+          availableBeds: newAvail,
+          assignedCasualtyIds: [...f.assignedCasualtyIds, casualtyId],
+          status: newAvail === 0 ? 'full' : f.status,
+          lastUpdated: new Date().toISOString(),
+        };
+      })
+    );
+
+    setCasualties((prev) =>
+      prev.map((c) => {
+        if (c.id !== casualtyId) return c;
+        return {
+          ...c,
+          assignedFacilityId: facilityId,
+          status: 'assigned',
+          updatedAt: new Date().toISOString(),
+        };
+      })
+    );
+
+    addActivity(
+      `Patient ${casualtyId} Admitted`,
+      `Assigned bed quota at facility ${facilityId}. Facility capacity decremented.`,
+      'facility_update',
+      'info',
+      'facilities',
+      facilityId
+    );
+  };
+
+  // Transport Unit Dispatch Handler
+  const handleDispatchUnit = (
+    transportUnitId: string,
+    casualtyId: string,
+    destinationFacilityId: string,
+    routeDistanceKm: number,
+    etaMinutes: number
+  ) => {
+    // 1. Update Unit
+    setTransportUnits((prev) =>
+      prev.map((u) => {
+        if (u.id !== transportUnitId) return u;
+        return {
+          ...u,
+          status: 'dispatched',
+          assignedCasualtyId: casualtyId,
+          destinationFacilityId,
+          routeDistanceKm,
+          etaMinutes,
+          lastUpdated: new Date().toISOString(),
+        };
+      })
+    );
+
+    // 2. Create Evacuation Task
+    const casualty = casualties.find((c) => c.id === casualtyId);
+    const newTask: EvacuationTask = {
+      id: `TASK-EVAC-${Date.now().toString().slice(-4)}`,
+      casualtyId,
+      transportUnitId,
+      pickupLocation: casualty?.location || { name: 'Field CCP', lat: 34.07, lng: -118.23 },
+      destinationFacilityId,
+      status: 'dispatched',
+      priority: casualty?.triageCategory || 'immediate',
+      dispatchedAt: new Date().toISOString(),
+      routeDistanceKm,
+      etaMinutes,
+      hazardsAvoided: ['Hazard-Aware Detour Engaged'],
+    };
+
+    setEvacuationTasks((prev) => [newTask, ...prev]);
+
+    // 3. Update Casualty
+    setCasualties((prev) =>
+      prev.map((c) => {
+        if (c.id !== casualtyId) return c;
+        return {
+          ...c,
+          status: 'assigned',
+          assignedTransportUnitId: transportUnitId,
+          assignedFacilityId: destinationFacilityId,
+        };
+      })
+    );
+
+    addActivity(
+      `Mission Dispatched: ${transportUnitId} &rarr; ${casualtyId}`,
+      `Routing to ${destinationFacilityId} (${routeDistanceKm} km, ETA: ${etaMinutes} mins).`,
+      'dispatch',
+      'info',
+      'dispatch',
+      newTask.id
+    );
+  };
+
+  // Complete Evacuation Task
+  const handleCompleteEvacuationTask = (taskId: string) => {
+    const task = evacuationTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Update Task
+    setEvacuationTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: 'completed', completedAt: new Date().toISOString() } : t))
+    );
+
+    // Free Unit
+    setTransportUnits((prev) =>
+      prev.map((u) =>
+        u.id === task.transportUnitId
+          ? {
+              ...u,
+              status: 'available',
+              assignedCasualtyId: null,
+              destinationFacilityId: null,
+              lastUpdated: new Date().toISOString(),
+            }
+          : u
+      )
+    );
+
+    // Mark Casualty Evacuated
+    setCasualties((prev) =>
+      prev.map((c) =>
+        c.id === task.casualtyId ? { ...c, status: 'evacuated', updatedAt: new Date().toISOString() } : c
+      )
+    );
+
+    addActivity(
+      `Evacuation Completed: ${task.id}`,
+      `Casualty ${task.casualtyId} safely transferred to ${task.destinationFacilityId}. ${task.transportUnitId} is now available.`,
+      'evacuation_complete',
+      'success',
+      'dispatch',
+      taskId
+    );
+  };
+
+  // Cancel Evacuation Task
+  const handleCancelEvacuationTask = (taskId: string) => {
+    const task = evacuationTasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    setEvacuationTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, status: 'cancelled' } : t))
+    );
+
+    setTransportUnits((prev) =>
+      prev.map((u) =>
+        u.id === task.transportUnitId
+          ? {
+              ...u,
+              status: 'available',
+              assignedCasualtyId: null,
+              destinationFacilityId: null,
+              lastUpdated: new Date().toISOString(),
+            }
+          : u
+      )
+    );
+
+    addActivity(
+      `Evacuation Cancelled: ${task.id}`,
+      `Mission aborted. Unit ${task.transportUnitId} returned to available pool.`,
+      'dispatch',
+      'warning',
+      'dispatch',
+      taskId
+    );
+  };
+
+  // Tab navigation helper
+  const navigateTab = (tab: MediRouteSubTab, targetId?: string) => {
+    handleSubTabChange(tab);
+    if (tab === 'monitoring' && targetId) {
+      setSelectedCasualtyId(targetId);
+    }
+  };
+
+  const navTabs = [
+    { id: 'overview' as MediRouteSubTab, label: 'Operations Overview', icon: Activity },
+    { id: 'monitoring' as MediRouteSubTab, label: 'Patient Monitoring', icon: HeartPulse },
+    { id: 'triage' as MediRouteSubTab, label: 'Triage Board', icon: ClipboardList },
+    { id: 'routing' as MediRouteSubTab, label: 'Evacuation Routing', icon: RouteIcon },
+    { id: 'facilities' as MediRouteSubTab, label: 'Resources & Facilities', icon: Building2 },
+    { id: 'dispatch' as MediRouteSubTab, label: 'Transport Dispatch', icon: Ambulance },
+  ];
 
   return (
     <div
+      className="mediroute-module-wrapper"
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        width: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-        minWidth: 0,
-        minHeight: 0,
+        minHeight: '100%',
+        background: 'var(--bg-canvas, #121614)',
+        color: 'var(--text-primary, #e9ece9)',
+        overflowY: 'auto',
+        padding: '16px 20px',
+        gap: '16px',
       }}
     >
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, position: 'relative' }}>
-        {/* Full TacticalMap Area */}
-        <div style={{ flex: 1, position: 'relative', minWidth: 0, minHeight: 0, height: '100%' }}>
-          <TacticalMap
-            nodes={nodes}
-            edges={hazards}
-            activeRoute={activeRoute}
-            height="100%"
-            topLeftContent={topLeftMetrics}
-            bottomLeftContent={bottomLeftHazards}
-          />
-
-          {/* Floating expand tab button when information panel is collapsed */}
-          {isRightPaneCollapsed && (
-            <button
-              type="button"
-              onClick={() => setIsRightPaneCollapsed(false)}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                zIndex: 30,
-                background: 'var(--color-sheet)',
-                border: '1px solid var(--color-edge)',
-                borderRadius: 'var(--radius-sm)',
-                boxShadow: 'var(--shadow-flat)',
-                padding: '6px 12px',
-                fontSize: '0.78rem',
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-              }}
-              title="Expand information tab"
-            >
-              <ChevronLeft size={14} />
-              <span>Triage Queue</span>
-            </button>
-          )}
-        </div>
-
-        {/* Draggable Vertical Splitter Slider Handle */}
-        <div
-          onMouseDown={handleSplitterMouseDown}
-          title="Drag to resize information tab (Double-click to reset)"
-          onDoubleClick={() => {
-            setRightPaneWidth(360);
-            setIsRightPaneCollapsed(false);
-          }}
-          style={{
-            width: '8px',
-            cursor: 'col-resize',
-            background: 'var(--color-paper)',
-            borderLeft: '1px solid var(--color-edge)',
-            borderRight: '1px solid var(--color-edge)',
-            display: isRightPaneCollapsed ? 'none' : 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            zIndex: 25,
-            userSelect: 'none',
-          }}
-        >
-          <GripVertical size={12} color="var(--text-secondary)" style={{ opacity: 0.6 }} />
-        </div>
-
-        {/* Right Intel Pane: Resizable width slider, sticky header, internal scroll */}
-        <aside
-          style={{
-            width: isRightPaneCollapsed ? 0 : `${rightPaneWidth}px`,
-            display: isRightPaneCollapsed ? 'none' : 'flex',
-            background: 'var(--color-sheet)',
-            flexDirection: 'column',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            flexShrink: 0,
-            height: '100%',
-            minHeight: 0,
-            zIndex: 20,
-          }}
-          aria-label="Medical triage and evacuation pane"
-        >
-          {/* Section 1: Priority Queue */}
-          <div
-            style={{
-              padding: '14px 16px',
-              borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
-                  Triage Priority Queue
-                </div>
-                <div
-                  className="numeral"
-                  style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', fontFamily: 'var(--font-numerals)' }}
-                >
-                  {realCasualties.length} assessed
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsRightPaneCollapsed(true)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '2px 4px',
-                  color: 'var(--text-secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-                title="Collapse information tab"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
-            {/* Casualty Cards List */}
-            {realCasualties.length === 0 ? (
-              <div
-                style={{
-                  padding: '16px 12px',
-                  textAlign: 'center',
-                  background: 'var(--color-paper)',
-                  borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--color-line)',
-                  color: 'var(--color-ink-2)',
-                  fontSize: '0.78rem',
-                }}
-              >
-                No active casualties logged in sector.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {realCasualties.map((cas) => {
-                  const isImm = cas.triageCategory === 'immediate';
-                  const isDel = cas.triageCategory === 'delayed';
-                  const isMin = cas.triageCategory === 'minimal';
-
-                  const badgeBg = isImm
-                    ? 'var(--status-critical, #FF3B5C)'
-                    : isDel
-                    ? 'var(--status-warning, #FFB300)'
-                    : isMin
-                    ? 'var(--status-safe, #00E676)'
-                    : 'var(--text-muted, #546E66)';
-                  const badgeLetter = isImm ? 'I' : isDel ? 'D' : isMin ? 'M' : 'E';
-
-                  return (
-                    <div
-                      key={cas.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '10px',
-                        padding: '8px 10px',
-                        background: 'var(--color-paper)',
-                        border: '1px solid var(--color-line)',
-                        borderRadius: 'var(--radius-sm)',
-                      }}
-                    >
-                      {/* Triage Letter Square */}
-                      <div
-                        style={{
-                          width: '26px',
-                          height: '26px',
-                          background: badgeBg,
-                          color: '#FFFFFF',
-                          fontFamily: 'var(--font-heading)',
-                          fontWeight: 800,
-                          fontSize: '0.85rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          borderRadius: '2px',
-                          marginTop: '2px',
-                        }}
-                      >
-                        {badgeLetter}
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                          <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--color-ink)' }}>
-                            {cas.patientCode}
-                          </span>
-                          <span
-                            className="numeral"
-                            style={{
-                              fontSize: '0.66rem',
-                              color: 'var(--color-ink-2)',
-                              fontFamily: 'var(--font-numerals)',
-                            }}
-                          >
-                            {formatIST(cas.createdAt)}
-                          </span>
-                        </div>
-
-                        <div
-                          className="numeral"
-                          style={{
-                            fontSize: '0.72rem',
-                            color: 'var(--color-ink-2)',
-                            fontFamily: 'var(--font-numerals)',
-                            fontVariantNumeric: 'tabular-nums',
-                            marginTop: '1px',
-                          }}
-                        >
-                          {cas.vitals
-                            ? `RR: ${cas.vitals.respiratoryRate}/min | Pulse: ${cas.vitals.radialPulsePresent ? 'Present' : 'Absent'} | Walks: ${cas.vitals.canWalk ? 'Yes' : 'No'}`
-                            : 'Field vitals pending'}
-                        </div>
-
-                        <div style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', marginTop: '3px' }}>
-                          {cas.triageReason}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setIsIntakeModalOpen(true)}
-              className="btn btn-primary"
-              style={{
-                padding: '7px 12px',
-                fontSize: '0.78rem',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              <HeartPulse size={13} />
-              <span>Register field triage (START)</span>
-            </button>
-          </div>
-
-          {/* Section 2: Evacuation Route */}
-          <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
-                Dijkstra Evacuation Route
-              </div>
-              {activeRoute && (
-                <span
-                  style={{
-                    fontSize: '0.64rem',
-                    fontWeight: 700,
-                    padding: '1px 5px',
-                    borderRadius: '2px',
-                    border: `1px solid ${activeRoute.hasActiveBlockage ? 'var(--color-warn)' : 'var(--color-ok)'}`,
-                    color: activeRoute.hasActiveBlockage ? 'var(--color-warn)' : 'var(--color-ok)',
-                  }}
-                >
-                  {activeRoute.hasActiveBlockage ? 'Diverted' : 'Optimal'}
-                </span>
-              )}
-            </div>
-
-            {activeRoute ? (
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  padding: '10px 12px',
-                  background: 'var(--color-paper)',
-                  border: '1px solid var(--color-line)',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.84rem', fontWeight: 700, color: 'var(--color-ink)' }}>
-                    {((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false)
-                      ? 'All corridors obstructed'
-                      : `Destination: ${getNodeLabel(activeRoute.destinationNodeId)}`}
-                  </span>
-                  <span
-                    className="numeral"
-                    style={{
-                      fontSize: '0.84rem',
-                      fontWeight: 800,
-                      color: ((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false) ? 'var(--color-crit)' : 'var(--color-ink)',
-                      fontFamily: 'var(--font-numerals)',
-                      fontVariantNumeric: 'tabular-nums',
-                    }}
-                  >
-                    {((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false)
-                      ? 'Disconnected'
-                      : `${activeRoute.totalDistanceKm} km (${activeRoute.estimatedMinutes} min)`}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>
-                  Corridor:{' '}
-                  <span style={{ fontWeight: 600, color: 'var(--color-ink)' }}>
-                    {activeRoute.pathNodeIds.map((id) => getNodeLabel(id)).join(' → ')}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>
-                  {activeRoute.explanation}
-                </div>
-
-                <div
-                  className="numeral"
-                  style={{
-                    fontSize: '0.66rem',
-                    color: 'var(--color-ink-2)',
-                    fontFamily: 'var(--font-numerals)',
-                    marginTop: '2px',
-                  }}
-                >
-                  Calculated: {formatIST(activeRoute.calculatedAt)}
-                </div>
-              </div>
-            ) : (
-              <div style={{ padding: '12px', color: 'var(--color-ink-2)', fontSize: '0.76rem' }}>
-                Computing shortest path corridor...
-              </div>
-            )}
-
-            {/* Action Buttons Row */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', paddingTop: '12px' }}>
-              <button
-                type="button"
-                onClick={handleRecalculateRoute}
-                disabled={isCalculatingRoute}
-                className="btn btn-primary"
-                style={{
-                  flex: 1,
-                  padding: '7px 10px',
-                  fontSize: '0.78rem',
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                }}
-              >
-                <RotateCw size={12} className={isCalculatingRoute ? 'spin' : ''} />
-                <span>{isCalculatingRoute ? 'Calculating...' : 'Recalculate route'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedHazardEdgeId(hazards[0]?.id || '');
-                  setIsHazardModalOpen(true);
-                }}
-                className="btn"
-                style={{
-                  padding: '7px 12px',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <AlertTriangle size={12} />
-                <span>Report hazard</span>
-              </button>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      {/* Bottom Replay / Live Bar */}
-      <footer
+      {/* Module Masthead Header & Subtabs Bar */}
+      <div
         style={{
-          height: '36px',
-          minHeight: '36px',
-          borderTop: 'var(--border-width, 1.2px) solid var(--color-edge)',
-          background: 'var(--color-sheet)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 16px',
-          fontSize: '0.74rem',
-          zIndex: 30,
+          flexDirection: 'column',
+          gap: '12px',
+          borderBottom: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.20))',
+          paddingBottom: '12px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={onToggleSimulationPause}
-            style={{ width: '24px', height: '24px', minWidth: '24px', padding: 0 }}
-            title={isSimPaused ? 'Resume simulation' : 'Pause simulation'}
-          >
-            {isSimPaused ? <Play size={12} /> : <Pause size={12} />}
-          </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <HeartPulse size={20} color="var(--accent-sage, #738a65)" />
+              <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary, #e9ece9)', letterSpacing: '-0.01em', fontFamily: 'var(--font-heading)' }}>
+                MediRoute — Medical Operations
+              </h1>
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #94a192)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              Automated Triage, Patient Telemetry, Hazard-Aware Evacuation Routing & Dispatch
+            </div>
+          </div>
 
-          {/* LIVE indicator */}
+          {/* Global Sim Control Quick Bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={toggleSimPause}
               style={{
-                display: 'inline-block',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: isSimPaused ? 'var(--status-warning, #FFB300)' : 'var(--status-safe, #00E676)',
-                boxShadow: isSimPaused ? 'none' : '0 0 6px var(--status-safe, #00E676)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '0.72rem',
+                padding: '4px 10px',
+                background: localSimPaused ? 'rgba(88, 129, 87, 0.2)' : 'rgba(200, 90, 83, 0.2)',
+                color: localSimPaused ? 'var(--status-safe, #588157)' : 'var(--status-critical, #c85a53)',
+                border: `1px solid ${localSimPaused ? 'rgba(88, 129, 87, 0.4)' : 'rgba(200, 90, 83, 0.4)'}`,
+                fontFamily: 'var(--font-mono)',
               }}
-            />
-            <span style={{ fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-ink)' }}>
-              {isSimPaused ? 'PAUSED' : 'LIVE'}
-            </span>
-          </div>
+            >
+              {localSimPaused ? <Play size={12} /> : <Pause size={12} />}
+              <span>{localSimPaused ? 'Resume Sim' : 'Pause Sim'}</span>
+            </button>
 
-          <div
-            className="numeral"
-            style={{
-              fontSize: '0.72rem',
-              color: 'var(--color-ink-2)',
-              fontFamily: 'var(--font-numerals)',
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            T+{Math.floor(simElapsedSeconds / 60).toString().padStart(2, '0')}:{(simElapsedSeconds % 60).toString().padStart(2, '0')}
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={stepSimulation}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '0.72rem',
+                padding: '4px 10px',
+                background: 'rgba(115, 138, 101, 0.15)',
+                color: 'var(--accent-sage, #738a65)',
+                border: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.25))',
+                fontFamily: 'var(--font-mono)',
+              }}
+              title="Step simulation forward +1 tick"
+            >
+              <Zap size={12} />
+              <span>Step</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={handleResetSimulation}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '0.72rem',
+                padding: '4px 10px',
+                background: 'var(--bg-control, #161c18)',
+                color: 'var(--text-secondary, #94a192)',
+                border: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.20))',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              <RotateCcw size={12} />
+              <span>Reset</span>
+            </button>
           </div>
         </div>
 
-        {/* Dynamic Activity Ticker */}
-        {latestActivity && (
-          <div
-            style={{
-              color: 'var(--color-ink-2)',
-              fontSize: '0.72rem',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: '500px',
-            }}
-          >
-            <span style={{ fontWeight: 700, color: 'var(--color-ink)', marginRight: '6px' }}>
-              [{latestActivity.module.toUpperCase()}]
-            </span>
-            <span>{latestActivity.description}</span>
-          </div>
+        {/* Top Nested Sub-Nav Tabs */}
+        <div
+          role="tablist"
+          style={{
+            display: 'flex',
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: '2px',
+          }}
+        >
+          {navTabs.map((tab) => {
+            const isActive = activeSubTab === tab.id;
+            const Icon = tab.icon;
+
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={isActive}
+                type="button"
+                onClick={() => handleSubTabChange(tab.id)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  fontSize: '0.75rem',
+                  fontWeight: isActive ? 700 : 500,
+                  borderRadius: 'var(--radius-sm, 4px)',
+                  background: isActive ? 'var(--bg-card, #181d1a)' : 'transparent',
+                  color: isActive ? 'var(--text-primary, #e9ece9)' : 'var(--text-secondary, #94a192)',
+                  border: isActive
+                    ? '1px solid var(--accent-sage, #738a65)'
+                    : '1px solid transparent',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease',
+                  fontFamily: 'var(--font-heading)',
+                }}
+              >
+                <Icon size={14} color={isActive ? 'var(--accent-sage, #738a65)' : 'var(--text-muted, #667564)'} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tab Panels */}
+      <div style={{ flex: 1 }}>
+        {activeSubTab === 'overview' && (
+          <MedicalOverviewTab
+            casualties={casualties}
+            facilities={facilities}
+            transportUnits={transportUnits}
+            evacuationTasks={evacuationTasks}
+            hazards={hazards}
+            activities={activities}
+            onNavigateTab={navigateTab}
+            onSelectCasualty={(id) => setSelectedCasualtyId(id)}
+            isSimPaused={localSimPaused}
+          />
         )}
-      </footer>
 
-      {/* Report Road Hazard Modal */}
-      {isHazardModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(22, 32, 46, 0.65)',
-            backdropFilter: 'blur(3px)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-          }}
-          onClick={() => setIsHazardModalOpen(false)}
-        >
-          <div
-            className="panel"
-            style={{
-              width: '100%',
-              maxWidth: '460px',
-              background: 'var(--color-sheet)',
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
-                Report Road Hazard
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsHazardModalOpen(false)}
-                className="btn"
-                style={{ padding: '4px 6px' }}
-              >
-                <X size={16} />
-              </button>
-            </div>
+        {activeSubTab === 'monitoring' && (
+          <PatientMonitoringTab
+            casualties={casualties}
+            selectedCasualtyId={selectedCasualtyId}
+            onSelectCasualty={(id) => setSelectedCasualtyId(id)}
+            isSimPaused={localSimPaused}
+            onToggleSimPause={toggleSimPause}
+            onResetSimulation={handleResetSimulation}
+            onStepSimulation={stepSimulation}
+            onInjectAnomaly={handleInjectAnomaly}
+          />
+        )}
 
-            <form onSubmit={handleApplyHazardModal} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-ink)', marginBottom: '4px' }}>
-                  Target Road Segment
-                </label>
-                <select
-                  className="form-input"
-                  value={selectedHazardEdgeId}
-                  onChange={(e) => setSelectedHazardEdgeId(e.target.value)}
-                  style={{ width: '100%' }}
-                >
-                  {hazards.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name} — ({h.blocked ? 'Currently Blocked' : 'Clear'})
-                    </option>
-                  ))}
-                </select>
-              </div>
+        {activeSubTab === 'triage' && (
+          <TriageBoardTab
+            casualties={casualties}
+            onUpdateTriage={handleUpdateTriage}
+            onNavigateTab={navigateTab}
+          />
+        )}
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-ink)', marginBottom: '4px' }}>
-                  Action
-                </label>
-                <div style={{ display: 'flex', border: '1px solid var(--color-edge)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-                  <button
-                    type="button"
-                    onClick={() => setHazardAction('block')}
-                    style={{
-                      flex: 1,
-                      background: hazardAction === 'block' ? 'var(--color-crit)' : 'transparent',
-                      color: hazardAction === 'block' ? '#FFFFFF' : 'var(--color-ink)',
-                      border: 'none',
-                      padding: '6px',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Mark as Blocked
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setHazardAction('unblock')}
-                    style={{
-                      flex: 1,
-                      background: hazardAction === 'unblock' ? 'var(--color-ok)' : 'transparent',
-                      color: hazardAction === 'unblock' ? '#FFFFFF' : 'var(--color-ink)',
-                      border: 'none',
-                      padding: '6px',
-                      fontSize: '0.78rem',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Mark as Clear
-                  </button>
-                </div>
-              </div>
+        {activeSubTab === 'routing' && (
+          <EvacuationRoutingTab
+            casualties={casualties}
+            facilities={facilities}
+            transportUnits={transportUnits}
+            hazards={hazards}
+            nodes={nodes}
+            onToggleHazardBlock={handleToggleHazardBlock}
+            onDispatchTransport={handleDispatchUnit}
+          />
+        )}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsHazardModalOpen(false)}
-                  className="btn"
-                  style={{ padding: '6px 12px', fontSize: '0.78rem' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  style={{ padding: '6px 16px', fontSize: '0.78rem', fontWeight: 800 }}
-                >
-                  Apply Hazard Status
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        {activeSubTab === 'facilities' && (
+          <FacilityCapacityTab
+            facilities={facilities}
+            casualties={casualties}
+            onUpdateFacilityCapacity={handleUpdateFacilityCapacity}
+            onAssignCasualtyToFacility={handleAssignCasualtyToFacility}
+          />
+        )}
 
-      {/* Casualty Intake & START Triage Modal */}
-      {isIntakeModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(22, 32, 46, 0.65)',
-            backdropFilter: 'blur(3px)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-          }}
-          onClick={() => setIsIntakeModalOpen(false)}
-        >
-          <div
-            className="panel"
-            style={{
-              width: '100%',
-              maxWidth: '520px',
-              background: 'var(--color-sheet)',
-              padding: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '14px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '1.05rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
-                Casualty Triage Intake (START v1.0)
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsIntakeModalOpen(false)}
-                className="btn"
-                style={{ padding: '4px 6px' }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {intakeSuccess && (
-              <div style={{ padding: '8px 12px', background: 'var(--color-paper)', border: '1.2px solid var(--color-ok)', color: 'var(--color-ok)', fontSize: '0.8rem', fontWeight: 700 }}>
-                {intakeSuccess}
-              </div>
-            )}
-
-            <form onSubmit={handleCasualtyIntake} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-ink)', marginBottom: '4px' }}>
-                  Patient Identifier
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={patientCode}
-                  onChange={(e) => setPatientCode(e.target.value)}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 700, marginBottom: '4px' }}>
-                  <span>Respiration Rate: {respiratoryRate} /min</span>
-                  <span style={{ color: respiratoryRate > 30 || respiratoryRate < 10 ? 'var(--color-crit)' : 'var(--color-ok)' }}>
-                    {respiratoryRate > 30 ? 'Critical high' : respiratoryRate < 10 ? 'Critical low' : 'Normal'}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="45"
-                  value={respiratoryRate}
-                  onChange={(e) => setRespiratoryRate(Number(e.target.value))}
-                  style={{ width: '100%', accentColor: 'var(--color-accent)' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={canWalk}
-                    onChange={(e) => setCanWalk(e.target.checked)}
-                    style={{ accentColor: 'var(--color-ok)' }}
-                  />
-                  <span>Ambulatory (Walks)</span>
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.78rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={radialPulsePresent}
-                    onChange={(e) => setRadialPulsePresent(e.target.checked)}
-                    style={{ accentColor: 'var(--color-accent)' }}
-                  />
-                  <span>Radial Pulse</span>
-                </label>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-ink)', marginBottom: '4px' }}>
-                  Mental Status
-                </label>
-                <select
-                  className="form-input"
-                  value={mentalStatus}
-                  onChange={(e) => setMentalStatus(e.target.value as any)}
-                  style={{ width: '100%' }}
-                >
-                  <option value="can_follow_commands">Can Follow Commands (Alert)</option>
-                  <option value="altered">Altered / Disoriented</option>
-                  <option value="unresponsive">Unresponsive / Comatose</option>
-                </select>
-              </div>
-
-              {/* Algorithmic preview result */}
-              <div style={{ padding: '8px 12px', background: 'var(--color-paper)', border: '1.2px solid var(--color-line)', fontSize: '0.76rem' }}>
-                <div style={{ fontWeight: 700, color: 'var(--color-accent)', marginBottom: '2px' }}>
-                  Triage Category: {previewTriage.category.toUpperCase()}
-                </div>
-                <div style={{ color: 'var(--color-ink-2)' }}>{previewTriage.reason}</div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: 'var(--color-ink)', marginBottom: '4px' }}>
-                  Field Notes
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Injuries, tourniquet time..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsIntakeModalOpen(false)}
-                  className="btn"
-                  style={{ padding: '6px 12px', fontSize: '0.78rem' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn btn-primary"
-                  style={{ padding: '6px 16px', fontSize: '0.78rem', fontWeight: 800 }}
-                >
-                  Register casualty
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+        {activeSubTab === 'dispatch' && (
+          <TransportDispatchTab
+            transportUnits={transportUnits}
+            evacuationTasks={evacuationTasks}
+            facilities={facilities}
+            casualties={casualties}
+            onDispatchUnit={handleDispatchUnit}
+            onCompleteEvacuationTask={handleCompleteEvacuationTask}
+            onCancelEvacuationTask={handleCancelEvacuationTask}
+          />
+        )}
+      </div>
     </div>
   );
 };

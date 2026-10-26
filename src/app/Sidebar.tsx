@@ -12,7 +12,13 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Activity,
+  ClipboardList,
+  Route as RouteIcon,
+  Building2,
+  Ambulance,
 } from 'lucide-react';
+import { MediRouteSubTab } from '../modules/mediroute/medirouteTypes';
 
 export interface SidebarProps {
   activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitals';
@@ -24,6 +30,8 @@ export interface SidebarProps {
   isOpenMobile?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  medirouteSubTab?: MediRouteSubTab;
+  onSelectMediRouteSubTab?: (subTab: MediRouteSubTab) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -36,6 +44,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile = false,
   isCollapsed = false,
   onToggleCollapse,
+  medirouteSubTab = 'overview',
+  onSelectMediRouteSubTab,
 }) => {
   const navItems = [
     {
@@ -73,9 +83,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       id: 'mediroute',
       code: 'MED',
-      label: 'MediRoute Logistics',
+      label: 'MediRoute — Medical Operations',
       icon: HeartPulse,
-      description: 'Triage and evacuation',
+      description: 'Triage, monitoring & evac',
     },
     {
       id: 'vitals',
@@ -84,6 +94,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Activity,
       description: 'Physiological health telemetry',
     },
+  ];
+
+  const medirouteSubNav = [
+    { id: 'overview' as MediRouteSubTab, label: 'Operations Overview', icon: Activity },
+    { id: 'monitoring' as MediRouteSubTab, label: 'Patient Monitoring', icon: HeartPulse },
+    { id: 'triage' as MediRouteSubTab, label: 'Triage Board', icon: ClipboardList },
+    { id: 'routing' as MediRouteSubTab, label: 'Evacuation Routing', icon: RouteIcon },
+    { id: 'facilities' as MediRouteSubTab, label: 'Resources & Facilities', icon: Building2 },
+    { id: 'dispatch' as MediRouteSubTab, label: 'Transport Dispatch', icon: Ambulance },
   ];
 
   // On small screens (<768px) or when mobile drawer is open, NEVER collapse (no icons-only preview).
@@ -314,13 +333,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           const Icon = item.icon;
 
           return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                onNavigate(item.id as any);
-                if (onCloseMobile) onCloseMobile();
-              }}
+            <React.Fragment key={item.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigate(item.id as any);
+                  if (onCloseMobile) onCloseMobile();
+                }}
               className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
               aria-label={`${item.label}: ${item.description}`}
               aria-current={isActive ? 'page' : undefined}
@@ -423,6 +442,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
             </button>
+
+            {/* Nested Sub-Navigation for MediRoute when active */}
+            {item.id === 'mediroute' && isActive && !isCollapsedEffective && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                  paddingLeft: '32px',
+                  paddingRight: '6px',
+                  marginTop: '2px',
+                  marginBottom: '4px',
+                  borderLeft: '2px solid rgba(56, 189, 248, 0.3)',
+                  marginLeft: '18px',
+                }}
+              >
+                {medirouteSubNav.map((subItem) => {
+                  const isSubActive = medirouteSubTab === subItem.id;
+                  const SubIcon = subItem.icon;
+
+                  return (
+                    <button
+                      key={subItem.id}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNavigate('mediroute');
+                        if (onSelectMediRouteSubTab) {
+                          onSelectMediRouteSubTab(subItem.id);
+                        }
+                        if (onCloseMobile) onCloseMobile();
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '5px 8px',
+                        background: isSubActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                        border: isSubActive ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid transparent',
+                        borderRadius: '4px',
+                        color: isSubActive ? '#fff' : 'var(--text-secondary)',
+                        fontSize: '0.72rem',
+                        fontWeight: isSubActive ? 700 : 500,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                        transition: 'all 0.12s ease',
+                      }}
+                    >
+                      <SubIcon
+                        size={13}
+                        color={isSubActive ? 'var(--accent)' : 'var(--text-secondary)'}
+                      />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {subItem.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </React.Fragment>
           );
         })}
       </nav>

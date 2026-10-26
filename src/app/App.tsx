@@ -31,6 +31,7 @@ import { SkyWatchModule } from '../modules/skywatch/SkyWatchModule';
 import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
 import { SoldierVitalsModule } from '../modules/vitals/SoldierVitalsModule';
+import { MediRouteSubTab } from '../modules/mediroute/medirouteTypes';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
 import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
 import { Layers, Radio, Crosshair, Compass, HeartPulse, Activity } from 'lucide-react';
@@ -52,28 +53,53 @@ export const DEFAULT_INITIAL_SUMMARY: DashboardSummary = {
   isSimulated: true,
 };
 
-export function parseModuleFromHash(hash: string): ModuleId {
+export function parseModuleFromHash(hash: string): { module: ModuleId; subTab?: MediRouteSubTab } {
   const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
-  if ((VALID_MODULES as readonly string[]).includes(clean)) {
-    return clean as ModuleId;
+  const parts = clean.split('/');
+  const base = parts[0];
+  const sub = parts[1] as MediRouteSubTab | undefined;
+
+  const validSubTabs: MediRouteSubTab[] = ['overview', 'monitoring', 'triage', 'routing', 'facilities', 'dispatch'];
+
+  if ((VALID_MODULES as readonly string[]).includes(base)) {
+    return {
+      module: base as ModuleId,
+      subTab: sub && validSubTabs.includes(sub) ? sub : undefined,
+    };
   }
-  return 'dashboard';
+  return { module: 'dashboard' };
 }
 
 export const App: React.FC = () => {
   const [activeModule, setActiveModuleState] = useState<ModuleId>(() => {
     if (typeof window !== 'undefined') {
-      return parseModuleFromHash(window.location.hash);
+      return parseModuleFromHash(window.location.hash).module;
     }
     return 'dashboard';
+  });
+
+  const [medirouteSubTab, setMedirouteSubTab] = useState<MediRouteSubTab>(() => {
+    if (typeof window !== 'undefined') {
+      return parseModuleFromHash(window.location.hash).subTab || 'overview';
+    }
+    return 'overview';
   });
 
   const handleNavigate = useCallback((mod: ModuleId) => {
     setActiveModuleState(mod);
     if (typeof window !== 'undefined') {
-      if (window.location.hash !== `#${mod}`) {
-        window.location.hash = `#${mod}`;
+      const targetHash = mod === 'mediroute' && medirouteSubTab !== 'overview' ? `#mediroute/${medirouteSubTab}` : `#${mod}`;
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
       }
+    }
+  }, [medirouteSubTab]);
+
+  const handleNavigateMediRouteSubTab = useCallback((subTab: MediRouteSubTab) => {
+    setMedirouteSubTab(subTab);
+    setActiveModuleState('mediroute');
+    if (typeof window !== 'undefined') {
+      window.location.hash = `#mediroute/${subTab}`;
     }
   }, []);
 
@@ -81,16 +107,21 @@ export const App: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const parsed = parseModuleFromHash(window.location.hash);
-      setActiveModuleState(parsed);
+      setActiveModuleState(parsed.module);
+      if (parsed.subTab) {
+        setMedirouteSubTab(parsed.subTab);
+      }
       const clean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
-      if (!(VALID_MODULES as readonly string[]).includes(clean)) {
+      const base = clean.split('/')[0];
+      if (!(VALID_MODULES as readonly string[]).includes(base)) {
         window.history.replaceState(null, '', '#dashboard');
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
     const initialClean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
-    if (!(VALID_MODULES as readonly string[]).includes(initialClean)) {
+    const initialBase = initialClean.split('/')[0];
+    if (!(VALID_MODULES as readonly string[]).includes(initialBase)) {
       window.history.replaceState(null, '', '#dashboard');
     }
 
@@ -539,6 +570,8 @@ export const App: React.FC = () => {
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
+        medirouteSubTab={medirouteSubTab}
+        onSelectMediRouteSubTab={handleNavigateMediRouteSubTab}
       />
 
       {/* 2. Sticky Command Header */}
@@ -630,6 +663,8 @@ export const App: React.FC = () => {
             onRefreshHazards={refreshAllData}
             onToggleSimulationPause={handleToggleSimPause}
             isSimPaused={isSimPaused}
+            initialSubTab={medirouteSubTab}
+            onSubTabChange={handleNavigateMediRouteSubTab}
           />
         )}
 
