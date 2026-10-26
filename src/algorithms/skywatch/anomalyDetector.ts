@@ -25,10 +25,17 @@ export const DEFAULT_ANOMALY_CONFIG: AnomalyDetectorConfig = {
 export const KNOTS_TO_MS = 0.514444;
 export const SUDDEN_ACCEL_THRESHOLD_MS2 = 150 * 0.514444; // 150 kts per second in SI m/s^2
 
+interface AlertKeyState {
+  isOpen: boolean;
+  alertId: string;
+  falseSinceSimTimeMs: number | null;
+}
+
 export class SkyWatchAnomalyDetector {
   private config: AnomalyDetectorConfig;
   private previousTrackPoints: Map<string, TelemetryTrackPoint> = new Map();
   private firstSampleFlags: Set<string> = new Set();
+  private activeAlertKeys: Map<string, AlertKeyState> = new Map();
   private alerts: SkyWatchAlert[] = [];
   private alertCounter: number = 100;
 
@@ -46,12 +53,17 @@ export class SkyWatchAnomalyDetector {
     }
   }
 
+  public getConfig(): AnomalyDetectorConfig {
+    return this.config;
+  }
+
   /**
    * Reset the detector state (e.g. after simulation reset or test setup)
    */
   public reset(): void {
     this.previousTrackPoints.clear();
     this.firstSampleFlags.clear();
+    this.activeAlertKeys.clear();
     this.alerts = [];
   }
 
@@ -61,6 +73,48 @@ export class SkyWatchAnomalyDetector {
   public reconnect(): void {
     this.previousTrackPoints.clear();
     this.firstSampleFlags.clear();
+    this.activeAlertKeys.clear();
+  }
+
+  /**
+   * State machine managing open alert keys, 5s close timer, and de-duplication.
+   */
+  private processAlertCondition(
+    trackId: string,
+    ruleName: string,
+    isConditionTrue: boolean,
+    simTimeMs: number,
+    createAlertFn: () => SkyWatchAlert
+  ): SkyWatchAlert | null {
+    const key = `${trackId}:${ruleName}`;
+    let state = this.activeAlertKeys.get(key);
+    if (!state) {
+      state = { isOpen: false, alertId: '', falseSinceSimTimeMs: null };
+      this.activeAlertKeys.set(key, state);
+    }
+
+    if (isConditionTrue) {
+      state.falseSinceSimTimeMs = null;
+      if (!state.isOpen) {
+        state.isOpen = true;
+        const alert = createAlertFn();
+        state.alertId = alert.id;
+        return alert;
+      }
+      return null;
+    } else {
+      if (state.isOpen) {
+        if (state.falseSinceSimTimeMs === null) {
+          state.falseSinceSimTimeMs = simTimeMs;
+        } else if (simTimeMs - state.falseSinceSimTimeMs >= 5000) {
+          // Closed after 5 consecutive simulated seconds of condition being false
+          state.isOpen = false;
+          state.alertId = '';
+          state.falseSinceSimTimeMs = null;
+        }
+      }
+      return null;
+    }
   }
 
   /**
@@ -71,16 +125,20 @@ export class SkyWatchAnomalyDetector {
     const newAlerts: SkyWatchAlert[] = [];
     const prevPoint = this.previousTrackPoints.get(currentPoint.trackId);
     const isFirstSample = !prevPoint || this.firstSampleFlags.has(currentPoint.trackId);
+    const currTimeMs = currentTimeIso ? new Date(currentTimeIso).getTime() : new Date(currentPoint.timestamp).getTime();
 
     // 1. Rule: Speed Change / Acceleration Anomaly
+    let isSpeedBreach = false;
+    let accelKtsPerSec = 0;
+    let deltaKnots = 0;
+    let dtSim = 1;
+
     if (!isFirstSample && prevPoint) {
       const prevTimeMs = new Date(prevPoint.timestamp).getTime();
-      const currTimeMs = new Date(currentPoint.timestamp).getTime();
-      const dtSim = (currTimeMs - prevTimeMs) / 1000;
+      dtSim = (currTimeMs - prevTimeMs) / 1000;
 
-      // Skip evaluation when dtSim <= 0
       if (dtSim > 0) {
-        const deltaKnots = Math.abs(currentPoint.speedKnots - prevPoint.speedKnots);
+        deltaKnots = Math.abs(currentPoint.speedKnots - prevPoint.speedKnots);
         const speedDeltaMs = deltaKnots * KNOTS_TO_MS;
         const accelMs2 = speedDeltaMs / dtSim;
 
@@ -91,25 +149,33 @@ export class SkyWatchAnomalyDetector {
           accelMs2 >= (this.config.speedChangeThresholdKnots / 5) * KNOTS_TO_MS;
 
         if (isAccelBreach || isStepDeltaBreach) {
-          const accelKtsPerSec = accelMs2 / KNOTS_TO_MS;
-          const alert: SkyWatchAlert = {
-            id: `ALT-${this.alertCounter++}`,
-            trackId: currentPoint.trackId,
-            severity: accelKtsPerSec >= 200 ? 'critical' : 'warning',
-            ruleName: 'speed_anomaly',
-            observedValue: `${accelKtsPerSec.toFixed(1)} kts/s accel (${deltaKnots.toFixed(1)} kts delta, ${prevPoint.speedKnots} -> ${currentPoint.speedKnots} kts in ${dtSim.toFixed(2)}s)`,
-            threshold: `${(this.accelThresholdMs2 / KNOTS_TO_MS).toFixed(1)} kts/s max acceleration`,
-            explanation: `Sudden kinematic velocity shift detected: Acceleration reached ${accelKtsPerSec.toFixed(1)} kts/s (${deltaKnots.toFixed(1)} kts delta in ${dtSim.toFixed(2)}s), exceeding threshold of ${(this.accelThresholdMs2 / KNOTS_TO_MS).toFixed(1)} kts/s.`,
-            timestamp: currentPoint.timestamp,
-            acknowledged: false,
-            isSimulated: true
-          };
-          newAlerts.push(alert);
+          isSpeedBreach = true;
+          accelKtsPerSec = accelMs2 / KNOTS_TO_MS;
         }
       }
     }
 
-    // 2. Rule: Restricted Zone Breach
+    const speedAlert = this.processAlertCondition(
+      currentPoint.trackId,
+      'speed_anomaly',
+      isSpeedBreach,
+      currTimeMs,
+      () => ({
+        id: `ALT-${this.alertCounter++}`,
+        trackId: currentPoint.trackId,
+        severity: accelKtsPerSec >= 200 ? 'critical' : 'warning',
+        ruleName: 'speed_anomaly',
+        observedValue: `${accelKtsPerSec.toFixed(1)} kts/s accel (${deltaKnots.toFixed(1)} kts delta, ${prevPoint?.speedKnots ?? 0} -> ${currentPoint.speedKnots} kts in ${dtSim.toFixed(2)}s)`,
+        threshold: `${(this.accelThresholdMs2 / KNOTS_TO_MS).toFixed(1)} kts/s max acceleration`,
+        explanation: `Sudden kinematic velocity shift detected: Acceleration reached ${accelKtsPerSec.toFixed(1)} kts/s (${deltaKnots.toFixed(1)} kts delta in ${dtSim.toFixed(2)}s), exceeding threshold of ${(this.accelThresholdMs2 / KNOTS_TO_MS).toFixed(1)} kts/s.`,
+        timestamp: currentPoint.timestamp,
+        acknowledged: false,
+        isSimulated: true
+      })
+    );
+    if (speedAlert) newAlerts.push(speedAlert);
+
+    // 2. Rule: Restricted Zone Breach (with Hysteresis: exit requires 2% radius or 50m outside)
     for (const zone of this.config.restrictedZones) {
       const distMeters = haversineDistanceMeters(
         currentPoint.lat,
@@ -118,9 +184,23 @@ export class SkyWatchAnomalyDetector {
         zone.centerLng
       );
       const zoneRadiusMeters = zone.radiusKm * 1000;
+      const zoneKey = `${currentPoint.trackId}:restricted_zone_entry`;
+      const isKeyCurrentlyOpen = this.activeAlertKeys.get(zoneKey)?.isOpen ?? false;
 
-      if (distMeters <= zoneRadiusMeters && currentPoint.altitudeMeters <= zone.maxAltitudeMeters) {
-        const alert: SkyWatchAlert = {
+      // Hysteresis calculation: if already inside, exit boundary extends by 2% of radius (or 50m)
+      const hysteresisBuffer = Math.max(50, 0.02 * zoneRadiusMeters);
+      const boundaryThresholdMeters = isKeyCurrentlyOpen
+        ? zoneRadiusMeters + hysteresisBuffer
+        : zoneRadiusMeters;
+
+      const isInside = distMeters <= boundaryThresholdMeters && currentPoint.altitudeMeters <= zone.maxAltitudeMeters;
+
+      const zoneAlert = this.processAlertCondition(
+        currentPoint.trackId,
+        'restricted_zone_entry',
+        isInside,
+        currTimeMs,
+        () => ({
           id: `ALT-${this.alertCounter++}`,
           trackId: currentPoint.trackId,
           severity: 'critical',
@@ -131,33 +211,41 @@ export class SkyWatchAnomalyDetector {
           timestamp: currentPoint.timestamp,
           acknowledged: false,
           isSimulated: true
-        };
-        newAlerts.push(alert);
-      }
+        })
+      );
+      if (zoneAlert) newAlerts.push(zoneAlert);
     }
 
-    // 3. Rule: Stale Telemetry (evaluated if elapsed time between current and previous is large)
+    // 3. Rule: Stale Telemetry
+    let isStale = false;
+    let elapsedSec = 0;
     if (prevPoint) {
       const prevTimeMs = new Date(prevPoint.timestamp).getTime();
-      const currTimeMs = new Date(currentPoint.timestamp).getTime();
-      const elapsedSec = (currTimeMs - prevTimeMs) / 1000;
-
+      elapsedSec = (currTimeMs - prevTimeMs) / 1000;
       if (elapsedSec > this.config.staleTelemetryThresholdSec) {
-        const alert: SkyWatchAlert = {
-          id: `ALT-${this.alertCounter++}`,
-          trackId: currentPoint.trackId,
-          severity: 'warning',
-          ruleName: 'stale_telemetry',
-          observedValue: `${elapsedSec.toFixed(0)} seconds elapsed`,
-          threshold: `${this.config.staleTelemetryThresholdSec} seconds max silence`,
-          explanation: `Signal dropout anomaly: Telemetry silence of ${elapsedSec.toFixed(0)} seconds exceeded heartbeat limit of ${this.config.staleTelemetryThresholdSec} seconds. Potential transponder outage or jamming.`,
-          timestamp: currentPoint.timestamp,
-          acknowledged: false,
-          isSimulated: true
-        };
-        newAlerts.push(alert);
+        isStale = true;
       }
     }
+
+    const staleAlert = this.processAlertCondition(
+      currentPoint.trackId,
+      'stale_telemetry',
+      isStale,
+      currTimeMs,
+      () => ({
+        id: `ALT-${this.alertCounter++}`,
+        trackId: currentPoint.trackId,
+        severity: 'warning',
+        ruleName: 'stale_telemetry',
+        observedValue: `${elapsedSec.toFixed(0)} seconds elapsed`,
+        threshold: `${this.config.staleTelemetryThresholdSec} seconds max silence`,
+        explanation: `Signal dropout anomaly: Telemetry silence of ${elapsedSec.toFixed(0)} seconds exceeded heartbeat limit of ${this.config.staleTelemetryThresholdSec} seconds. Potential transponder outage or jamming.`,
+        timestamp: currentPoint.timestamp,
+        acknowledged: false,
+        isSimulated: true
+      })
+    );
+    if (staleAlert) newAlerts.push(staleAlert);
 
     // Store track point for subsequent delta calculations
     this.previousTrackPoints.set(currentPoint.trackId, { ...currentPoint });
