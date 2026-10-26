@@ -5,9 +5,6 @@ import {
   Crosshair,
   Compass,
   HeartPulse,
-  Wifi,
-  WifiOff,
-  Database,
   Activity,
   X,
   ChevronLeft,
@@ -505,115 +502,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
-
-      {/* 3. System Health Card Footer */}
-      <div
-        style={{
-          padding: isCollapsedEffective ? '10px 6px' : '10px 12px',
-          borderTop: 'var(--border-width, 1.2px) solid var(--color-line)',
-          flexShrink: 0,
-        }}
-      >
-        {isCollapsedEffective ? (
-          /* Minimized: LED + 2 icons (Wifi + Database) */
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '6px 0',
-              cursor: 'help',
-            }}
-            title={
-              isOfflineMode
-                ? 'Telemetry: Offline Simulated | IndexedDB Ready'
-                : 'Telemetry: Command Link Active | IndexedDB Ready'
-            }
-          >
-            <span
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '1px',
-                backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
-              }}
-            />
-            {isOfflineMode ? (
-              <WifiOff size={16} color="var(--color-crit)" />
-            ) : (
-              <Wifi size={16} color="var(--color-ok)" />
-            )}
-            <Database size={15} color="var(--color-ink-2)" />
-          </div>
-        ) : (
-          /* Expanded: Outlined Health Card */
-          <div
-            style={{
-              padding: '9px 10px',
-              border: 'var(--border-width, 1.2px) solid var(--color-line)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-sheet)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span
-                style={{
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                Telemetry bus
-              </span>
-              {isOfflineMode ? (
-                <WifiOff size={14} color="var(--color-crit)" />
-              ) : (
-                <Wifi size={14} color="var(--color-ok)" />
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span
-                style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '1px',
-                  backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {isOfflineMode ? 'Offline simulated' : 'Command link active'}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.7rem',
-                color: 'var(--text-secondary)',
-                marginTop: '1px',
-              }}
-            >
-              <Database size={13} color="var(--text-secondary)" />
-              <span>IndexedDB storage ready</span>
-            </div>
-          </div>
-        )}
-      </div>
     </aside>
   );
 };
