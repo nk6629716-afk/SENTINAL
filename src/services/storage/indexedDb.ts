@@ -222,8 +222,38 @@ export class SentinelDatabase {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('alerts', 'readonly');
       const req = tx.objectStore('alerts').getAll();
-      req.onsuccess = () => resolve(req.result as AirspaceAlert[]);
+      req.onsuccess = () => {
+        const allAlerts = (req.result || []) as AirspaceAlert[];
+        // Deduplicate any runaway duplicate alerts from previous sessions
+        const seen = new Set<string>();
+        const deduplicated: AirspaceAlert[] = [];
+        const sorted = allAlerts.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+        for (const a of sorted) {
+          const key = `${a.trackId || 'unknown'}:${a.ruleName}:${a.acknowledged}`;
+          if (!seen.has(key) || a.acknowledged) {
+            seen.add(key);
+            deduplicated.push(a);
+          }
+        }
+        resolve(deduplicated);
+      };
       req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async setAlerts(alerts: AirspaceAlert[]): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('alerts', 'readwrite');
+      const store = tx.objectStore('alerts');
+      store.clear();
+      for (const a of alerts) {
+        store.put(a);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   }
 

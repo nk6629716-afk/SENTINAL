@@ -128,6 +128,28 @@ export class Database {
       if (fs.existsSync(this.filePath)) {
         const raw = fs.readFileSync(this.filePath, 'utf-8');
         const parsed = JSON.parse(raw) as DatabaseState;
+
+        // Deduplicate any runaway alerts if present
+        if (parsed.alerts) {
+          const deduplicated: Record<string, Alert> = {};
+          const seen = new Set<string>();
+          const alertList = Object.values(parsed.alerts).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+
+          for (const a of alertList) {
+            const key = `${a.trackId || 'unknown'}:${a.ruleName}:${a.acknowledged}`;
+            if (!seen.has(key) || a.acknowledged) {
+              seen.add(key);
+              deduplicated[a.id] = a;
+            }
+          }
+          if (Object.keys(deduplicated).length < Object.keys(parsed.alerts).length) {
+            parsed.alerts = deduplicated;
+            this.persist(parsed);
+          }
+        }
+
         return parsed;
       }
     } catch (err) {
@@ -306,6 +328,19 @@ export class Database {
   }
 
   public saveAlert(alert: Alert): Alert {
+    // If an unacknowledged alert already exists for the same track & rule, update it instead of creating duplicates
+    const existing = Object.values(this.state.alerts).find(
+      (a) => a.trackId === alert.trackId && a.ruleName === alert.ruleName && !a.acknowledged
+    );
+
+    if (existing && existing.id !== alert.id) {
+      existing.observedValue = alert.observedValue;
+      existing.timestamp = alert.timestamp;
+      existing.explanation = alert.explanation;
+      this.persist();
+      return existing;
+    }
+
     this.state.alerts[alert.id] = { ...alert };
     this.persist();
     return this.state.alerts[alert.id];

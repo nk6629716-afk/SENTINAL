@@ -18,7 +18,15 @@ import {
   CalculatedRoute,
 } from '@shared/types';
 import { dbService } from '../storage/indexedDb';
-import { INITIAL_TRACKS, RESTRICTED_AIRSPACE_ZONES, ROAD_HAZARD_EDGES } from '../data/fixtures';
+import {
+  INITIAL_TRACKS,
+  RESTRICTED_AIRSPACE_ZONES,
+  ROAD_HAZARD_EDGES,
+  INITIAL_INCIDENTS,
+  INITIAL_CASUALTIES,
+  INITIAL_ALERTS,
+  INITIAL_GEO_OBSERVATIONS,
+} from '../data/fixtures';
 import { simulationEngine, SimulationTickState } from '../../simulation/simulationEngine';
 
 
@@ -184,12 +192,22 @@ export class SentinelApiClient {
       }
     }
 
-    // Local cached derivation from IndexedDB
-    const incidents = await dbService.getIncidents();
-    const casualties = await dbService.getCasualties();
-    const hazards = await dbService.getHazards();
-    const alerts = await dbService.getAlerts();
-    const geoObs = await dbService.getGeoObservations();
+    // Local cached derivation from IndexedDB (with graceful fallback to baseline fixtures)
+    let incidents: IncidentReport[] = INITIAL_INCIDENTS;
+    let casualties: CasualtyRecord[] = INITIAL_CASUALTIES;
+    let hazards: RoadHazardEdge[] = ROAD_HAZARD_EDGES;
+    let alerts: AirspaceAlert[] = INITIAL_ALERTS;
+    let geoObs: GeoIntelObservation[] = INITIAL_GEO_OBSERVATIONS;
+
+    try {
+      incidents = await dbService.getIncidents();
+      casualties = await dbService.getCasualties();
+      hazards = await dbService.getHazards();
+      alerts = await dbService.getAlerts();
+      geoObs = await dbService.getGeoObservations();
+    } catch (dbErr) {
+      console.warn('[ApiClient] Failed to read IndexedDB for summary derivation, using memory baseline:', dbErr);
+    }
 
     const pendingSync = incidents.filter((i) => i.syncStatus === 'pending' || i.syncStatus === 'failed').length;
     const activeIncidents = incidents.filter((i) => i.status === 'active' || i.status === 'in_progress').length;
@@ -390,9 +408,8 @@ export class SentinelApiClient {
         if (res.ok) {
           const body = await res.json();
           const remoteAlerts: AirspaceAlert[] = body.data || body;
-          for (const alt of remoteAlerts) {
-            await dbService.updateAlert(alt);
-          }
+          // Purge stale alerts and sync fresh list
+          await dbService.setAlerts(remoteAlerts);
           return remoteAlerts;
         }
       } catch (err) {

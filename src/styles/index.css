@@ -634,23 +634,51 @@ html, body, #root, .app-shell {
   pointer-events: auto;
 }
 
-/* Bottom-Left Region: Vertical Stack for Collapsible Panels */
+/* Bottom-Left Region: Unified Non-Overlapping Vertical Stack */
 .map-overlay-bl {
   grid-area: bottom-left;
   display: flex;
-  flex-direction: column-reverse;
-  justify-content: flex-start;
+  flex-direction: column;
+  justify-content: flex-end;
   align-items: flex-start;
-  gap: 12px;
+  gap: 8px;
   pointer-events: none;
-  max-height: calc(100% - 100px);
-  max-width: min(320px, 90vw);
-  overflow-y: auto;
-  padding-bottom: 2px;
+  max-width: min(340px, 90vw);
+  z-index: 50;
+  overflow: visible;
 }
 
 .map-overlay-bl > * {
   pointer-events: auto;
+}
+
+.tactical-bottom-left-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 20rem;
+  pointer-events: none;
+}
+
+.tactical-bottom-left-stack > * {
+  pointer-events: auto;
+}
+
+.tactical-layers-dropdown {
+  animation: tactical-expand-up 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: bottom left;
+}
+
+@keyframes tactical-expand-up {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* Bottom-Right Region: Zoom / Controls Stack */
