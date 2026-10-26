@@ -65,6 +65,13 @@ export class TelemetryService {
     return updated;
   }
 
+  private previousSpeeds: Map<string, number> = new Map();
+
+  private hasActiveAlert(trackId: string, ruleName: string): boolean {
+    const alerts = db.getAlerts({ trackId, acknowledged: false });
+    return alerts.some((a) => a.ruleName === ruleName);
+  }
+
   // Simulation step: advance track positions and evaluate rules deterministically
   public stepSimulation(): { tracks: TelemetryTrack[]; newAlerts: Alert[] } {
     const tracks = db.getTracks();
@@ -88,6 +95,80 @@ export class TelemetryService {
       const newLat = parseFloat((trackLat + deltaLat).toFixed(6));
       const newLng = parseFloat((trackLng + deltaLng).toFixed(6));
 
+      // Kinematic acceleration tracking
+      const prevSpeed = this.previousSpeeds.get(track.id) ?? speedKts;
+      const speedDelta = speedKts - prevSpeed;
+      this.previousSpeeds.set(track.id, speedKts);
+
+      // Current active anomaly flags set for this track
+      const currentFlags = new Set<AnomalyRuleName>(track.anomalyFlags || []);
+
+      // Check Anomaly Rules
+      // 1. Zone incursion
+      const distToZone = this.calculateDistanceKm(
+        newLat,
+        newLng,
+        this.restrictedZone.centerLat,
+        this.restrictedZone.centerLng
+      );
+
+      const isInsideZone = distToZone <= this.restrictedZone.radiusKm;
+      if (isInsideZone) {
+        if (!currentFlags.has('ZONE_INCURSION') && !this.hasActiveAlert(track.id, 'ZONE_INCURSION')) {
+          currentFlags.add('ZONE_INCURSION');
+          const alert: Alert = {
+            id: `ALT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
+            trackId: track.id,
+            severity: 'critical',
+            ruleName: 'ZONE_INCURSION',
+            observedValue: `${(distToZone * 1000).toFixed(0)}m from center of ${this.restrictedZone.name}`,
+            threshold: `Within ${this.restrictedZone.radiusKm * 1000}m boundary`,
+            explanation: `Simulated track entered protected zone airspace (${this.restrictedZone.name}) without flight clearance.`,
+            timestamp: now,
+            acknowledged: false,
+            isSimulated: true,
+          };
+
+          db.saveAlert(alert);
+          newAlerts.push(alert);
+          eventBus.publish('alert:triggered', alert);
+        }
+      } else {
+        // Track has cleared the zone perimeter
+        currentFlags.delete('ZONE_INCURSION');
+      }
+
+      // 2. High speed / sudden acceleration rule
+      // Triggers if sudden velocity spike (delta >= 25 kts) OR unauthorized speed ceiling (> 75 kts for non-commercial aircraft)
+      const isAccelerating = speedDelta >= 25 || (speedKts > 75 && track.type !== 'commercial_fixed_wing');
+      if (isAccelerating) {
+        if (!currentFlags.has('SUDDEN_ACCELERATION') && !this.hasActiveAlert(track.id, 'SUDDEN_ACCELERATION')) {
+          currentFlags.add('SUDDEN_ACCELERATION');
+          const observed = speedDelta >= 20
+            ? `+${speedDelta.toFixed(0)} kts in 3s (${speedKts} kts)`
+            : `${speedKts} kts observed`;
+          const alert: Alert = {
+            id: `ALT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
+            trackId: track.id,
+            severity: 'high',
+            ruleName: 'SUDDEN_ACCELERATION',
+            observedValue: observed,
+            threshold: '> 75 kts maximum authorized ceiling',
+            explanation: 'Rapid kinetic acceleration or ceiling breach detected exceeding standard civilian flight envelope.',
+            timestamp: now,
+            acknowledged: false,
+            isSimulated: true,
+          };
+
+          db.saveAlert(alert);
+          newAlerts.push(alert);
+          eventBus.publish('alert:triggered', alert);
+        }
+      } else if (speedKts <= 75) {
+        // Track speed normalized
+        currentFlags.delete('SUDDEN_ACCELERATION');
+      }
+
       const updatedTrack: TelemetryTrack = {
         ...track,
         lat: newLat,
@@ -102,57 +183,10 @@ export class TelemetryService {
           altitudeMeters,
         },
         timestamp: now,
+        anomalyFlags: Array.from(currentFlags),
       };
 
       db.updateTrack(updatedTrack);
-
-      // Check Anomaly Rules
-      // 1. Zone incursion
-      const distToZone = this.calculateDistanceKm(
-        newLat,
-        newLng,
-        this.restrictedZone.centerLat,
-        this.restrictedZone.centerLng
-      );
-
-      if (distToZone <= this.restrictedZone.radiusKm && !updatedTrack.anomalyFlags?.includes('ZONE_INCURSION')) {
-        const alert: Alert = {
-          id: `ALT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
-          trackId: updatedTrack.id,
-          severity: 'critical',
-          ruleName: 'ZONE_INCURSION',
-          observedValue: `${(distToZone * 1000).toFixed(0)}m from center of ${this.restrictedZone.name}`,
-          threshold: `Within ${this.restrictedZone.radiusKm * 1000}m boundary`,
-          explanation: `Simulated track entered protected zone airspace (${this.restrictedZone.name}) without flight clearance.`,
-          timestamp: now,
-          acknowledged: false,
-          isSimulated: true,
-        };
-
-        db.saveAlert(alert);
-        newAlerts.push(alert);
-        eventBus.publish('alert:triggered', alert);
-      }
-
-      // 2. High speed / sudden acceleration rule
-      if (speedKts > 75 && !updatedTrack.anomalyFlags?.includes('SUDDEN_ACCELERATION')) {
-        const alert: Alert = {
-          id: `ALT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`,
-          trackId: updatedTrack.id,
-          severity: 'high',
-          ruleName: 'SUDDEN_ACCELERATION',
-          observedValue: `${speedKts} kts observed`,
-          threshold: '> 75 kts maximum authorized ceiling',
-          explanation: 'Target speed exceeded authorized civilian corridor speed threshold.',
-          timestamp: now,
-          acknowledged: false,
-          isSimulated: true,
-        };
-
-        db.saveAlert(alert);
-        newAlerts.push(alert);
-        eventBus.publish('alert:triggered', alert);
-      }
     }
 
     eventBus.publish('telemetry:update', db.getTracks());

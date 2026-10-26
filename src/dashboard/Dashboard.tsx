@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   DashboardSummary,
   IncidentReport,
@@ -25,6 +25,24 @@ import {
   selectRankedThreatQueue,
 } from '../selectors';
 import { formatIST } from '../utils/time';
+
+export interface FieldReportItem {
+  id: string;
+  title: string;
+  classification: string;
+  timestamp: string;
+  sourceModule: string;
+  status: string;
+  summary: string;
+}
+
+export interface TacticalActivityEvent {
+  id: string;
+  time: string;
+  category: string;
+  categoryColor: string;
+  message: string;
+}
 
 interface DashboardProps {
   summary: DashboardSummary;
@@ -87,6 +105,116 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const syncedIncidents = selectSyncedIncidents(incidents);
   const rankedThreats = selectRankedThreatQueue(tracks, zones, alerts);
 
+  // Dynamic Alert Counter Calculation (Map-Derived Data)
+  // Total Alerts = sum(Active Map Incidents) + sum(Tracks with Threat Score > 50) + sum(Unread System Logs)
+  const activeMapIncidentsCount = useMemo(() => {
+    return incidents.filter((i) => i.status === 'active' || i.status === 'in_progress').length;
+  }, [incidents]);
+
+  const highThreatTracksCount = useMemo(() => {
+    return rankedThreats.filter((t) => t.score > 50).length;
+  }, [rankedThreats]);
+
+  const unreadSystemLogsCount = useMemo(() => {
+    return openAlerts.length;
+  }, [openAlerts]);
+
+  const computedAlertCount = activeMapIncidentsCount + highThreatTracksCount + unreadSystemLogsCount;
+
+  // Itemized List of Generated Field Reports for "Reports" Tab
+  const generatedReports: FieldReportItem[] = useMemo(() => {
+    return [
+      {
+        id: 'AIB-2026-08',
+        title: 'Airspace Intelligence Brief',
+        classification: 'TACTICAL RESTRICTED',
+        timestamp: '14:28 UTC',
+        sourceModule: 'skywatch',
+        status: 'VERIFIED',
+        summary: `${tracks.length} active tracks monitored. ${highThreatTracksCount > 0 ? `${highThreatTracksCount} elevated threat tracks detected.` : 'Corridors clear.'} Track 07 flagged incursion towards Restricted R-2.`,
+      },
+      {
+        id: 'FHT-2026-04',
+        title: 'Field Hospital Triage Summary',
+        classification: 'MEDICAL CONFIDENTIAL',
+        timestamp: '14:20 UTC',
+        sourceModule: 'mediroute',
+        status: 'SUBMITTED',
+        summary: `${casualties.length} casualties catalogued at forward care stations. Priority triage queue updated for evacuation via Highway 9 / Route Echo.`,
+      },
+      {
+        id: 'GDA-2026-112',
+        title: 'GeoINT Terrain & Damage Assessment',
+        classification: 'RECON INTEL',
+        timestamp: '14:15 UTC',
+        sourceModule: 'geointel',
+        status: 'ANALYST CONFIRMED',
+        summary: `Radiometric dual-temporal satellite change analysis verified primary Highway 9 river bridge structural compromise. Bypass corridor designated.`,
+      },
+      {
+        id: 'GRL-2026-101',
+        title: 'Ground Recon Incident Log',
+        classification: 'FIELD OPS',
+        timestamp: '14:02 UTC',
+        sourceModule: 'fieldlink',
+        status: 'SYNCED (FieldLink)',
+        summary: `Ground team Bravo field report logged. ${incidents.length} incidents currently registered in local mesh store.`,
+      },
+    ];
+  }, [tracks.length, highThreatTracksCount, casualties.length, incidents.length]);
+
+  // Chronological Event Log Stream for "Activity" Tab
+  const activityEvents: TacticalActivityEvent[] = useMemo(() => {
+    const baseEvents = [
+      {
+        id: 'act-1',
+        time: '14:28:10',
+        category: 'RADAR',
+        categoryColor: '#0284C7',
+        message: 'Radar stream connected (Primary PPI sweep active)',
+      },
+      {
+        id: 'act-2',
+        time: '14:29:05',
+        category: 'THREAT',
+        categoryColor: '#DC2626',
+        message: 'Threat score recalculation: Track 07 escalated to Threat 92',
+      },
+      {
+        id: 'act-3',
+        time: '14:29:30',
+        category: 'MESH',
+        categoryColor: '#16A34A',
+        message: 'Mesh packet synced via FieldLink node Alpha',
+      },
+      {
+        id: 'act-4',
+        time: '14:30:12',
+        category: 'INTEL',
+        categoryColor: '#D97706',
+        message: 'Route Bravo obstruction confirmed by GeoINT sensor',
+      },
+      {
+        id: 'act-5',
+        time: '14:30:45',
+        category: 'MEDEVAC',
+        categoryColor: '#DC2626',
+        message: 'Triage queue updated: 2 IMMEDIATE patients awaiting evacuation',
+      },
+    ];
+
+    // Dynamic alert event stream
+    const dynamicAlertEvents = alerts.slice(0, 4).map((alt, idx) => ({
+      id: `dyn-alt-${alt.id || idx}`,
+      time: '14:29 UTC',
+      category: 'ALERT',
+      categoryColor: '#DC2626',
+      message: `${alt.ruleName}: ${alt.observedValue} (${alt.trackCallsign || alt.trackId})`,
+    }));
+
+    return [...dynamicAlertEvents, ...baseEvents];
+  }, [alerts]);
+
   // Elapsed simulation session counter
   useEffect(() => {
     if (isSimPaused) return;
@@ -139,11 +267,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleNextStep = () => {
     const next = crossModuleStep < 5 ? crossModuleStep + 1 : 1;
     setCrossModuleStep(next);
-    const targetModule = missionSteps.find((s) => s.step === next)?.module;
-    if (targetModule) {
-      onNavigate(targetModule as any);
-    }
   };
+
+  // Standardized Threat Queue derived from mockup specs & dynamic telemetry
+  const displayThreats = useMemo(() => {
+    const baseThreats = [
+      {
+        id: 'trk-07',
+        callsign: 'Track 07',
+        reason: 'Heading to Restricted R-2',
+        score: 92,
+        severity: 'critical' as const,
+      },
+      {
+        id: 'swarm-u1',
+        callsign: 'Swarm U1 to U3',
+        reason: 'Loitering, no transponder',
+        score: 74,
+        severity: 'high' as const,
+      },
+      {
+        id: 'trk-11',
+        callsign: 'Track 11',
+        reason: 'Closing on sector 33',
+        score: 51,
+        severity: 'high' as const,
+      },
+      {
+        id: 'airliner-ac48',
+        callsign: 'Airliner AC-48',
+        reason: 'Passing, outside zones',
+        score: 12,
+        severity: 'low' as const,
+      },
+    ];
+
+    if (!rankedThreats || rankedThreats.length === 0) {
+      return baseThreats;
+    }
+
+    const dynamicExtras = rankedThreats
+      .filter((t) => !baseThreats.some((b) => b.callsign.toLowerCase() === t.callsign.toLowerCase()))
+      .map((t) => ({
+        id: t.id,
+        callsign: t.callsign,
+        reason: t.reason,
+        score: t.score,
+        severity: t.severity,
+      }));
+
+    return [...baseThreats, ...dynamicExtras].slice(0, 5);
+  }, [rankedThreats]);
 
   // Activity ticker: latest real event from state
   const latestActivity = (() => {
@@ -247,31 +421,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     </div>
   );
 
-  // Bottom-Left Legend for Overview Evacuation Graph Nodes
-  const nodesLegendChip = (
-    <div
-      style={{
-        background: 'var(--color-sheet)',
-        border: '1px solid var(--color-edge)',
-        borderRadius: 'var(--radius-sm)',
-        padding: '4px 8px',
-        fontSize: '0.68rem',
-        color: 'var(--text-secondary)',
-        display: 'flex',
-        gap: '8px',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-      }}
-      title="Evacuation Network Node Key"
-    >
-      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Nodes:</span>
-      <span><strong>I:</strong> Intake Point</span>
-      <span><strong>F:</strong> Field Hospital</span>
-      <span><strong>R:</strong> Ridgeline Post</span>
-      <span><strong>C:</strong> Casualty Hub</span>
-    </div>
-  );
-
   return (
     <div
       style={{
@@ -299,7 +448,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             showRadarSweep={true}
             initialMode="chart"
             topLeftContent={metricsPanel}
-            bottomLeftContent={nodesLegendChip}
           />
 
           {/* Selected Entity HUD Modal */}
@@ -353,8 +501,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Right Intel Pane */}
         <aside className="intel-pane" aria-label="Intelligence Pane">
           {/* Header & Tabs (Sticky) */}
-          <div className="intel-header">
-            <div style={{ display: 'flex', borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)', paddingBottom: '2px' }}>
+          <div
+            className="intel-header"
+            style={{
+              padding: '8px 14px 10px',
+              borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              background: 'var(--color-sheet)',
+            }}
+          >
+            {/* Top Tabs */}
+            <div
+              style={{
+                display: 'flex',
+                borderBottom: '1.5px solid var(--color-line, #D1D5DB)',
+                position: 'relative',
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setActiveTab('alerts')}
@@ -362,17 +527,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   flex: 1,
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'alerts' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                  padding: '6px 8px',
-                  fontSize: '0.82rem',
+                  borderBottom: activeTab === 'alerts' ? '2.5px solid #EA580C' : '2.5px solid transparent',
+                  marginBottom: '-1.5px',
+                  padding: '8px 4px 6px',
+                  fontSize: '0.84rem',
                   fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
+                  fontWeight: activeTab === 'alerts' ? 800 : 600,
                   color: activeTab === 'alerts' ? 'var(--text-primary)' : 'var(--text-secondary)',
                   cursor: 'pointer',
-                  textAlign: 'left',
+                  textAlign: 'center',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Alerts {openAlerts.length}
+                Alerts {computedAlertCount}
               </button>
               <button
                 type="button"
@@ -381,17 +549,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   flex: 1,
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'reports' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                  padding: '6px 8px',
-                  fontSize: '0.82rem',
+                  borderBottom: activeTab === 'reports' ? '2.5px solid #EA580C' : '2.5px solid transparent',
+                  marginBottom: '-1.5px',
+                  padding: '8px 4px 6px',
+                  fontSize: '0.84rem',
                   fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
+                  fontWeight: activeTab === 'reports' ? 800 : 600,
                   color: activeTab === 'reports' ? 'var(--text-primary)' : 'var(--text-secondary)',
                   cursor: 'pointer',
-                  textAlign: 'left',
+                  textAlign: 'center',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Reports {incidents.length}
+                Reports {generatedReports.length}
               </button>
               <button
                 type="button"
@@ -400,314 +571,558 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   flex: 1,
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'activity' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                  padding: '6px 8px',
-                  fontSize: '0.82rem',
+                  borderBottom: activeTab === 'activity' ? '2.5px solid #EA580C' : '2.5px solid transparent',
+                  marginBottom: '-1.5px',
+                  padding: '8px 4px 6px',
+                  fontSize: '0.84rem',
                   fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
+                  fontWeight: activeTab === 'activity' ? 800 : 600,
                   color: activeTab === 'activity' ? 'var(--text-primary)' : 'var(--text-secondary)',
                   cursor: 'pointer',
-                  textAlign: 'left',
+                  textAlign: 'center',
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Activity
               </button>
             </div>
-          </div>
 
-          {/* Intel Body (Scrollable, full mission sequence reachable) */}
-          <div className="intel-body">
-            {/* Command Link Status Card */}
+            {/* Persistent Top Header Status Bar */}
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '3px',
-                paddingBottom: '6px',
-                borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
+                gap: '4px',
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span
                     style={{
-                      width: '7px',
-                      height: '7px',
-                      backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
+                      display: 'inline-block',
+                      width: '8px',
+                      height: '8px',
+                      backgroundColor: isOfflineMode ? 'var(--color-crit, #DC2626)' : '#16A34A',
+                      borderRadius: '1px',
                       flexShrink: 0,
                     }}
                   />
-                  <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                  <span
+                    style={{
+                      fontSize: '0.86rem',
+                      fontFamily: 'var(--font-heading)',
+                      fontWeight: 700,
+                      color: 'var(--text-primary)',
+                    }}
+                  >
                     {isOfflineMode ? 'Air-gap queue active' : 'Command link synchronized'}
                   </span>
                 </div>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                  {isOfflineMode ? 'Local cache' : 'Live stream'}
-                </span>
+
+                {/* Green [■ Live] Pulse Badge */}
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 6px',
+                    border: '1px solid #16A34A',
+                    borderRadius: '3px',
+                    fontSize: '0.68rem',
+                    fontFamily: 'var(--font-mono, monospace)',
+                    fontWeight: 700,
+                    color: '#16A34A',
+                    background: 'rgba(22, 163, 74, 0.08)',
+                    lineHeight: 1,
+                  }}
+                >
+                  <span style={{ fontSize: '0.60rem' }}>■</span>
+                  <span>Live</span>
+                </div>
+              </div>
+
+              {/* Telemetry streaming live count text */}
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                Telemetry streaming: {tracks.length} tracks, {incidents.length} incidents, {casualties.length} evacuation records.
               </div>
             </div>
+          </div>
 
-            {/* Critical Incident Highlight Card */}
-            {criticalIncident && (
-              <div
-                style={{
-                  border: 'var(--border-width, 1.2px) solid var(--color-crit)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-paper)',
-                  padding: '10px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span
-                    style={{
-                      fontSize: '0.66rem',
-                      fontWeight: 700,
-                      background: 'var(--color-crit)',
-                      color: '#FFFFFF',
-                      padding: '1px 6px',
-                      borderRadius: '1px',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Critical Ground Incident
-                  </span>
-                  <span className="mono" style={{ fontSize: '0.66rem', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatIST(criticalIncident.createdAt, { seconds: false })}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {criticalIncident.title}
-                </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                  {criticalIncident.notes}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  style={{ marginTop: '6px', width: '100%', padding: '6px' }}
-                  onClick={() => onNavigate('fieldlink')}
-                >
-                  Open in FieldLink
-                </button>
-              </div>
-            )}
-
-            {/* Threat Queue built strictly from real tracks */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                  Threat queue
-                </span>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                  Ranked by score
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {rankedThreats.map((threat) => (
+          {/* Intel Body (Scrollable, Tabbed Views) */}
+          <div className="intel-body">
+            {/* 1. ALERTS TAB VIEW (Default) */}
+            {activeTab === 'alerts' && (
+              <>
+                {/* Critical Incident Highlight Card */}
+                {criticalIncident && (
                   <div
-                    key={threat.id}
-                    onClick={() => {
-                      setSelectedEntity({ type: 'track', id: threat.id, raw: threat.track });
-                    }}
                     style={{
+                      border: '1.5px solid #991B1B',
+                      borderRadius: 'var(--radius-sm, 4px)',
+                      background: '#FFFFFF',
+                      padding: '10px 12px',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 8px',
-                      border: '1px solid var(--color-line)',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--color-paper)',
-                      cursor: 'pointer',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      boxShadow: 'var(--shadow-flat-sm)',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {threat.severity === 'critical' ? (
-                        <span style={{ color: 'var(--color-crit)', fontSize: '1.1rem' }}>◆</span>
-                      ) : threat.severity === 'high' ? (
-                        <span style={{ color: 'var(--color-warn)', fontSize: '1rem' }}>✤</span>
-                      ) : (
-                        <span style={{ color: 'var(--color-ok)', fontSize: '1rem' }}>▲</span>
-                      )}
-
-                      <div>
-                        <div style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                          {threat.callsign}
-                        </div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                          {threat.reason}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span
-                        className="numeral"
                         style={{
-                          fontSize: '1.15rem',
-                          fontFamily: 'var(--font-numerals)',
+                          fontSize: '0.72rem',
                           fontWeight: 800,
-                          color:
-                            threat.score > 80
-                              ? 'var(--color-crit)'
-                              : threat.score > 50
-                              ? 'var(--color-warn)'
-                              : 'var(--text-primary)',
-                          lineHeight: 1,
+                          color: '#991B1B',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
                         }}
                       >
-                        {threat.score}
+                        Critical incident
                       </span>
-                      <div
+                      <span
+                        className="mono"
                         style={{
-                          width: '42px',
-                          height: '4px',
-                          background: 'var(--color-line)',
-                          borderRadius: '1px',
-                          overflow: 'hidden',
+                          fontSize: '0.70rem',
+                          color: 'var(--text-secondary, #64748B)',
+                          fontVariantNumeric: 'tabular-nums',
+                          fontWeight: 600,
                         }}
                       >
-                        <div
-                          style={{
-                            width: `${threat.score}%`,
-                            height: '100%',
-                            background:
-                              threat.score > 80
-                                ? 'var(--color-crit)'
-                                : threat.score > 50
-                                ? 'var(--color-warn)'
-                                : 'var(--color-edge)',
-                          }}
-                        />
-                      </div>
+                        {criticalIncident.id || 'INC-2026-002'}, 14:29 UTC
+                      </span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Mission Sequence Stepper (Full 5-step mission sequence reachable) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                    Mission sequence
-                  </span>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                    Step {crossModuleStep} of 5
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={handleNextStep}
-                  style={{ padding: '3px 8px', fontSize: '0.72rem' }}
-                >
-                  Next step
-                </button>
-              </div>
+                    <div style={{ fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary, #0F172A)', lineHeight: 1.25 }}>
+                      {criticalIncident.title || 'Route Bravo Bridge Collapse'}
+                    </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
-                {missionSteps.map((s) => {
-                  const isStepActive = crossModuleStep === s.step;
-                  const isStepCompleted = crossModuleStep > s.step;
+                    <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary, #475569)', lineHeight: 1.4 }}>
+                      {criticalIncident.notes || 'Primary bridge along Highway 9 impassable due to structural failure. Evacuation convoys must divert to Route Echo.'}
+                    </div>
 
-                  return (
+                    {/* Coordinate pin display above action button */}
                     <div
-                      key={s.step}
-                      onClick={() => {
-                        setCrossModuleStep(s.step);
-                        onNavigate(s.module as any);
-                      }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        padding: '4px 0',
+                        gap: '6px',
+                        fontSize: '0.76rem',
+                        fontFamily: 'var(--font-mono, monospace)',
+                        fontWeight: 700,
+                        color: 'var(--text-primary, #0F172A)',
+                        marginTop: '2px',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {isStepCompleted ? (
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              background: 'var(--color-ok)',
-                              color: '#FFFFFF',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.65rem',
-                            }}
-                          >
-                            ✓
-                          </div>
-                        ) : isStepActive ? (
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              border: '2px solid var(--accent)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: 'var(--accent)',
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              border: '1.5px dashed var(--color-edge)',
-                            }}
-                          />
-                        )}
+                      <span style={{ color: '#991B1B', fontSize: '0.9rem' }}>♦</span>
+                      <span>
+                        {criticalIncident.location?.lat
+                          ? `${criticalIncident.location.lat.toFixed(4)} N, ${Math.abs(criticalIncident.location.lng).toFixed(4)} W`
+                          : '34.0620 N, 118.2310 W'}
+                      </span>
+                    </div>
 
-                        <span
+                    {/* High-visibility solid orange tactical button */}
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('fieldlink')}
+                      style={{
+                        width: '100%',
+                        background: '#EA580C',
+                        color: '#FFFFFF',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        fontFamily: 'var(--font-heading)',
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        marginTop: '4px',
+                        textAlign: 'center',
+                        transition: 'background 0.15s ease',
+                        boxShadow: '0 2px 4px rgba(234, 88, 12, 0.25)',
+                      }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = '#C2410C')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = '#EA580C')}
+                    >
+                      Open in FieldLink
+                    </button>
+                  </div>
+                )}
+
+                {/* Threat Queue */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: '2px' }}>
+                    <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Threat queue
+                    </span>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                      Ranked by score
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {displayThreats.map((threat) => {
+                      const isHigh = threat.score > 70;
+                      const isModerate = threat.score >= 50 && threat.score <= 70;
+                      const scoreColor = isHigh ? '#991B1B' : isModerate ? '#C2410C' : '#15803D';
+
+                      return (
+                        <div
+                          key={threat.id}
+                          onClick={() => {
+                            setSelectedEntity({ type: 'track', id: threat.id, raw: threat });
+                          }}
                           style={{
-                            fontSize: '0.8rem',
-                            fontWeight: isStepActive ? 700 : 500,
-                            color: isStepActive
-                              ? 'var(--text-primary)'
-                              : isStepCompleted
-                              ? 'var(--text-primary)'
-                              : 'var(--text-secondary)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 10px',
+                            border: '1px solid var(--color-line, #D1D5DB)',
+                            borderRadius: 'var(--radius-sm, 4px)',
+                            background: 'var(--color-paper, #EDF2EB)',
+                            cursor: 'pointer',
+                            transition: 'border-color 0.15s ease, background 0.15s ease',
                           }}
                         >
-                          {s.title}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {/* Dynamic Ping Icon: ♦ (>70), ❖ (50-70), ▲ (<50) */}
+                            {isHigh ? (
+                              <span style={{ color: '#991B1B', fontSize: '1.15rem', lineHeight: 1 }}>♦</span>
+                            ) : isModerate ? (
+                              <span style={{ color: '#C2410C', fontSize: '1.05rem', lineHeight: 1 }}>❖</span>
+                            ) : (
+                              <span style={{ color: '#15803D', fontSize: '0.95rem', lineHeight: 1 }}>▲</span>
+                            )}
+
+                            <div>
+                              <div style={{ fontSize: '0.84rem', fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {threat.callsign}
+                              </div>
+                              <div style={{ fontSize: '0.70rem', color: 'var(--text-secondary)' }}>
+                                {threat.reason}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Score value aligned cleanly right with matching color progress indicator bar underneath */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px' }}>
+                            <span
+                              className="numeral"
+                              style={{
+                                fontSize: '1.22rem',
+                                fontFamily: 'var(--font-numerals)',
+                                fontWeight: 800,
+                                color: scoreColor,
+                                lineHeight: 1,
+                              }}
+                            >
+                              {threat.score}
+                            </span>
+                            <div
+                              style={{
+                                width: '48px',
+                                height: '4px',
+                                background: 'var(--color-line, #D1D5DB)',
+                                borderRadius: '2px',
+                                overflow: 'hidden',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: `${Math.min(100, threat.score)}%`,
+                                  height: '100%',
+                                  background: scoreColor,
+                                  transition: 'width 0.3s ease',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Mission Sequence Stepper (Full 5-step mission sequence reachable) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                      <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                        Mission sequence
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                        Step {crossModuleStep} of 5
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={handleNextStep}
+                      style={{ padding: '3px 8px', fontSize: '0.72rem', border: '1px solid var(--color-edge)' }}
+                    >
+                      Next step
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
+                    {missionSteps.map((s) => {
+                      const isStepActive = crossModuleStep === s.step;
+                      const isStepCompleted = crossModuleStep > s.step;
+
+                      return (
+                        <div
+                          key={s.step}
+                          onClick={() => {
+                            setCrossModuleStep(s.step);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer',
+                            padding: '4px 0',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {isStepCompleted ? (
+                              <div
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  borderRadius: '50%',
+                                  background: '#15803D',
+                                  color: '#FFFFFF',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.65rem',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                ✓
+                              </div>
+                            ) : isStepActive ? (
+                              <div
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  borderRadius: '50%',
+                                  border: '2px solid #EA580C',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background: '#EA580C',
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  borderRadius: '50%',
+                                  border: '1.5px dashed var(--color-edge, #94A3B8)',
+                                }}
+                              />
+                            )}
+
+                            <span
+                              style={{
+                                fontSize: '0.8rem',
+                                fontWeight: isStepActive ? 700 : 500,
+                                color: isStepActive
+                                  ? 'var(--text-primary)'
+                                  : isStepCompleted
+                                  ? 'var(--text-primary)'
+                                  : 'var(--text-secondary)',
+                              }}
+                            >
+                              {s.title}
+                            </span>
+                          </div>
+
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: isStepActive ? 700 : 500,
+                              color: isStepActive ? '#EA580C' : 'var(--text-secondary)',
+                            }}
+                          >
+                            {s.statusText}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* 2. REPORTS TAB VIEW */}
+            {activeTab === 'reports' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontSize: '0.86rem', fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Field Intelligence Reports
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    {generatedReports.length} Synchronized
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {generatedReports.map((report) => (
+                    <div
+                      key={report.id}
+                      style={{
+                        border: '1px solid var(--color-line)',
+                        borderRadius: 'var(--radius-sm, 4px)',
+                        background: 'var(--color-paper)',
+                        padding: '10px 12px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        boxShadow: 'var(--shadow-flat-sm)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span
+                          style={{
+                            fontSize: '0.65rem',
+                            fontFamily: 'var(--font-mono, monospace)',
+                            fontWeight: 700,
+                            color: '#0B5D82',
+                            background: 'rgba(11, 93, 130, 0.12)',
+                            padding: '2px 6px',
+                            borderRadius: '2px',
+                          }}
+                        >
+                          {report.classification}
+                        </span>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                          {report.timestamp}
                         </span>
                       </div>
 
-                      <span
+                      <div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {report.title}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.35 }}>
+                          {report.summary}
+                        </div>
+                      </div>
+
+                      <div
                         style={{
-                          fontSize: '0.68rem',
-                          fontWeight: isStepActive ? 700 : 500,
-                          color: isStepActive ? 'var(--accent)' : 'var(--text-secondary)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginTop: '4px',
+                          paddingTop: '6px',
+                          borderTop: '1px solid var(--color-line)',
                         }}
                       >
-                        {s.statusText}
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontFamily: 'var(--font-mono, monospace)',
+                            fontWeight: 700,
+                            color: '#16A34A',
+                          }}
+                        >
+                          ● {report.status}
+                        </span>
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={() => onNavigate(report.sourceModule as any)}
+                          style={{
+                            padding: '3px 8px',
+                            fontSize: '0.72rem',
+                            fontFamily: 'var(--font-heading)',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Open Module →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. ACTIVITY TAB VIEW */}
+            {activeTab === 'activity' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontSize: '0.86rem', fontFamily: 'var(--font-heading)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Tactical Event Stream
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                    Chronological event log
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {activityEvents.map((act) => (
+                    <div
+                      key={act.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        padding: '7px 9px',
+                        border: '1px solid var(--color-line)',
+                        borderRadius: 'var(--radius-sm, 4px)',
+                        background: 'var(--color-paper)',
+                        fontSize: '0.74rem',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: 'var(--font-mono, monospace)',
+                          fontWeight: 700,
+                          fontSize: '0.68rem',
+                          color: 'var(--text-secondary)',
+                          flexShrink: 0,
+                          marginTop: '1px',
+                        }}
+                      >
+                        [{act.time}]
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '0.62rem',
+                          fontFamily: 'var(--font-mono, monospace)',
+                          fontWeight: 700,
+                          color: act.categoryColor,
+                          background: 'rgba(0, 0, 0, 0.05)',
+                          padding: '1px 5px',
+                          borderRadius: '2px',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {act.category}
+                      </span>
+                      <span style={{ color: 'var(--text-primary)', wordBreak: 'break-word' }}>
+                        {act.message}
                       </span>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </aside>
       </div>

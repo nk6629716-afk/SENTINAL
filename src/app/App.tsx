@@ -13,7 +13,16 @@ import {
 } from '@shared/types';
 import { api } from '../services/api/apiClient';
 import { dbService } from '../services/storage/indexedDb';
-import { EVACUATION_NODES } from '../services/data/fixtures';
+import {
+  EVACUATION_NODES,
+  INITIAL_INCIDENTS,
+  INITIAL_TRACKS,
+  INITIAL_ALERTS,
+  RESTRICTED_AIRSPACE_ZONES,
+  INITIAL_GEO_OBSERVATIONS,
+  INITIAL_CASUALTIES,
+  ROAD_HAZARD_EDGES,
+} from '../services/data/fixtures';
 import { Sidebar } from './Sidebar';
 import { CommandHeader } from './CommandHeader';
 import { Dashboard } from '../dashboard/Dashboard';
@@ -28,6 +37,19 @@ import { Layers, Radio, Crosshair, Compass, HeartPulse } from 'lucide-react';
 export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
 
 export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute'] as const;
+
+export const DEFAULT_INITIAL_SUMMARY: DashboardSummary = {
+  systemStatus: 'nominal',
+  pendingSyncCount: 0,
+  activeIncidentsCount: 3,
+  activeAirspaceTracksCount: 6,
+  unacknowledgedAlertsCount: 2,
+  pendingGeoReviewsCount: 2,
+  criticalPatientsAwaitingEvac: 2,
+  blockedRoadSegmentsCount: 1,
+  lastSyncTimestamp: new Date().toISOString(),
+  isSimulated: true,
+};
 
 export function parseModuleFromHash(hash: string): ModuleId {
   const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
@@ -108,15 +130,15 @@ export const App: React.FC = () => {
     }
   });
 
-  // Core Data States
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [incidents, setIncidents] = useState<IncidentReport[]>([]);
-  const [tracks, setTracks] = useState<TelemetryTrack[]>([]);
-  const [alerts, setAlerts] = useState<AirspaceAlert[]>([]);
-  const [zones, setZones] = useState<RestrictedAirspaceZone[]>([]);
-  const [observations, setObservations] = useState<GeoIntelObservation[]>([]);
-  const [casualties, setCasualties] = useState<CasualtyRecord[]>([]);
-  const [hazards, setHazards] = useState<RoadHazardEdge[]>([]);
+  // Core Data States with Resilient Defaults
+  const [summary, setSummary] = useState<DashboardSummary>(DEFAULT_INITIAL_SUMMARY);
+  const [incidents, setIncidents] = useState<IncidentReport[]>(INITIAL_INCIDENTS);
+  const [tracks, setTracks] = useState<TelemetryTrack[]>(INITIAL_TRACKS);
+  const [alerts, setAlerts] = useState<AirspaceAlert[]>(INITIAL_ALERTS);
+  const [zones, setZones] = useState<RestrictedAirspaceZone[]>(RESTRICTED_AIRSPACE_ZONES);
+  const [observations, setObservations] = useState<GeoIntelObservation[]>(INITIAL_GEO_OBSERVATIONS);
+  const [casualties, setCasualties] = useState<CasualtyRecord[]>(INITIAL_CASUALTIES);
+  const [hazards, setHazards] = useState<RoadHazardEdge[]>(ROAD_HAZARD_EDGES);
   const [realtimeState, setRealtimeState] = useState<RealtimeState>(() => realtimeService.getState());
   const [backendHealth, setBackendHealth] = useState<any>(null);
   const [markers, setMarkers] = useState<SharedMapMarker[]>([]);
@@ -148,21 +170,10 @@ export const App: React.FC = () => {
     api.setSimulationSpeed(speed);
   };
 
-  // 1. Initial Database Seed & Load
+  // 1. Initial Database Seed & Resilient Load (Uses Promise.allSettled so failures never block UI)
   const refreshAllData = useCallback(async () => {
     try {
-      const [
-        sum,
-        incList,
-        trkList,
-        altList,
-        zoneList,
-        obsList,
-        casList,
-        hazList,
-        health,
-        simStatus,
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         api.getDashboardSummary(),
         api.getIncidents(),
         api.getTelemetryTracks(),
@@ -175,16 +186,28 @@ export const App: React.FC = () => {
         api.getSimulationStatus(),
       ]);
 
-      setSummary(sum);
-      setIncidents(incList);
-      setTracks(trkList);
-      setAlerts(altList);
-      setZones(zoneList);
-      setObservations(obsList);
-      setCasualties(casList);
-      setHazards(hazList);
-      if (health) setBackendHealth(health);
-      if (simStatus) setIsSimPaused(!simStatus.isRunning);
+      const [sum, inc, trk, alt, zone, obs, cas, haz, health, sim] = results;
+
+      if (sum.status === 'fulfilled' && sum.value) setSummary(sum.value);
+      if (inc.status === 'fulfilled' && inc.value) setIncidents(inc.value);
+      if (trk.status === 'fulfilled' && trk.value) setTracks(trk.value);
+      if (alt.status === 'fulfilled' && alt.value) {
+        const seen = new Set<string>();
+        const deduped = alt.value.filter((a) => {
+          if (a.acknowledged) return true;
+          const key = `${a.trackId || 'unknown'}:${a.ruleName}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setAlerts(deduped);
+      }
+      if (zone.status === 'fulfilled' && zone.value) setZones(zone.value);
+      if (obs.status === 'fulfilled' && obs.value) setObservations(obs.value);
+      if (cas.status === 'fulfilled' && cas.value) setCasualties(cas.value);
+      if (haz.status === 'fulfilled' && haz.value) setHazards(haz.value);
+      if (health.status === 'fulfilled' && health.value) setBackendHealth(health.value);
+      if (sim.status === 'fulfilled' && sim.value) setIsSimPaused(!sim.value.isRunning);
     } catch (err) {
       console.error('Error refreshing SENTINEL data:', err);
     } finally {
@@ -206,7 +229,17 @@ export const App: React.FC = () => {
       setTracks(newTracks);
     });
     const unsubAlert = realtimeService.onAlertTriggered((alert) => {
-      setAlerts((prev) => [alert, ...prev.filter((a) => a.id !== alert.id)]);
+      setAlerts((prev) => {
+        const existingIdx = prev.findIndex(
+          (a) => a.id === alert.id || (a.trackId === alert.trackId && a.ruleName === alert.ruleName && !a.acknowledged)
+        );
+        if (existingIdx !== -1) {
+          const updated = [...prev];
+          updated[existingIdx] = { ...updated[existingIdx], ...alert };
+          return updated;
+        }
+        return [alert, ...prev];
+      });
     });
     const unsubAlertAck = realtimeService.onAlertAcknowledged((alert) => {
       setAlerts((prev) => prev.map((a) => (a.id === alert.id ? alert : a)));
@@ -255,17 +288,57 @@ export const App: React.FC = () => {
     if (res && res.data && res.data.tracks) {
       setTracks(res.data.tracks);
       if (res.data.newAlerts && res.data.newAlerts.length > 0) {
-        setAlerts((prev) => [...res.data.newAlerts, ...prev]);
+        setAlerts((prev) => {
+          const merged = [...prev];
+          for (const newAlt of res.data.newAlerts) {
+            const idx = merged.findIndex(
+              (a) => a.id === newAlt.id || (a.trackId === newAlt.trackId && a.ruleName === newAlt.ruleName && !a.acknowledged)
+            );
+            if (idx !== -1) {
+              merged[idx] = { ...merged[idx], ...newAlt };
+            } else {
+              merged.unshift(newAlt);
+            }
+          }
+          return merged;
+        });
       }
     }
   };
 
   useEffect(() => {
+    let isMounted = true;
+
+    // Safety watchdog: ensure loading screen is never stuck longer than 1000ms
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    }, 1000);
+
     async function boot() {
-      await dbService.seedDefaultFixturesIfEmpty();
-      await refreshAllData();
+      try {
+        await dbService.seedDefaultFixturesIfEmpty();
+      } catch (err) {
+        console.warn('[App] Local IndexedDB seed skipped or failed, using in-memory baseline:', err);
+      }
+      try {
+        await refreshAllData();
+      } catch (err) {
+        console.warn('[App] Initial data refresh warning:', err);
+      } finally {
+        if (isMounted) {
+          clearTimeout(safetyTimer);
+          setIsLoading(false);
+        }
+      }
     }
     boot();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimer);
+    };
   }, [refreshAllData]);
 
   // 2. Hardware Browser Network Listeners
@@ -390,7 +463,7 @@ export const App: React.FC = () => {
   const pendingSyncCount = selectPendingOutbox(incidents).length;
   const unackAlertsCount = selectOpenAlerts(alerts).length;
 
-  if (isLoading || !summary) {
+  if (isLoading) {
     return (
       <div
         style={{

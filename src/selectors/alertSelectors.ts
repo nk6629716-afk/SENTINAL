@@ -4,7 +4,17 @@ import { AirspaceAlert } from '@shared/types';
  * Returns all unacknowledged (open) airspace alerts.
  */
 export function selectOpenAlerts(alerts: AirspaceAlert[] = []): AirspaceAlert[] {
-  return alerts.filter((a) => !a.acknowledged);
+  const seen = new Set<string>();
+  const unack = alerts.filter((a) => !a.acknowledged);
+  const deduplicated: AirspaceAlert[] = [];
+  for (const a of unack) {
+    const key = `${a.trackId || 'unknown'}:${a.ruleName || a.id}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      deduplicated.push(a);
+    }
+  }
+  return deduplicated;
 }
 
 /**
