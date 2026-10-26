@@ -3,12 +3,9 @@ import {
   Wifi,
   WifiOff,
   RotateCcw,
-  Sun,
-  Moon,
   Menu,
   MoreVertical,
 } from 'lucide-react';
-import { themeService, ThemeMode } from '../services/theme/themeService';
 import { getLiveIST } from '../utils/time';
 
 export interface CommandHeaderProps {
@@ -53,7 +50,6 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
   lastEventTimestamp = null,
 }) => {
   const [istTime, setIstTime] = useState<string>(() => getLiveIST());
-  const [themeMode, setThemeMode] = useState<ThemeMode>(themeService.getMode());
   const [isOverflowOpen, setIsOverflowOpen] = useState(false);
 
   // Live IST Clock (ticking each second in Asia/Kolkata UTC+05:30)
@@ -65,19 +61,6 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // Theme subscription
-  useEffect(() => {
-    const unsubscribe = themeService.subscribe((mode) => {
-      setThemeMode(mode);
-    });
-    return unsubscribe;
-  }, []);
-
-  const handleThemeChange = (newMode: ThemeMode) => {
-    themeService.setMode(newMode);
-    setThemeMode(newMode);
-  };
 
   const getModuleTitle = () => {
     switch (activeModule) {
@@ -162,24 +145,6 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: Notice Badge */}
-      <div className="header-notice-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div
-          style={{
-            border: '1px solid rgba(255, 179, 0, 0.4)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '2px 8px',
-            fontSize: '0.72rem',
-            color: '#FFB300',
-            fontWeight: 600,
-            letterSpacing: '0.01em',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Simulated training data
-        </div>
-      </div>
-
       {/* Right: Controls Strip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
         {/* Live IST Clock */}
@@ -200,89 +165,6 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
 
         {/* Desktop-only action controls */}
         <div className="header-actions-desktop" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          {/* 3-way Theme Control (Sun, Half-circle, Moon) */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'rgba(0, 0, 0, 0.25)',
-              padding: '1px',
-            }}
-            role="group"
-            aria-label="Theme mode switcher"
-          >
-            {/* Light: Sun */}
-            <button
-              type="button"
-              onClick={() => handleThemeChange('light')}
-              style={{
-                background: themeMode === 'light' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                color: themeMode === 'light' ? '#FFB300' : '#869E96',
-                border: 'none',
-                padding: '3px 6px',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Light Theme"
-              aria-label="Light Theme"
-              aria-pressed={themeMode === 'light'}
-            >
-              <Sun size={13} />
-            </button>
-
-            {/* Auto/System: Half-circle */}
-            <button
-              type="button"
-              onClick={() => handleThemeChange('system')}
-              style={{
-                background: themeMode === 'system' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                color: themeMode === 'system' ? '#F0FDF4' : '#869E96',
-                border: 'none',
-                padding: '3px 6px',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Auto System Theme"
-              aria-label="Auto System Theme"
-              aria-pressed={themeMode === 'system'}
-            >
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 1a7 7 0 1 0 0 14V1z" />
-                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              </svg>
-            </button>
-
-            {/* Dark: Moon */}
-            <button
-              type="button"
-              onClick={() => handleThemeChange('dark')}
-              style={{
-                background: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                color: themeMode === 'dark' ? '#00E676' : '#869E96',
-                border: 'none',
-                padding: '3px 6px',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="Dark Theme"
-              aria-label="Dark Theme"
-              aria-pressed={themeMode === 'dark'}
-            >
-              <Moon size={13} />
-            </button>
-          </div>
-
           {/* Go Offline / Offline Mode Button */}
           <button
             type="button"
@@ -446,36 +328,6 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               }}
               onClick={() => setIsOverflowOpen(false)}
             >
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginBottom: '2px' }}>Theme</div>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={(e) => { e.stopPropagation(); handleThemeChange('light'); }}
-                  style={{ flex: 1, padding: '4px' }}
-                >
-                  <Sun size={12} /> Light
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={(e) => { e.stopPropagation(); handleThemeChange('system'); }}
-                  style={{ flex: 1, padding: '4px' }}
-                >
-                  Auto
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={(e) => { e.stopPropagation(); handleThemeChange('dark'); }}
-                  style={{ flex: 1, padding: '4px' }}
-                >
-                  <Moon size={12} /> Dark
-                </button>
-              </div>
-
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', margin: '4px 0' }} />
-
               <button
                 type="button"
                 className="btn btn-sm"
