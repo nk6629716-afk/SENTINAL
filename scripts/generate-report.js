@@ -44,7 +44,7 @@ function getGitInfo() {
 
 function runTests() {
   try {
-    const testOutput = execSync('node src/tests/frontend-contracts.test.js && node --experimental-strip-types tests/simulation.test.ts', {
+    const testOutput = execSync('node src/tests/frontend-contracts.test.js && npx tsx tests/simulation.test.ts', {
       cwd: rootDir,
       encoding: 'utf-8',
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -224,8 +224,7 @@ This report is configured to update **automatically after every Git operation**:
 `;
 
   fs.writeFileSync(path.join(rootDir, 'REPORT.md'), content, 'utf-8');
-  fs.writeFileSync(path.join(rootDir, 'report.md'), content, 'utf-8');
-  console.log(`[ReportGenerator] Successfully generated REPORT.md and report.md at ${generationTime}`);
+  console.log(`[ReportGenerator] Successfully generated REPORT.md at ${generationTime}`);
 }
 
 generateReport();

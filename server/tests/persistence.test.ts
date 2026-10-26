@@ -100,16 +100,98 @@ test('POST /api/demo/reset preserves pending offline incident reports and custom
     isSimulated: true,
   });
 
+  // Save a failed offline incident
+  db.saveIncident({
+    id: 'INC-FAILED-OFFLINE-TEST',
+    clientId: 'cli-failed-test-01',
+    sourceModule: 'fieldlink',
+    type: 'infrastructure',
+    priority: 'high',
+    status: 'failed_sync',
+    syncStatus: 'failed',
+    title: 'Failed Offline Report From Field',
+    notes: 'Failed sync must survive demo reset for retry.',
+    location: { lat: 34.07, lng: -118.25, name: 'Remote Outpost' },
+    createdAt: now,
+    updatedAt: now,
+    isSimulated: true,
+  });
+
+  // Save pending and failed GeoIntel observations
+  db.saveObservation({
+    id: 'GEO-PENDING-OFFLINE-TEST',
+    samplePairId: 'PAIR-DEMO-01',
+    name: 'Sector 4 Anomaly',
+    description: 'Pending offline satellite observation',
+    reviewStatus: 'unreviewed',
+    syncStatus: 'pending',
+    candidateCount: 1,
+    detectedCandidates: [],
+    analystNotes: '',
+    createdAt: now,
+    reviewedAt: null,
+    isSimulated: true,
+  } as any);
+
+  db.saveObservation({
+    id: 'GEO-FAILED-OFFLINE-TEST',
+    samplePairId: 'PAIR-DEMO-01',
+    name: 'Sector 5 Anomaly',
+    description: 'Failed sync satellite observation',
+    reviewStatus: 'unreviewed',
+    syncStatus: 'failed',
+    candidateCount: 1,
+    detectedCandidates: [],
+    analystNotes: '',
+    createdAt: now,
+    reviewedAt: null,
+    isSimulated: true,
+  } as any);
+
   // Call reset
   const resetRes = await request(app).post('/api/demo/reset');
   assert.strictEqual(resetRes.status, 200);
 
-  // Verify that pending incident was preserved
-  const preserved = db.getIncidentById('INC-PENDING-OFFLINE-TEST');
-  assert.ok(preserved, 'Pending offline incident report must be preserved after demo reset');
-  assert.strictEqual(preserved?.syncStatus, 'pending');
+  // Verify that pending and failed incidents were preserved
+  const preservedPending = db.getIncidentById('INC-PENDING-OFFLINE-TEST');
+  assert.ok(preservedPending, 'Pending offline incident report must be preserved after demo reset');
+  assert.strictEqual(preservedPending?.syncStatus, 'pending');
 
-  // Clean up test record after assertion
+  const preservedFailed = db.getIncidentById('INC-FAILED-OFFLINE-TEST');
+  assert.ok(preservedFailed, 'Failed offline incident report must be preserved after demo reset');
+  assert.strictEqual(preservedFailed?.syncStatus, 'failed');
+
+  // Verify that pending and failed Geo observations were preserved
+  const preservedPendingObs = db.getObservationById('GEO-PENDING-OFFLINE-TEST');
+  assert.ok(preservedPendingObs, 'Pending GeoIntel observation must be preserved after demo reset');
+  assert.strictEqual((preservedPendingObs as any)?.syncStatus, 'pending');
+
+  const preservedFailedObs = db.getObservationById('GEO-FAILED-OFFLINE-TEST');
+  assert.ok(preservedFailedObs, 'Failed GeoIntel observation must be preserved after demo reset');
+  assert.strictEqual((preservedFailedObs as any)?.syncStatus, 'failed');
+
+  // Clean up test records after assertion
   await request(app).post('/api/demo/reset?preservePending=false');
 });
 
+test('POST /api/demo/seed does not create duplicate baseline fixtures on repeated calls', async () => {
+  // First seed
+  const res1 = await request(app).post('/api/demo/seed');
+  assert.strictEqual(res1.status, 200);
+
+  const incRes1 = await request(app).get('/api/incidents');
+  const initialCount = incRes1.body.data.length;
+  assert.strictEqual(initialCount, 3, 'Baseline must have exactly 3 seeded incidents');
+
+  // Repeated seed
+  const res2 = await request(app).post('/api/demo/seed');
+  assert.strictEqual(res2.status, 200);
+
+  const incRes2 = await request(app).get('/api/incidents');
+  assert.strictEqual(incRes2.body.data.length, initialCount, 'Repeated seeding must not duplicate records');
+
+  // Check unique IDs
+  const ids = incRes2.body.data.map((i: any) => i.id);
+  const uniqueIds = new Set(ids);
+  assert.strictEqual(uniqueIds.size, ids.length, 'Seeded incident IDs must be unique');
+});

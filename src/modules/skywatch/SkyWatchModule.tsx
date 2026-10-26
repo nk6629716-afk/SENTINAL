@@ -206,6 +206,9 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                 {rankedThreats.length} contacts
               </span>
             </div>
+            <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)', marginTop: '2px', fontStyle: 'italic' }}>
+              Heuristic scoring · Simulated telemetry
+            </div>
           </div>
 
           <div className="intel-body">
@@ -244,18 +247,21 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                     </div>
                   </div>
 
-                  <span
-                    className="numeral"
-                    style={{
-                      fontSize: '1.6rem',
-                      fontFamily: 'var(--font-numerals)',
-                      fontWeight: 800,
-                      color: activeThreat.score > 80 ? 'var(--color-crit)' : 'var(--color-warn)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {activeThreat.score}
-                  </span>
+                  <div style={{ textAlign: 'right' }}>
+                    <span
+                      className="numeral"
+                      style={{
+                        fontSize: '1.6rem',
+                        fontFamily: 'var(--font-numerals)',
+                        fontWeight: 800,
+                        color: activeThreat.score > 80 ? 'var(--color-crit)' : 'var(--color-warn)',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {activeThreat.score}
+                    </span>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>Heuristic score</div>
+                  </div>
                 </div>
 
                 {/* Real Kinematic Telemetry Data */}
