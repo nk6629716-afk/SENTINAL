@@ -16,8 +16,8 @@ export const vitalWatchRouter = Router();
  */
 export const authRouter = Router();
 
-authRouter.post('/signup', (req: Request, res: Response) => {
-  const { email, name, callsign, role, teamId, teamName, missionId, missionName } = req.body;
+authRouter.post('/signup', async (req: Request, res: Response) => {
+  const { email, password, name, callsign, role, teamId, teamName, missionId, missionName } = req.body;
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
     return res.status(400).json({
@@ -30,6 +30,13 @@ authRouter.post('/signup', (req: Request, res: Response) => {
     return res.status(400).json({
       success: false,
       error: 'Full name is required for registration.',
+    });
+  }
+
+  if (password !== undefined && typeof password === 'string' && password.length > 0 && password.length < 6) {
+    return res.status(400).json({
+      success: false,
+      error: 'Password must be at least 6 characters.',
     });
   }
 
@@ -61,10 +68,30 @@ authRouter.post('/signup', (req: Request, res: Response) => {
 
   db.saveUser(newUser);
 
-  // If Supabase is configured, attempt mirror write
+  // If Supabase is configured, attempt Supabase Auth signup and mirror write
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseClient();
     if (supabase) {
+      if (password && typeof password === 'string' && password.length >= 6) {
+        Promise.resolve(
+          supabase.auth.signUp({
+            email: newUser.email,
+            password,
+            options: {
+              data: {
+                name: newUser.name,
+                role: newUser.role,
+                status: 'pending',
+              },
+            },
+          })
+        )
+          .then((result) => {
+            if (result.error) console.warn('[Supabase Auth] Notice during signup:', result.error.message);
+          })
+          .catch((err: unknown) => console.warn('[Supabase Auth] Exception during signup:', err));
+      }
+
       Promise.resolve(
         supabase
           .from('sentinel_users')
@@ -98,8 +125,8 @@ authRouter.post('/signup', (req: Request, res: Response) => {
  * POST /api/auth/login
  * Log in with existing credentials. Pending users are strictly blocked from mission data.
  */
-authRouter.post('/login', (req: Request, res: Response) => {
-  const { email } = req.body;
+authRouter.post('/login', async (req: Request, res: Response) => {
+  const { email, password } = req.body;
 
   if (!email || typeof email !== 'string') {
     return res.status(400).json({
@@ -108,6 +135,46 @@ authRouter.post('/login', (req: Request, res: Response) => {
     });
   }
 
+  // 1. If Supabase Auth is active and password provided, authenticate against Supabase
+  if (isSupabaseConfigured() && password) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          // If Supabase explicitly rejects credentials
+          console.warn('[Supabase Auth] Sign-in notice:', error.message);
+        } else if (data.user) {
+          // Check local or remote approval status
+          const localUser = db.getUserByEmail(email);
+          const status = localUser?.status || (data.user.user_metadata?.status as any) || 'pending';
+          if (status === 'pending') {
+            return res.status(403).json({
+              success: false,
+              status: 'pending',
+              error: 'Account pending administrator approval. An administrator must approve your account before you can access mission data.',
+            });
+          }
+          return res.json({
+            success: true,
+            user: localUser || {
+              id: data.user.id,
+              email: data.user.email || email,
+              name: data.user.user_metadata?.name || 'Operator',
+              role: data.user.user_metadata?.role || 'operator',
+              status: 'approved',
+              createdAt: data.user.created_at,
+            },
+            token: data.session?.access_token || `token-${Date.now()}`,
+          });
+        }
+      } catch (err) {
+        console.warn('[Supabase Auth] Exception during login:', err);
+      }
+    }
+  }
+
+  // 2. Local fallback database verification
   const user = db.getUserByEmail(email);
   if (!user) {
     return res.status(404).json({
@@ -136,7 +203,57 @@ authRouter.post('/login', (req: Request, res: Response) => {
   return res.json({
     success: true,
     user,
+    token: `sentinel-token-${user.id}`,
     message: `Welcome back, ${user.name} (${user.role.toUpperCase()}).`,
+  });
+});
+
+/**
+ * POST /api/auth/logout
+ */
+authRouter.post('/logout', async (_req: Request, res: Response) => {
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('[Supabase Auth] Sign out exception:', err);
+      }
+    }
+  }
+  return res.json({
+    success: true,
+    message: 'Logged out successfully.',
+  });
+});
+
+/**
+ * POST /api/auth/forgot-password
+ */
+authRouter.post('/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({
+      success: false,
+      error: 'Email address is required.',
+    });
+  }
+
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.auth.resetPasswordForEmail(email);
+      } catch (err) {
+        console.warn('[Supabase Auth] Password reset exception:', err);
+      }
+    }
+  }
+
+  return res.json({
+    success: true,
+    message: 'Password reset instructions have been dispatched. Contact your unit signals administrator if issues persist.',
   });
 });
 
@@ -247,42 +364,94 @@ vitalWatchRouter.get('/personnel/:id', (req: Request, res: Response) => {
 
 /**
  * POST /api/vitalwatch/personnel
- * Update team or mission assignment for personnel.
+ * Protected Add / Update Personnel endpoint for authorized officials (admin or commander).
  */
 vitalWatchRouter.post('/personnel', (req: Request, res: Response) => {
-  const { id, name, teamId, teamName, missionId, missionName, role, callsign } = req.body;
-
-  if (!id || !name) {
-    return res.status(400).json({
+  const requesterRole = (req.headers['x-user-role'] as string) || req.body.requesterRole;
+  if (!requesterRole || (requesterRole !== 'admin' && requesterRole !== 'commander')) {
+    return res.status(403).json({
       success: false,
-      error: 'Personnel id and name are required.',
+      error: 'Access Denied: Only authorized officials (admin or commander) are permitted to add or update personnel records.',
     });
   }
 
-  const existing = db.getPersonnelById(id);
+  const { id, name, teamId, teamName, missionId, missionName, role, callsign, isNewRegistration } = req.body;
+
+  if (!id || typeof id !== 'string' || !name || typeof name !== 'string') {
+    return res.status(400).json({
+      success: false,
+      error: 'Personnel ID and Full Name are required.',
+    });
+  }
+
+  const trimmedId = id.trim().toUpperCase();
+  const trimmedName = name.trim();
+
+  const existing = db.getPersonnelById(trimmedId);
+  if (isNewRegistration && existing) {
+    return res.status(409).json({
+      success: false,
+      error: `Conflict: Personnel ID ${trimmedId} is already registered to ${existing.name}.`,
+    });
+  }
+
+  // Check if an approved user account is linked to this personnel
+  const expectedEmail = `${trimmedId.toLowerCase()}@sentinel.mil`;
+  const linkedUser = db.getUserByEmail(expectedEmail) || db.getUsers().find(u => u.name.toLowerCase() === trimmedName.toLowerCase());
+
   const updated: PersonnelProfile = {
     ...(existing || {
-      id,
-      email: `${id.toLowerCase()}@sentinel.mil`,
-      name,
-      role: role || 'operator',
+      id: trimmedId,
+      email: expectedEmail,
+      name: trimmedName,
+      role: (role === 'admin' && requesterRole !== 'admin') ? 'operator' : (role || 'operator'),
       status: 'approved',
       createdAt: new Date().toISOString(),
       locationHistory: [],
     }),
-    name,
-    teamId: teamId || existing?.teamId || 'TEAM-GENERAL',
-    teamName: teamName || existing?.teamName || 'General Field Team',
+    name: trimmedName,
+    teamId: teamId || existing?.teamId || 'ALPHA-SQUAD',
+    teamName: teamName || existing?.teamName || 'Alpha Quick Reaction Team',
     missionId: missionId || existing?.missionId || 'MSN-FALLING-SUN',
     missionName: missionName || existing?.missionName || 'Operation Falling Sun',
-    callsign: callsign || existing?.callsign,
+    callsign: callsign || existing?.callsign || trimmedId,
   };
 
   db.savePersonnel(updated);
 
+  // If Supabase is configured, mirror write
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      Promise.resolve(
+        supabase
+          .from('sentinel_personnel')
+          .upsert({
+            id: updated.id,
+            name: updated.name,
+            team_id: updated.teamId,
+            team_name: updated.teamName,
+            mission_id: updated.missionId,
+            mission_name: updated.missionName,
+            role: updated.role,
+            callsign: updated.callsign,
+            status: updated.status,
+            updated_at: new Date().toISOString(),
+          })
+      )
+        .then(({ error }) => {
+          if (error) console.warn('[Supabase Personnel] Mirror write warning:', error.message);
+        })
+        .catch((err: unknown) => console.warn('[Supabase Personnel] Exception during mirror write:', err));
+    }
+  }
+
   return res.json({
     success: true,
     personnel: updated,
+    accountLinked: !!linkedUser,
+    linkedUserEmail: linkedUser?.email,
+    message: `Personnel record ${trimmedId} (${trimmedName}) successfully stored.`,
   });
 });
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import { UserProfile } from '@shared/types';
 import {
   Layers,
   Radio,
@@ -9,9 +9,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Shield,
+  UserPlus,
+  LogOut,
+  LogIn,
 } from 'lucide-react';
 
-export type NavModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitalwatch';
+export type NavModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitalwatch' | 'auth';
 
 export interface SidebarProps {
   activeModule: NavModuleId;
@@ -23,6 +27,9 @@ export interface SidebarProps {
   isOpenMobile?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  currentUser?: UserProfile | null;
+  onSignOut?: () => void;
+  onOpenAddPersonnel?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -35,17 +42,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile = false,
   isCollapsed = false,
   onToggleCollapse,
+  currentUser,
+  onSignOut,
+  onOpenAddPersonnel,
 }) => {
   const navItems = [
     {
-      id: 'dashboard',
+      id: 'dashboard' as NavModuleId,
       code: 'COP',
       label: 'Overview & COP',
       icon: Layers,
       description: 'Common operational picture',
     },
     {
-      id: 'fieldlink',
+      id: 'fieldlink' as NavModuleId,
       code: 'FLK',
       label: 'FieldLink Reports',
       icon: Radio,
@@ -54,7 +64,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       description: 'Offline ground outbox',
     },
     {
-      id: 'skywatch',
+      id: 'skywatch' as NavModuleId,
       code: 'SKY',
       label: 'SkyWatch Airspace',
       icon: Crosshair,
@@ -63,25 +73,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       description: 'Airspace and geofence alerts',
     },
     {
-      id: 'geointel',
+      id: 'geointel' as NavModuleId,
       code: 'GEO',
       label: 'GeoIntel Recon',
       icon: Compass,
       description: 'Satellite change review',
     },
     {
-      id: 'mediroute',
+      id: 'mediroute' as NavModuleId,
       code: 'MED',
       label: 'MediRoute Logistics',
       icon: HeartPulse,
       description: 'Triage and evacuation',
     },
     {
-      id: 'vitalwatch',
+      id: 'vitalwatch' as NavModuleId,
       code: 'VIT',
       label: 'VitalWatch Health',
       icon: Activity,
       description: 'Personnel vitals & GPS',
+    },
+    {
+      id: 'auth' as NavModuleId,
+      code: 'AUTH',
+      label: 'Security & Personnel',
+      icon: Shield,
+      description: 'Access & authentication',
     },
   ];
 
@@ -455,6 +472,140 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
       </nav>
+
+      {/* 3. Operator Session & Personnel Actions */}
+      <div
+        style={{
+          borderTop: '1px solid var(--border-grid, #14221E)',
+          padding: isCollapsed ? '8px 4px' : '10px 12px',
+          backgroundColor: 'var(--bg-shell, #0D1412)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}
+      >
+        {currentUser ? (
+          <div>
+            {!isCollapsed && (
+              <div style={{ marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono, monospace)',
+                      fontSize: '0.68rem',
+                      color: 'var(--accent-primary, #00E676)',
+                      textTransform: 'uppercase',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {currentUser.role.toUpperCase()}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      color: currentUser.status === 'approved' ? 'var(--status-safe, #00E676)' : 'var(--status-warning, #FFB300)',
+                      fontFamily: 'var(--font-mono, monospace)',
+                    }}
+                  >
+                    {currentUser.status.toUpperCase()}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    color: 'var(--text-primary, #F0FDF4)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={currentUser.name}
+                >
+                  {currentUser.callsign ? `${currentUser.callsign} (${currentUser.name})` : currentUser.name}
+                </div>
+              </div>
+            )}
+
+            {/* If admin or commander: Add Personnel action */}
+            {(currentUser.role === 'admin' || currentUser.role === 'commander') && onOpenAddPersonnel && (
+              <button
+                type="button"
+                onClick={onOpenAddPersonnel}
+                title="Add Personnel Profile (Authorized Officials Only)"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: isCollapsed ? 'center' : 'flex-start',
+                  gap: '6px',
+                  padding: isCollapsed ? '6px' : '5px 8px',
+                  background: 'var(--bg-elevated, #1A2925)',
+                  border: '1px solid var(--border-card, #263D37)',
+                  color: 'var(--accent-primary, #00E676)',
+                  borderRadius: '3px',
+                  fontSize: '0.72rem',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  cursor: 'pointer',
+                  marginBottom: '4px',
+                }}
+              >
+                <UserPlus size={13} />
+                {!isCollapsed && <span>+ Add Personnel</span>}
+              </button>
+            )}
+
+            {/* Logout button */}
+            <button
+              type="button"
+              onClick={onSignOut}
+              title="Sign Out"
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: isCollapsed ? 'center' : 'flex-start',
+                gap: '6px',
+                padding: isCollapsed ? '6px' : '5px 8px',
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-secondary, #869E96)',
+                borderRadius: '3px',
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono, monospace)',
+                cursor: 'pointer',
+              }}
+            >
+              <LogOut size={13} />
+              {!isCollapsed && <span>Sign Out</span>}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onNavigate('auth')}
+            title="Sign in to SENTINEL"
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: isCollapsed ? 'center' : 'center',
+              gap: '6px',
+              padding: isCollapsed ? '8px 4px' : '6px 10px',
+              background: 'var(--accent-primary, #00E676)',
+              border: '1px solid var(--accent-primary, #00E676)',
+              color: '#060A09',
+              borderRadius: '3px',
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono, monospace)',
+              cursor: 'pointer',
+            }}
+          >
+            <LogIn size={13} />
+            {!isCollapsed && <span>Sign In</span>}
+          </button>
+        )}
+      </div>
 
     </aside>
   );

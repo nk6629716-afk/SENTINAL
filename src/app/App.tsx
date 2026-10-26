@@ -31,14 +31,18 @@ import { SkyWatchModule } from '../modules/skywatch/SkyWatchModule';
 import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
 import { VitalWatchModule } from '../modules/vitalwatch/VitalWatchModule';
+import { AuthPage } from '../modules/auth/AuthPage';
+import { AddPersonnelModal } from '../modules/auth/AddPersonnelModal';
+import { authService } from '../services/api/authService';
+import { UserProfile } from '@shared/types';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
 import { syncManager } from '../services/sync/syncManager';
 import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
-import { Layers, Radio, Crosshair, Compass, HeartPulse, Activity } from 'lucide-react';
+import { Layers, Radio, Crosshair, Compass, HeartPulse, Activity, Shield } from 'lucide-react';
 
-export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitalwatch';
+export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitalwatch' | 'auth';
 
-export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute', 'vitalwatch'] as const;
+export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute', 'vitalwatch', 'auth'] as const;
 
 export const DEFAULT_INITIAL_SUMMARY: DashboardSummary = {
   systemStatus: 'nominal',
@@ -55,6 +59,9 @@ export const DEFAULT_INITIAL_SUMMARY: DashboardSummary = {
 
 export function parseModuleFromHash(hash: string): ModuleId {
   const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  if (clean === 'login' || clean === 'signup' || clean === 'auth') {
+    return 'auth';
+  }
   if ((VALID_MODULES as readonly string[]).includes(clean)) {
     return clean as ModuleId;
   }
@@ -84,19 +91,36 @@ export const App: React.FC = () => {
       const parsed = parseModuleFromHash(window.location.hash);
       setActiveModuleState(parsed);
       const clean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
-      if (!(VALID_MODULES as readonly string[]).includes(clean)) {
+      if (!(VALID_MODULES as readonly string[]).includes(clean) && clean !== 'login' && clean !== 'signup') {
         window.history.replaceState(null, '', '#dashboard');
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
     const initialClean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
-    if (!(VALID_MODULES as readonly string[]).includes(initialClean)) {
+    if (!(VALID_MODULES as readonly string[]).includes(initialClean) && initialClean !== 'login' && initialClean !== 'signup') {
       window.history.replaceState(null, '', '#dashboard');
     }
 
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // Authentication & Personnel Management
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => authService.getCurrentUser());
+  const [isAddPersonnelOpen, setIsAddPersonnelOpen] = useState(false);
+
+  const handleAuthenticated = useCallback((user: UserProfile) => {
+    setCurrentUser(user);
+    if (user.status === 'approved') {
+      handleNavigate('dashboard');
+    }
+  }, [handleNavigate]);
+
+  const handleSignOut = useCallback(() => {
+    authService.signOut();
+    setCurrentUser(null);
+    handleNavigate('auth');
+  }, [handleNavigate]);
 
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -539,6 +563,9 @@ export const App: React.FC = () => {
         onCloseMobile={() => setIsMobileMenuOpen(false)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebarCollapse}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
+        onOpenAddPersonnel={() => setIsAddPersonnelOpen(true)}
       />
 
       {/* 2. Sticky Command Header */}
@@ -567,74 +594,93 @@ export const App: React.FC = () => {
 
       {/* 3. Main Content Area */}
       <main className="app-main" style={{ padding: 0 }}>
-        {activeModule === 'dashboard' && (
-          <Dashboard
-            summary={summary}
-            incidents={incidents}
-            tracks={tracks}
-            alerts={alerts}
-            zones={zones}
-            observations={observations}
-            casualties={casualties}
-            hazards={hazards}
-            nodes={EVACUATION_NODES}
-            onNavigate={handleNavigate}
-            onResetDemo={handleResetDemo}
-            isOfflineMode={isOfflineMode}
-            realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}
-            lastEventTimestamp={realtimeState.lastEventTimestamp}
-            backendHealth={backendHealth}
-            onStepSimulation={handleStepSimulation}
-            onToggleSimulationPause={handleToggleSimPause}
-            isSimPaused={isSimPaused}
+        {currentUser && currentUser.status === 'pending' ? (
+          <AuthPage
+            currentUser={currentUser}
+            onAuthenticated={handleAuthenticated}
+            onSignOut={handleSignOut}
           />
-        )}
+        ) : (
+          <>
+            {activeModule === 'dashboard' && (
+              <Dashboard
+                summary={summary}
+                incidents={incidents}
+                tracks={tracks}
+                alerts={alerts}
+                zones={zones}
+                observations={observations}
+                casualties={casualties}
+                hazards={hazards}
+                nodes={EVACUATION_NODES}
+                onNavigate={handleNavigate}
+                onResetDemo={handleResetDemo}
+                isOfflineMode={isOfflineMode}
+                realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}
+                lastEventTimestamp={realtimeState.lastEventTimestamp}
+                backendHealth={backendHealth}
+                onStepSimulation={handleStepSimulation}
+                onToggleSimulationPause={handleToggleSimPause}
+                isSimPaused={isSimPaused}
+              />
+            )}
 
-        {activeModule === 'fieldlink' && (
-          <FieldLinkModule
-            incidents={incidents}
-            isOfflineMode={isOfflineMode}
-            onRefreshIncidents={refreshAllData}
-            onTriggerSync={handleTriggerSync}
-            isSyncing={isSyncing}
-            onToggleSimulationPause={handleToggleSimPause}
-            isSimPaused={isSimPaused}
-          />
-        )}
+            {activeModule === 'fieldlink' && (
+              <FieldLinkModule
+                incidents={incidents}
+                isOfflineMode={isOfflineMode}
+                onRefreshIncidents={refreshAllData}
+                onTriggerSync={handleTriggerSync}
+                isSyncing={isSyncing}
+                onToggleSimulationPause={handleToggleSimPause}
+                isSimPaused={isSimPaused}
+              />
+            )}
 
-        {activeModule === 'skywatch' && (
-          <SkyWatchModule
-            tracks={tracks}
-            alerts={alerts}
-            zones={zones}
-            onRefreshAlerts={refreshAllData}
-            onStepSimulation={handleStepSimulation}
-            onToggleSimulationPause={handleToggleSimPause}
-            isSimPaused={isSimPaused}
-          />
-        )}
+            {activeModule === 'skywatch' && (
+              <SkyWatchModule
+                tracks={tracks}
+                alerts={alerts}
+                zones={zones}
+                onRefreshAlerts={refreshAllData}
+                onStepSimulation={handleStepSimulation}
+                onToggleSimulationPause={handleToggleSimPause}
+                isSimPaused={isSimPaused}
+              />
+            )}
 
-        {activeModule === 'geointel' && (
-          <GeoIntelModule
-            observations={observations}
-            onRefreshObservations={refreshAllData}
-          />
-        )}
+            {activeModule === 'geointel' && (
+              <GeoIntelModule
+                observations={observations}
+                onRefreshObservations={refreshAllData}
+              />
+            )}
 
-        {activeModule === 'mediroute' && (
-          <MediRouteModule
-            casualties={casualties}
-            hazards={hazards}
-            nodes={EVACUATION_NODES}
-            onRefreshCasualties={refreshAllData}
-            onRefreshHazards={refreshAllData}
-            onToggleSimulationPause={handleToggleSimPause}
-            isSimPaused={isSimPaused}
-          />
-        )}
+            {activeModule === 'mediroute' && (
+              <MediRouteModule
+                casualties={casualties}
+                hazards={hazards}
+                nodes={EVACUATION_NODES}
+                onRefreshCasualties={refreshAllData}
+                onRefreshHazards={refreshAllData}
+                onToggleSimulationPause={handleToggleSimPause}
+                isSimPaused={isSimPaused}
+              />
+            )}
 
-        {activeModule === 'vitalwatch' && (
-          <VitalWatchModule />
+            {activeModule === 'vitalwatch' && (
+              <VitalWatchModule />
+            )}
+
+            {activeModule === 'auth' && (
+              <AuthPage
+                currentUser={currentUser}
+                onAuthenticated={handleAuthenticated}
+                onSignOut={handleSignOut}
+                initialMode={typeof window !== 'undefined' && window.location.hash.includes('signup') ? 'signup' : 'login'}
+              />
+            )}
+          </>
         )}
       </main>
 
@@ -721,7 +767,24 @@ export const App: React.FC = () => {
           <Activity size={18} />
           <span>VitalWatch</span>
         </button>
+
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'auth' ? 'active' : ''}`}
+          onClick={() => handleNavigate('auth')}
+        >
+          <Shield size={18} />
+          <span>Security</span>
+        </button>
       </nav>
+
+      {/* Authorized Officer Add Personnel Workflow Modal */}
+      <AddPersonnelModal
+        isOpen={isAddPersonnelOpen}
+        onClose={() => setIsAddPersonnelOpen(false)}
+        currentUserRole={currentUser?.role || 'admin'}
+        onPersonnelAdded={() => refreshAllData()}
+      />
     </div>
   );
 };

@@ -12,7 +12,7 @@ import { themeService, ThemeMode } from '../services/theme/themeService';
 import { getLiveIST } from '../utils/time';
 
 export interface CommandHeaderProps {
-  activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitalwatch';
+  activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitalwatch' | 'auth';
   pendingSyncCount: number;
   isOfflineMode: boolean;
   onToggleOffline: () => void;
@@ -110,6 +110,11 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         return {
           title: 'VitalWatch Health & GPS',
           subtitle: 'Tactical personnel vitals & browser positioning',
+        };
+      case 'auth':
+        return {
+          title: 'Security & Access Control',
+          subtitle: 'Authentication, credentials, and personnel authorization',
         };
     }
   };
