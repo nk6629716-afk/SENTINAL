@@ -12,7 +12,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Activity,
   ClipboardList,
   Route as RouteIcon,
   Building2,
