@@ -45,7 +45,7 @@ function resolveApiBaseUrl(): string {
   }
 }
 
-const API_BASE_URL = resolveApiBaseUrl();
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export class SentinelApiClient {
   private isSimulatedOffline: boolean = false;

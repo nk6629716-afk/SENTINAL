@@ -90,7 +90,9 @@ export class MeshBus {
     if (ChannelCtor) {
       try {
         this.channel = new ChannelCtor(this.channelName);
-        this.setupChannelListener(this.channel);
+        if (this.channel) {
+          this.setupChannelListener(this.channel);
+        }
       } catch (err) {
         console.warn('[MeshBus] BroadcastChannel not supported:', err);
       }

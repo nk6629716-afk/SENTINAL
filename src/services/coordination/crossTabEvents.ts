@@ -118,10 +118,10 @@ export class CrossTabEventManager {
           alert.acknowledged = true;
           alert.acknowledgedBy = acknowledgedBy || 'Duty Officer';
           alert.acknowledgedAt = acknowledgedAt || new Date().toISOString();
+          try {
+            await dbService.updateAlert(alert);
+          } catch (e) {}
         }
-        try {
-          await dbService.acknowledgeAlert(alertId, acknowledgedBy);
-        } catch (e) {}
         break;
       }
 
@@ -130,7 +130,7 @@ export class CrossTabEventManager {
         if (!marker?.id) return;
         simulationEngine.addOrUpdateMarker(marker);
         try {
-          await dbService.putMapMarker(marker);
+          await dbService.putMarker(marker);
         } catch (e) {}
         break;
       }

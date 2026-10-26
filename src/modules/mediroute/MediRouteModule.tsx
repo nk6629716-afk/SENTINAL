@@ -791,7 +791,7 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                   >
                     {((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false)
                       ? 'Disconnected'
-                      : `${formatDistance(activeRoute.totalDistanceKm * 1000)} (${formatDuration(activeRoute.estimatedMinutes)})`}
+                      : `${formatDistance(activeRoute.totalDistanceKm * 1000)} (${formatDuration(activeRoute.estimatedMinutes || 0)})`}
                   </span>
                 </div>
 
