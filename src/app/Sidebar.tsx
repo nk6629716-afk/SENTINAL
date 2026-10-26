@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Radio,
   Crosshair,
   Compass,
   HeartPulse,
+  Wifi,
+  WifiOff,
+  Database,
   X,
   ChevronLeft,
   ChevronRight,
@@ -75,22 +78,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  // On small screens (<768px) or when mobile drawer is open, NEVER collapse (no icons-only preview).
+  // Full labels, descriptions, and badges must always be visible.
+  const [isWindowSmall, setIsWindowSmall] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsWindowSmall(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isCollapsedEffective = !isWindowSmall && !isOpenMobile && isCollapsed;
+
   return (
     <aside
-      className={`app-sidebar ${isOpenMobile ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`}
+      className={`app-sidebar ${isOpenMobile ? 'open' : ''} ${isCollapsedEffective ? 'collapsed' : ''}`}
+      data-overlay="sidebar"
       aria-label="Tactical Navigation Sidebar"
       style={{
-        width: isCollapsed ? 'var(--sidebar-collapsed-width, 76px)' : 'var(--sidebar-width, 240px)',
+        width: isCollapsedEffective ? 'var(--sidebar-collapsed-width, 76px)' : 'var(--sidebar-width, 240px)',
       }}
     >
       {/* 1. Brand Masthead */}
       <div
         style={{
-          padding: isCollapsed ? '12px 8px 10px 8px' : '14px 14px 12px 14px',
+          padding: isCollapsedEffective ? '12px 8px 10px 8px' : '14px 14px 12px 14px',
           borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: isCollapsed ? 'center' : 'stretch',
+          alignItems: isCollapsedEffective ? 'center' : 'stretch',
           gap: '8px',
           flexShrink: 0,
         }}
@@ -99,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: isCollapsed ? 'center' : 'space-between',
+            justifyContent: isCollapsedEffective ? 'center' : 'space-between',
             width: '100%',
           }}
         >
@@ -110,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               alignItems: 'center',
               gap: '10px',
               minWidth: 0,
-              justifyContent: isCollapsed ? 'center' : 'flex-start',
+              justifyContent: isCollapsedEffective ? 'center' : 'flex-start',
             }}
           >
             {/* Custom Technical Emblem Tile */}
@@ -148,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </svg>
             </div>
 
-            {!isCollapsed && (
+            {!isCollapsedEffective && (
               <div style={{ minWidth: 0, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', whiteSpace: 'nowrap' }}>
                   <span
@@ -190,8 +213,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {/* Minimize / Expand Toggle Button at Top Right of Masthead */}
-          {!isCollapsed && onToggleCollapse && (
+          {/* Minimize / Expand Toggle Button at Top Right of Masthead (Desktop only) */}
+          {!isWindowSmall && !isCollapsedEffective && onToggleCollapse && (
             <button
               type="button"
               className="btn btn-sm"
@@ -235,8 +258,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Minimized mode expand button */}
-        {isCollapsed && onToggleCollapse && (
+        {/* Minimized mode expand button (Desktop only) */}
+        {!isWindowSmall && isCollapsedEffective && onToggleCollapse && (
           <button
             type="button"
             className="btn btn-sm"
@@ -261,7 +284,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Tactical Situational Engine Chip (Expanded only) */}
-        {!isCollapsed && (
+        {!isCollapsedEffective && (
           <div
             style={{
               display: 'flex',
@@ -295,7 +318,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* 2. Navigation Items */}
       <nav
         style={{
-          padding: isCollapsed ? '10px 4px' : '12px 8px',
+          padding: isCollapsedEffective ? '10px 4px' : '12px 8px',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
@@ -305,7 +328,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }}
         aria-label="Operational modules"
       >
-        {!isCollapsed && (
+        {!isCollapsedEffective && (
           <div
             style={{
               fontSize: '0.72rem',
@@ -338,16 +361,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               style={{
                 borderLeft: isActive ? '4px solid var(--accent)' : '4px solid transparent',
                 background: isActive ? 'var(--color-paper)' : 'transparent',
-                justifyContent: isCollapsed ? 'center' : 'flex-start',
-                padding: isCollapsed ? '8px 0' : '6px 8px',
+                justifyContent: isCollapsedEffective ? 'center' : 'flex-start',
+                padding: isCollapsedEffective ? '8px 0' : '6px 8px',
               }}
             >
               {/* Icon column */}
               <div
                 className="sidebar-icon-col"
                 style={{
-                  width: isCollapsed ? '44px' : '36px',
-                  minWidth: isCollapsed ? '44px' : '36px',
+                  width: isCollapsedEffective ? '44px' : '36px',
+                  minWidth: isCollapsedEffective ? '44px' : '36px',
                 }}
               >
                 <Icon
@@ -358,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 />
 
                 {/* Minimized badge dot on icon corner */}
-                {item.badge !== undefined && isCollapsed && (
+                {item.badge !== undefined && isCollapsedEffective && (
                   <span
                     style={{
                       position: 'absolute',
@@ -375,7 +398,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               {/* Expanded labels */}
-              {!isCollapsed && (
+              {!isCollapsedEffective && (
                 <div style={{ flex: 1, minWidth: 0, paddingRight: '4px', overflow: 'hidden' }}>
                   <div
                     style={{
@@ -408,7 +431,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
 
               {/* Expanded badge count pill */}
-              {!isCollapsed && item.badge !== undefined && (
+              {!isCollapsedEffective && item.badge !== undefined && (
                 <span
                   style={{
                     backgroundColor: item.badgeType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)',
@@ -431,12 +454,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
 
               {/* Minimized Tooltip on Hover / Focus */}
-              {isCollapsed && (
+              {isCollapsedEffective && (
                 <div className="rail-tooltip" role="tooltip">
                   <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#FFFFFF' }}>
                     {item.label}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#C3CCC1', marginTop: '2px' }}>
                     {item.description}
                   </div>
                 </div>
@@ -446,6 +469,114 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
+      {/* 3. System Health Card Footer */}
+      <div
+        style={{
+          padding: isCollapsedEffective ? '10px 6px' : '10px 12px',
+          borderTop: 'var(--border-width, 1.2px) solid var(--color-line)',
+          flexShrink: 0,
+        }}
+      >
+        {isCollapsedEffective ? (
+          /* Minimized: LED + 2 icons (Wifi + Database) */
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 0',
+              cursor: 'help',
+            }}
+            title={
+              isOfflineMode
+                ? 'Telemetry: Offline Simulated | IndexedDB Ready'
+                : 'Telemetry: Command Link Active | IndexedDB Ready'
+            }
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '1px',
+                backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
+              }}
+            />
+            {isOfflineMode ? (
+              <WifiOff size={16} color="var(--color-crit)" />
+            ) : (
+              <Wifi size={16} color="var(--color-ok)" />
+            )}
+            <Database size={15} color="var(--color-ink-2)" />
+          </div>
+        ) : (
+          /* Expanded: Outlined Health Card */
+          <div
+            style={{
+              padding: '9px 10px',
+              border: 'var(--border-width, 1.2px) solid var(--color-line)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-sheet)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  color: 'var(--text-secondary)',
+                }}
+              >
+                Telemetry bus
+              </span>
+              {isOfflineMode ? (
+                <WifiOff size={14} color="var(--color-crit)" />
+              ) : (
+                <Wifi size={14} color="var(--color-ok)" />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '1px',
+                  backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {isOfflineMode ? 'Offline simulated' : 'Command link active'}
+              </span>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.7rem',
+                color: 'var(--text-secondary)',
+                marginTop: '1px',
+              }}
+            >
+              <Database size={13} color="var(--text-secondary)" />
+              <span>IndexedDB storage ready</span>
+            </div>
+          </div>
+        )}
+      </div>
     </aside>
   );
 };
