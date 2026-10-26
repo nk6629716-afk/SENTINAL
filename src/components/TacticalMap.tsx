@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { themeService, ResolvedTheme } from '../services/theme/themeService';
 import { classifyTrack, TRACK_CLASSIFICATION_LABELS } from '../utils/trackClassification';
+import { formatAltitude, formatSpeed } from '../utils/units';
 
 export interface TacticalMapProps {
   incidents?: IncidentReport[];
@@ -1429,7 +1430,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                         onSelectEntity?.({ type: 'track', id: track.id, raw: track });
                       }}
                     >
-                      <title>{`${track.callsign} [${TRACK_CLASSIFICATION_LABELS[trackClass]}] (${track.status}) - ${track.altitude}m, ${Math.round(track.speed)} km/h`}</title>
+                      <title>{`${track.callsign} [${TRACK_CLASSIFICATION_LABELS[trackClass]}] (${track.status}) - ${formatAltitude(track.altitude)}, ${formatSpeed(track.speed)}`}</title>
 
                       {/* Symbol Shape */}
                       {isHostile ? (
@@ -1519,7 +1520,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                           fontFamily="var(--font-mono, monospace)"
                           style={{ whiteSpace: 'nowrap' }}
                         >
-                          {track.altitude}m {Math.round(track.speed)}km/h
+                          {formatAltitude(track.altitude)} {formatSpeed(track.speed)}
                         </text>
                       </g>
                     </g>

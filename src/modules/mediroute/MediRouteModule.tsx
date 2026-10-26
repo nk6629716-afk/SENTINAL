@@ -28,6 +28,7 @@ import {
   selectRerouteCount,
 } from '../../selectors';
 import { formatIST } from '../../utils/time';
+import { formatDistance, formatDuration } from '../../utils/units';
 
 interface MediRouteModuleProps {
   casualties: CasualtyRecord[];
@@ -772,7 +773,7 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                   >
                     {((activeRoute as any)?.alternativeFound === false || (activeRoute as any)?.routeFound === false)
                       ? 'Disconnected'
-                      : `${activeRoute.totalDistanceKm} km (${activeRoute.estimatedMinutes} min)`}
+                      : `${formatDistance(activeRoute.totalDistanceKm * 1000)} (${formatDuration(activeRoute.estimatedMinutes)})`}
                   </span>
                 </div>
 

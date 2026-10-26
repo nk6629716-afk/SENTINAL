@@ -19,6 +19,7 @@ import {
 } from '../../selectors';
 import { formatIST } from '../../utils/time';
 import { formatRuleLabel } from '../../utils/rules';
+import { formatAltitude, formatSpeed } from '../../utils/units';
 
 interface SkyWatchModuleProps {
   tracks: TelemetryTrack[];
@@ -277,13 +278,13 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                 >
                   <div>
                     <div className="numeral" style={{ fontWeight: 700, fontFamily: 'var(--font-numerals)' }}>
-                      {activeThreat.altitude} m
+                      {formatAltitude(activeThreat.altitude)}
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Altitude (MSL)</div>
                   </div>
                   <div>
                     <div className="numeral" style={{ fontWeight: 700, fontFamily: 'var(--font-numerals)' }}>
-                      {Math.round(activeThreat.speed)} km/h
+                      {formatSpeed(activeThreat.speed)}
                     </div>
                     <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Airspeed</div>
                   </div>

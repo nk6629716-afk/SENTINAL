@@ -1,5 +1,6 @@
 import { TelemetryTrack, RestrictedAirspaceZone, AirspaceAlert } from '@shared/types';
 import { classifyTrack, TRACK_CLASSIFICATION_LABELS, TrackClassification } from '../utils/trackClassification';
+import { formatSpeed, formatAltitude } from '../utils/units';
 
 export interface RankedTrackThreat {
   id: string;
@@ -58,13 +59,13 @@ export function calculateTrackThreatScore(
   // Kinematic speed check (> 60 m/s or km/h)
   if (track.speed > 60) {
     score += 20;
-    reasons.push(`High velocity (${Math.round(track.speed)} km/h)`);
+    reasons.push(`High velocity (${formatSpeed(track.speed)})`);
   }
 
   // Low-altitude nap-of-the-earth flight (< 250 m)
   if (track.altitude < 250) {
     score += 15;
-    reasons.push(`Low altitude terrain-masking (${track.altitude}m)`);
+    reasons.push(`Low altitude terrain-masking (${formatAltitude(track.altitude)})`);
   }
 
   // Check geofence proximity/breach against active restricted zones

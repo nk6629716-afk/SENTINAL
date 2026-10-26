@@ -8,6 +8,7 @@ import {
   RoadHazardEdge,
   EvacuationNode,
 } from '@shared/types';
+import { formatSpeed } from '../../utils/units';
 
 // Deterministic baseline fixtures for SENTINEL demo
 export const INITIAL_INCIDENTS: IncidentReport[] = [
@@ -165,7 +166,7 @@ export const INITIAL_ALERTS: AirspaceAlert[] = [
     trackCallsign: 'INTRUDER-HIGH-SPD',
     severity: 'high',
     ruleName: 'RAPID_ACCELERATION_SPIKE',
-    observedValue: 'Velocity: 78 m/s (280 km/h)',
+    observedValue: `Velocity: 78 m/s (${formatSpeed(78)})`,
     threshold: '50 m/s civil UAS limit',
     explanation: 'Target exceeded standard unmanned acoustic signature speed threshold by 56% within 15 seconds.',
     timestamp: new Date(Date.now() - 14 * 60000).toISOString(),
