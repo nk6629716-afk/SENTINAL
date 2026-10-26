@@ -1,10 +1,13 @@
 import { TelemetryTrack, RestrictedAirspaceZone, AirspaceAlert } from '@shared/types';
+import { classifyTrack, TRACK_CLASSIFICATION_LABELS, TrackClassification } from '../utils/trackClassification';
 
 export interface RankedTrackThreat {
   id: string;
   callsign: string;
   type: string;
   status: string;
+  classification: TrackClassification;
+  classificationLabel: string;
   score: number;
   reason: string;
   severity: 'critical' | 'high' | 'medium' | 'low';
@@ -22,12 +25,26 @@ export function calculateTrackThreatScore(
   track: TelemetryTrack,
   zones: RestrictedAirspaceZone[] = [],
   alerts: AirspaceAlert[] = []
-): { score: number; reason: string; severity: 'critical' | 'high' | 'medium' | 'low'; hasBreach: boolean } {
+): { score: number; reason: string; severity: 'critical' | 'high' | 'medium' | 'low'; hasBreach: boolean; classification: TrackClassification } {
+  const classification = classifyTrack(track as any);
+  const isFriendlyOrCivilian = classification === 'FRIENDLY' || classification === 'CIVILIAN';
+
+  if (isFriendlyOrCivilian) {
+    return {
+      score: 10,
+      reason: `${TRACK_CLASSIFICATION_LABELS[classification]} - Nominal authorized transit`,
+      severity: 'low',
+      hasBreach: false,
+      classification
+    };
+  }
+
   // Base baseline score
   let score = 10;
   const reasons: string[] = [];
 
   const isHostileOrSuspicious =
+    classification === 'HOSTILE' ||
     track.status === 'hostile' ||
     track.status === 'suspicious' ||
     track.type === 'stealth_incursion' ||
@@ -89,12 +106,14 @@ export function calculateTrackThreatScore(
     reason: reasonText,
     severity,
     hasBreach,
+    classification,
   };
 }
 
 /**
  * Builds the threat queue strictly from active telemetry tracks, ranked by threat score.
  * Never leaves mockup leftovers (e.g. "Track 07", "Swarm U1 to U4").
+ * Sorted by score descending, then id ascending for flicker-free stability (FIX-07).
  */
 export function selectRankedThreatQueue(
   tracks: TelemetryTrack[] = [],
@@ -109,6 +128,8 @@ export function selectRankedThreatQueue(
         callsign: track.callsign,
         type: track.type || 'unknown',
         status: track.status,
+        classification: evaluation.classification,
+        classificationLabel: TRACK_CLASSIFICATION_LABELS[evaluation.classification],
         score: evaluation.score,
         reason: evaluation.reason,
         severity: evaluation.severity,
@@ -118,5 +139,8 @@ export function selectRankedThreatQueue(
         track,
       };
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.id.localeCompare(b.id);
+    });
 }

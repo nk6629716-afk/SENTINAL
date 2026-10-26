@@ -19,6 +19,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { themeService, ResolvedTheme } from '../services/theme/themeService';
+import { classifyTrack, TRACK_CLASSIFICATION_LABELS } from '../utils/trackClassification';
 
 export interface TacticalMapProps {
   incidents?: IncidentReport[];
@@ -1327,9 +1328,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             {activeLayers.airspace &&
               tracks.map((track) => {
                 const pos = project(track.lat, track.lng);
-                const isHostile = track.status === 'hostile' || track.status === 'suspicious';
-                const isFriendly = track.type === 'friendly_uav' || (track.status as string) === 'friendly';
-                const isNeutral = track.type === 'commercial_fixed_wing' || (track.status as string) === 'neutral';
+                const trackClass = classifyTrack(track as any);
+                const isHostile = trackClass === 'HOSTILE';
+                const isFriendly = trackClass === 'FRIENDLY';
+                const isNeutral = trackClass === 'CIVILIAN';
 
                 // Dynamically size box without ellipsis truncation: e.g. "SWARM-LEAD-A"
                 const boxW = Math.max(115, track.callsign.length * 8.5 + 18);
@@ -1427,7 +1429,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                         onSelectEntity?.({ type: 'track', id: track.id, raw: track });
                       }}
                     >
-                      <title>{`${track.callsign} (${track.status}) - ${track.altitude}m, ${Math.round(track.speed)} km/h`}</title>
+                      <title>{`${track.callsign} [${TRACK_CLASSIFICATION_LABELS[trackClass]}] (${track.status}) - ${track.altitude}m, ${Math.round(track.speed)} km/h`}</title>
 
                       {/* Symbol Shape */}
                       {isHostile ? (

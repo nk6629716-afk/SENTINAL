@@ -5,6 +5,7 @@ import {
   RestrictedZone
 } from '../../../shared/contracts';
 import { haversineDistanceMeters } from './simulator';
+import { classifyTrack, TRACK_CLASSIFICATION_LABELS } from '../../utils/trackClassification';
 
 export const DEFAULT_ANOMALY_CONFIG: AnomalyDetectorConfig = {
   speedChangeThresholdKnots: 45,        // Acceleration or deceleration > 45 knots in one step
@@ -194,6 +195,8 @@ export class SkyWatchAnomalyDetector {
         : zoneRadiusMeters;
 
       const isInside = distMeters <= boundaryThresholdMeters && currentPoint.altitudeMeters <= zone.maxAltitudeMeters;
+      const trackClass = classifyTrack(currentPoint as any);
+      const isFriendlyOrCivilian = trackClass === 'FRIENDLY' || trackClass === 'CIVILIAN';
 
       const zoneAlert = this.processAlertCondition(
         currentPoint.trackId,
@@ -203,11 +206,13 @@ export class SkyWatchAnomalyDetector {
         () => ({
           id: `ALT-${this.alertCounter++}`,
           trackId: currentPoint.trackId,
-          severity: 'critical',
+          severity: isFriendlyOrCivilian ? 'info' : 'critical',
           ruleName: 'restricted_zone_entry',
-          observedValue: `${(distMeters / 1000).toFixed(2)} km from zone center`,
+          observedValue: `${(distMeters / 1000).toFixed(2)} km from zone center [${TRACK_CLASSIFICATION_LABELS[trackClass]}]`,
           threshold: `Inside ${zone.radiusKm} km radius (${zone.name})`,
-          explanation: `Airspace violation: Track entered protected perimeter of "${zone.name}". Distance to epicenter is ${(distMeters / 1000).toFixed(2)} km (threshold: ${zone.radiusKm} km, altitude: ${currentPoint.altitudeMeters}m / max: ${zone.maxAltitudeMeters}m).`,
+          explanation: isFriendlyOrCivilian
+            ? `Authorized transit: ${TRACK_CLASSIFICATION_LABELS[trackClass]} "${currentPoint.callsign || currentPoint.trackId}" operating within "${zone.name}". Informational entry logged.`
+            : `Airspace violation: Track entered protected perimeter of "${zone.name}". Distance to epicenter is ${(distMeters / 1000).toFixed(2)} km (threshold: ${zone.radiusKm} km, altitude: ${currentPoint.altitudeMeters}m / max: ${zone.maxAltitudeMeters}m).`,
           timestamp: currentPoint.timestamp,
           acknowledged: false,
           isSimulated: true

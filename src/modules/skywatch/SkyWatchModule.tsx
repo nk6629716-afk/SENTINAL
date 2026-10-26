@@ -242,7 +242,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                         {activeThreat.callsign}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                        {activeThreat.reason}
+                        {activeThreat.classificationLabel ? `${activeThreat.classificationLabel} • ` : ''}{activeThreat.reason}
                       </div>
                     </div>
                   </div>
