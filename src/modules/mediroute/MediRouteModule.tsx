@@ -29,6 +29,7 @@ import {
 } from '../../selectors';
 import { formatIST } from '../../utils/time';
 import { formatDistance, formatDuration } from '../../utils/units';
+import { meshBus } from '../../services/coordination/meshBus';
 
 interface MediRouteModuleProps {
   casualties: CasualtyRecord[];
@@ -158,6 +159,23 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
   useEffect(() => {
     handleRecalculateRoute();
   }, []);
+
+  // Multi-tab HAZARD_UPDATE listener (FIX-13)
+  useEffect(() => {
+    let lastHazardVersion = '';
+    const unsub = meshBus.subscribe('HAZARD_UPDATE', async (envelope) => {
+      const hazardData = envelope.payload;
+      const versionKey =
+        hazardData?.version || `${hazardData?.edgeId}:${hazardData?.blocked}:${hazardData?.updatedAt}`;
+      if (lastHazardVersion !== versionKey) {
+        lastHazardVersion = versionKey;
+        await onRefreshHazards();
+        setRerouteCounter((c) => c + 1);
+        await handleRecalculateRoute();
+      }
+    });
+    return unsub;
+  }, [onRefreshHazards]);
 
   // Algorithmic Triage Preview
   const previewTriage = calculateStartTriage({

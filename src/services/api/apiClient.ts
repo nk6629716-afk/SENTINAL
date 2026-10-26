@@ -28,6 +28,7 @@ import {
   INITIAL_GEO_OBSERVATIONS,
 } from '../data/fixtures';
 import { simulationEngine, SimulationTickState } from '../../simulation/simulationEngine';
+import { meshBus } from '../coordination/meshBus';
 
 
 // Configuration: cleanly normalizes VITE_API_URL without duplicate /api, defaulting to relative /api
@@ -290,6 +291,7 @@ export class SentinelApiClient {
       if (res.ok) {
         const body = await res.json();
         const saved = body.data || body;
+        const oldLocalId = report.id;
         const normalized: IncidentReport = {
           ...report,
           id: saved.id || report.id,
@@ -297,6 +299,9 @@ export class SentinelApiClient {
           syncStatus: 'synced',
           syncedAt: saved.syncedAt || new Date().toISOString(),
         };
+        if (oldLocalId !== normalized.id) {
+          await dbService.deleteIncident(oldLocalId);
+        }
         await dbService.putIncident(normalized);
         return normalized;
       }
@@ -363,11 +368,15 @@ export class SentinelApiClient {
               (resItem as any).status === 'already_received';
 
             if (isConfirmed) {
+              const oldLocalId = match.id;
               match.syncStatus = 'synced';
               match.status = 'active';
               match.id = resItem.serverId || match.id;
               match.syncedAt = resItem.syncTimestamp || (resItem as any).syncedAt || new Date().toISOString();
               delete (match as any).syncError;
+              if (oldLocalId !== match.id) {
+                await dbService.deleteIncident(oldLocalId);
+              }
               await dbService.putIncident(match);
             } else if (resItem.outcome === 'rejected' || (resItem as any).status === 'rejected') {
               match.syncStatus = 'failed';
@@ -528,6 +537,8 @@ export class SentinelApiClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: observation.id,
+          clientId: observation.clientId || observation.id,
           samplePairId: observation.samplePairId || 'PAIR-SURVEILLANCE-DEMO',
           beforeImageId: observation.beforeImageId || 'IMG-BEFORE',
           afterImageId: observation.afterImageId || 'IMG-AFTER',
@@ -543,12 +554,17 @@ export class SentinelApiClient {
       if (res.ok) {
         const body = await res.json();
         const created = body.data || body;
+        const oldId = observation.id;
         const normalized: GeoIntelObservation = {
           ...observation,
           id: created.id || observation.id,
           reviewStatus: created.reviewStatus || observation.reviewStatus,
+          syncStatus: 'synced',
+          syncedAt: new Date().toISOString(),
         };
-        (normalized as any).syncStatus = 'synced';
+        if (oldId && oldId !== normalized.id) {
+          await dbService.deleteGeoObservation(oldId);
+        }
         await dbService.putGeoObservation(normalized);
         return normalized;
       }
@@ -582,6 +598,8 @@ export class SentinelApiClient {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            id: obs.id,
+            clientId: (obs as any).clientId || obs.id,
             samplePairId: obs.samplePairId || 'PAIR-SURVEILLANCE-DEMO',
             beforeImageId: obs.beforeImageId || 'IMG-BEFORE',
             afterImageId: obs.afterImageId || 'IMG-AFTER',
@@ -595,13 +613,25 @@ export class SentinelApiClient {
         });
 
         if (res.ok) {
+          const body = await res.json();
+          const created = body.data || body;
+          const oldId = obs.id;
           (obs as any).syncStatus = 'synced';
+          (obs as any).syncedAt = new Date().toISOString();
+          if (created.id && created.id !== oldId) {
+            obs.id = created.id;
+            await dbService.deleteGeoObservation(oldId);
+          }
           await dbService.putGeoObservation(obs);
           synced++;
         } else {
+          (obs as any).syncStatus = 'failed';
+          await dbService.putGeoObservation(obs);
           failed++;
         }
       } catch (err) {
+        (obs as any).syncStatus = 'failed';
+        await dbService.putGeoObservation(obs);
         failed++;
       }
     }
@@ -696,6 +726,15 @@ export class SentinelApiClient {
     edge.blocked = blocked;
     edge.updatedAt = new Date().toISOString();
     await dbService.putHazard(edge);
+
+    // Broadcast HAZARD_UPDATE across tabs (FIX-13)
+    meshBus.publish('HAZARD_UPDATE', {
+      edgeId: edge.id,
+      blocked,
+      hazardType: edge.hazardType,
+      version: `${Date.now()}.${edge.id}`,
+      updatedAt: edge.updatedAt,
+    });
 
     const isOnline = await this.checkBackendAvailability();
     if (isOnline) {
