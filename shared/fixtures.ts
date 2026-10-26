@@ -442,6 +442,7 @@ export const INITIAL_HAZARDS: RoadHazardEdge[] = [
 // 7. Initial Soldiers & Historical Vitals (Simulated Baseline)
 // --------------------------------------------------------------------------
 export const INITIAL_SOLDIERS: SoldierProfile[] = [
+  { id: 'CAS-0419', callsign: 'CAS-0419 (Viper Lead)', unit: '1st Recon Team Alpha (CCP Delta)', status: 'active' },
   { id: 'SOL-101', callsign: 'Viper 1', unit: '1st Recon Team Alpha', status: 'active' },
   { id: 'SOL-102', callsign: 'Ghost 4', unit: '2nd Infantry Patrol Bravo', status: 'active' },
   { id: 'SOL-103', callsign: 'Echo 6', unit: 'Combat Support Medevac', status: 'standby' },
@@ -449,6 +450,42 @@ export const INITIAL_SOLDIERS: SoldierProfile[] = [
 ];
 
 export const INITIAL_SOLDIER_VITALS: SoldierVitalsRecord[] = [
+  {
+    id: 'VTL-419-CRIT',
+    soldierId: 'CAS-0419',
+    callsign: 'CAS-0419 (Viper Lead)',
+    unit: '1st Recon Team Alpha (CCP Delta)',
+    timestamp: '2026-10-25T08:10:58.000Z',
+    heartRateBpm: 136,
+    bloodPressureSystolic: 88,
+    bloodPressureDiastolic: 54,
+    temperatureCelsius: 37.8,
+    oxygenSaturationPct: 88,
+    respiratoryRateBpm: 34,
+    clinicalNotes: 'Critical Anomaly Detected on CAS-0419: SpO2 dropped to 88% and RR increased to 34/min. Triage level escalated to Immediate (Red).',
+    recordedBy: 'med_officer_1@sentinel.mil',
+    createdAt: '2026-10-25T08:10:58.000Z',
+    updatedAt: '2026-10-25T08:10:58.000Z',
+    isSimulated: true,
+  },
+  {
+    id: 'VTL-101-CRIT',
+    soldierId: 'SOL-101',
+    callsign: 'Viper 1',
+    unit: '1st Recon Team Alpha',
+    timestamp: '2026-10-25T08:10:58.000Z',
+    heartRateBpm: 136,
+    bloodPressureSystolic: 88,
+    bloodPressureDiastolic: 54,
+    temperatureCelsius: 37.8,
+    oxygenSaturationPct: 88,
+    respiratoryRateBpm: 34,
+    clinicalNotes: 'Critical Anomaly Detected on CAS-0419: SpO2 dropped to 88% and RR increased to 34/min. Triage level escalated to Immediate (Red).',
+    recordedBy: 'med_officer_1@sentinel.mil',
+    createdAt: '2026-10-25T08:10:58.000Z',
+    updatedAt: '2026-10-25T08:10:58.000Z',
+    isSimulated: true,
+  },
   {
     id: 'VTL-101-1',
     soldierId: 'SOL-101',

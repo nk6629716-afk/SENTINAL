@@ -19,21 +19,23 @@ import { authService } from '../../services/auth/authService';
 
 export const SoldierVitalsModule: React.FC = () => {
   const [soldiers, setSoldiers] = useState<SoldierProfile[]>([]);
-  const [selectedSoldierId, setSelectedSoldierId] = useState<string>('SOL-101');
+  const [selectedSoldierId, setSelectedSoldierId] = useState<string>('CAS-0419');
   const [vitalsHistory, setVitalsHistory] = useState<SoldierVitalsRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Form State
-  const [heartRate, setHeartRate] = useState<string>('75');
-  const [bpSystolic, setBpSystolic] = useState<string>('120');
-  const [bpDiastolic, setBpDiastolic] = useState<string>('80');
-  const [temperature, setTemperature] = useState<string>('36.8');
-  const [oxygenSaturation, setOxygenSaturation] = useState<string>('98');
-  const [respiratoryRate, setRespiratoryRate] = useState<string>('16');
-  const [clinicalNotes, setClinicalNotes] = useState<string>('');
+  // Form State initialized to match the detected operational anomaly
+  const [heartRate, setHeartRate] = useState<string>('136');
+  const [bpSystolic, setBpSystolic] = useState<string>('88');
+  const [bpDiastolic, setBpDiastolic] = useState<string>('54');
+  const [temperature, setTemperature] = useState<string>('37.8');
+  const [oxygenSaturation, setOxygenSaturation] = useState<string>('88');
+  const [respiratoryRate, setRespiratoryRate] = useState<string>('34');
+  const [clinicalNotes, setClinicalNotes] = useState<string>(
+    'SpO2 dropped to 88% and RR increased to 34/min. Triage level escalated to Immediate (Red).'
+  );
 
   // Role permissions
   const currentUser = authService.getUser();
@@ -60,6 +62,16 @@ export const SoldierVitalsModule: React.FC = () => {
     try {
       const records = await api.getSoldierVitals(soldierId);
       setVitalsHistory(records);
+      if (records.length > 0) {
+        const latest = records[0];
+        if (latest.heartRateBpm) setHeartRate(String(latest.heartRateBpm));
+        if (latest.bloodPressureSystolic) setBpSystolic(String(latest.bloodPressureSystolic));
+        if (latest.bloodPressureDiastolic) setBpDiastolic(String(latest.bloodPressureDiastolic));
+        if (latest.temperatureCelsius) setTemperature(String(latest.temperatureCelsius));
+        if (latest.oxygenSaturationPct) setOxygenSaturation(String(latest.oxygenSaturationPct));
+        if (latest.respiratoryRateBpm) setRespiratoryRate(String(latest.respiratoryRateBpm));
+        if (latest.clinicalNotes) setClinicalNotes(latest.clinicalNotes);
+      }
     } catch (err: any) {
       console.warn('[SoldierVitals] History fetch error:', err);
     }

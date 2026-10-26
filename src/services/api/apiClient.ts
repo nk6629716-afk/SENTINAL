@@ -873,17 +873,71 @@ export class SentinelApiClient {
   }
 
   public async recordSoldierVitals(input: CreateSoldierVitalsInput): Promise<SoldierVitalsRecord> {
-    const res = await fetch(`${API_BASE_URL}/vitals`, {
-      method: 'POST',
-      headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify(input),
+    // 1. Sync immediately with simulation engine and MediRoute casualties
+    simulationEngine.updateCasualtyVitals(input.soldierId, {
+      heartRate: input.heartRateBpm,
+      spo2: input.oxygenSaturationPct,
+      respiratoryRate: input.respiratoryRateBpm,
+      bpSystolic: input.bloodPressureSystolic,
+      bpDiastolic: input.bloodPressureDiastolic,
+      temperature: input.temperatureCelsius,
+      notes: input.clinicalNotes,
     });
 
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(json.error?.message || 'Failed to record soldier vitals');
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/vitals`, {
+          method: 'POST',
+          headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(input),
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success) {
+          return json.data;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Failed to persist remote vitals, falling back to local store:', err);
+      }
     }
-    return json.data;
+
+    // Local resilient store & merge
+    const newRecord: SoldierVitalsRecord = {
+      id: `VTL-${Date.now()}`,
+      soldierId: input.soldierId,
+      callsign: input.soldierId,
+      unit: 'Operational Detachment',
+      timestamp: new Date().toISOString(),
+      heartRateBpm: input.heartRateBpm,
+      bloodPressureSystolic: input.bloodPressureSystolic,
+      bloodPressureDiastolic: input.bloodPressureDiastolic,
+      temperatureCelsius: input.temperatureCelsius,
+      oxygenSaturationPct: input.oxygenSaturationPct,
+      respiratoryRateBpm: input.respiratoryRateBpm,
+      clinicalNotes: input.clinicalNotes,
+      recordedBy: authService.getUser()?.email || 'med_officer_1@sentinel.mil',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isSimulated: true,
+    };
+    INITIAL_SOLDIER_VITALS.unshift(newRecord);
+    return newRecord;
+  }
+
+  public updateCasualtyVitals(
+    id: string,
+    vitals: {
+      heartRate?: number;
+      spo2?: number;
+      respiratoryRate?: number;
+      bpSystolic?: number;
+      bpDiastolic?: number;
+      temperature?: number;
+      notes?: string;
+    }
+  ): void {
+    simulationEngine.updateCasualtyVitals(id, vitals);
   }
 
   // 8. Deterministic Demo Scenario Reset

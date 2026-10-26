@@ -345,11 +345,11 @@ export class SimulationEngine {
           mentalStatus: 'can_follow_commands',
           severeBleedingControlled: true,
         },
-        heartRate: 116,
+        heartRate: 136,
         respiratoryRate: 34,
-        spo2: 91,
-        bpSystolic: 92,
-        bpDiastolic: 60,
+        spo2: 88,
+        bpSystolic: 88,
+        bpDiastolic: 54,
         canWalk: false,
         radialPulsePresent: true,
         mentalStatus: 'can_follow_commands',
@@ -1018,6 +1018,37 @@ export class SimulationEngine {
 
   public getSpeed(): 1 | 2 | 5 {
     return this.speed;
+  }
+
+  public updateCasualtyVitals(
+    id: string,
+    vitals: {
+      heartRate?: number;
+      spo2?: number;
+      respiratoryRate?: number;
+      bpSystolic?: number;
+      bpDiastolic?: number;
+      temperature?: number;
+      notes?: string;
+    }
+  ): void {
+    const casualty = this.casualties.find((c) => c.id === id || c.patientCode === id);
+    if (casualty) {
+      if (vitals.heartRate !== undefined) casualty.heartRate = vitals.heartRate;
+      if (vitals.spo2 !== undefined) casualty.spo2 = vitals.spo2;
+      if (vitals.respiratoryRate !== undefined) casualty.respiratoryRate = vitals.respiratoryRate;
+      if (vitals.bpSystolic !== undefined) casualty.bpSystolic = vitals.bpSystolic;
+      if (vitals.bpDiastolic !== undefined) casualty.bpDiastolic = vitals.bpDiastolic;
+      casualty.updatedAt = new Date().toISOString();
+      const state = this.getState();
+      this.listeners.forEach((listener) => {
+        try {
+          listener(state);
+        } catch (err) {
+          console.error('Error notifying simulation listener:', err);
+        }
+      });
+    }
   }
 
   public pause(): void {
