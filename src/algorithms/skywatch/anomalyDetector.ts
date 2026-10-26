@@ -22,45 +22,90 @@ export const DEFAULT_ANOMALY_CONFIG: AnomalyDetectorConfig = {
   ]
 };
 
+export const KNOTS_TO_MS = 0.514444;
+export const SUDDEN_ACCEL_THRESHOLD_MS2 = 150 * 0.514444; // 150 kts per second in SI m/s^2
+
 export class SkyWatchAnomalyDetector {
   private config: AnomalyDetectorConfig;
   private previousTrackPoints: Map<string, TelemetryTrackPoint> = new Map();
+  private firstSampleFlags: Set<string> = new Set();
   private alerts: SkyWatchAlert[] = [];
   private alertCounter: number = 100;
+
+  public accelThresholdMs2: number = SUDDEN_ACCEL_THRESHOLD_MS2;
 
   constructor(customConfig?: Partial<AnomalyDetectorConfig>) {
     this.config = {
       ...DEFAULT_ANOMALY_CONFIG,
       ...customConfig
     };
+    if (customConfig?.speedChangeThresholdKnots !== undefined) {
+      this.accelThresholdMs2 = (customConfig.speedChangeThresholdKnots / 5) * KNOTS_TO_MS;
+    } else {
+      this.accelThresholdMs2 = SUDDEN_ACCEL_THRESHOLD_MS2;
+    }
   }
 
   /**
-   * Evaluate a newly received telemetry track point against all 4 anomaly rules.
+   * Reset the detector state (e.g. after simulation reset or test setup)
+   */
+  public reset(): void {
+    this.previousTrackPoints.clear();
+    this.firstSampleFlags.clear();
+    this.alerts = [];
+  }
+
+  /**
+   * Reconnect hook to mark subsequent track updates as first sample
+   */
+  public reconnect(): void {
+    this.previousTrackPoints.clear();
+    this.firstSampleFlags.clear();
+  }
+
+  /**
+   * Evaluate a newly received telemetry track point against all anomaly rules.
    * Returns newly triggered alerts, if any.
    */
   public evaluate(currentPoint: TelemetryTrackPoint, currentTimeIso?: string): SkyWatchAlert[] {
     const newAlerts: SkyWatchAlert[] = [];
     const prevPoint = this.previousTrackPoints.get(currentPoint.trackId);
-    const evalTimeMs = currentTimeIso ? new Date(currentTimeIso).getTime() : new Date(currentPoint.timestamp).getTime();
+    const isFirstSample = !prevPoint || this.firstSampleFlags.has(currentPoint.trackId);
 
-    // 1. Rule: Speed Change Anomaly
-    if (prevPoint) {
-      const deltaSpeed = Math.abs(currentPoint.speedKnots - prevPoint.speedKnots);
-      if (deltaSpeed >= this.config.speedChangeThresholdKnots) {
-        const alert: SkyWatchAlert = {
-          id: `ALT-${this.alertCounter++}`,
-          trackId: currentPoint.trackId,
-          severity: deltaSpeed >= 80 ? 'critical' : 'warning',
-          ruleName: 'speed_anomaly',
-          observedValue: `${deltaSpeed.toFixed(1)} kts delta (${prevPoint.speedKnots} -> ${currentPoint.speedKnots} kts)`,
-          threshold: `${this.config.speedChangeThresholdKnots} kts max delta`,
-          explanation: `Sudden kinematic velocity shift detected: Speed jumped by ${deltaSpeed.toFixed(1)} knots between consecutive telemetry pulses, exceeding configured threshold of ${this.config.speedChangeThresholdKnots} knots.`,
-          timestamp: currentPoint.timestamp,
-          acknowledged: false,
-          isSimulated: true
-        };
-        newAlerts.push(alert);
+    // 1. Rule: Speed Change / Acceleration Anomaly
+    if (!isFirstSample && prevPoint) {
+      const prevTimeMs = new Date(prevPoint.timestamp).getTime();
+      const currTimeMs = new Date(currentPoint.timestamp).getTime();
+      const dtSim = (currTimeMs - prevTimeMs) / 1000;
+
+      // Skip evaluation when dtSim <= 0
+      if (dtSim > 0) {
+        const deltaKnots = Math.abs(currentPoint.speedKnots - prevPoint.speedKnots);
+        const speedDeltaMs = deltaKnots * KNOTS_TO_MS;
+        const accelMs2 = speedDeltaMs / dtSim;
+
+        const isAccelBreach = accelMs2 >= this.accelThresholdMs2;
+        const isStepDeltaBreach = this.config.speedChangeThresholdKnots !== undefined &&
+          deltaKnots >= this.config.speedChangeThresholdKnots &&
+          dtSim <= 5 &&
+          accelMs2 >= (this.config.speedChangeThresholdKnots / 5) * KNOTS_TO_MS;
+
+        if (isAccelBreach || isStepDeltaBreach) {
+          const accelKtsPerSec = accelMs2 / KNOTS_TO_MS;
+          const alert: SkyWatchAlert = {
+            id: `ALT-${this.alertCounter++}`,
+            trackId: currentPoint.trackId,
+            severity: accelKtsPerSec >= 200 ? 'critical' : 'warning',
+            ruleName: 'speed_anomaly',
+            observedValue: `${accelKtsPerSec.toFixed(1)} kts/s accel (${deltaKnots.toFixed(1)} kts delta, ${prevPoint.speedKnots} -> ${currentPoint.speedKnots} kts in ${dtSim.toFixed(2)}s)`,
+            threshold: `${(this.accelThresholdMs2 / KNOTS_TO_MS).toFixed(1)} kts/s max acceleration`,
+            explanation: `Sudden kinematic velocity shift detected: Acceleration reached ${accelKtsPerSec.toFixed(1)} kts/s (${deltaKnots.toFixed(1)} kts delta in ${dtSim.toFixed(2)}s), exceeding threshold of ${(this.accelThresholdMs2 / KNOTS_TO_MS).toFixed(1)} kts/s.`,
+            timestamp: currentPoint.timestamp,
+            acknowledged: false,
+            isSimulated: true
+          };
+          newAlerts.push(alert);
+        }
       }
     }
 
@@ -116,6 +161,7 @@ export class SkyWatchAnomalyDetector {
 
     // Store track point for subsequent delta calculations
     this.previousTrackPoints.set(currentPoint.trackId, { ...currentPoint });
+    this.firstSampleFlags.delete(currentPoint.trackId);
 
     // Append to master alert list
     this.alerts.push(...newAlerts);
