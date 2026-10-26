@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   IncidentReport,
   PriorityLevel,
+  MeshNodeId,
+  MeshMessage,
 } from '@shared/types';
+import { meshService, NodeLinkQuality } from '../../services/mesh/meshService';
 import {
   Play,
   Pause,
@@ -52,7 +55,14 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
   const [selectedLocationIdx, setSelectedLocationIdx] = useState(0);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'outbox' | 'incidents'>('outbox');
+  const [activeTab, setActiveTab] = useState<'outbox' | 'incidents' | 'channel'>('outbox');
+  const [currentNode, setCurrentNode] = useState<MeshNodeId>(() => meshService.getCurrentNode());
+  const [linkQualities, setLinkQualities] = useState<NodeLinkQuality>(() => meshService.getLinkQualities());
+  const [meshMessages, setMeshMessages] = useState<MeshMessage[]>(() => meshService.getMessages());
+  const [chatChannel] = useState('#tactical-alpha');
+  const [chatTarget, setChatTarget] = useState<MeshNodeId>('Command');
+  const [chatContent, setChatContent] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [simElapsedSeconds, setSimElapsedSeconds] = useState(14);
   const [isReportPanelCollapsed, setIsReportPanelCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -84,6 +94,44 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
     }, 1000);
     return () => clearInterval(interval);
   }, [isSimPaused]);
+
+  // Mesh service subscription for multi-tab BroadcastChannel sync
+  useEffect(() => {
+    // 1. Initialize BroadcastChannel listener on tab mount
+    meshService.initBroadcastChannel();
+
+    // 2. Hydrate message history from storage (IndexedDB) with deduplication
+    meshService.refreshMessages().then((msgs) => {
+      setMeshMessages(msgs);
+    });
+
+    // 3. Update message state immediately when an incoming broadcast arrives
+    const unsub = meshService.subscribe((evt) => {
+      if (evt.type === 'MESSAGE') {
+        setMeshMessages(meshService.getMessages());
+      } else if (evt.type === 'LINK_QUALITY') {
+        setLinkQualities(meshService.getLinkQualities());
+      }
+    });
+
+    // 4. Clean up listeners on unmount
+    return () => {
+      unsub();
+    };
+  }, []);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatContent.trim()) return;
+    setIsSendingMessage(true);
+    try {
+      await meshService.sendMessage(chatChannel, chatContent.trim(), chatTarget);
+      setChatContent('');
+      setMeshMessages(meshService.getMessages());
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -510,6 +558,43 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                 {incidents.length}
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('channel')}
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: activeTab === 'channel' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
+                padding: '6px 8px',
+                fontSize: '0.82rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: activeTab === 'channel' ? 'var(--color-ink)' : 'var(--color-ink-2)',
+                cursor: 'pointer',
+                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>Mesh Comms</span>
+              <span
+                className="numeral"
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '1px 5px',
+                  borderRadius: '10px',
+                  background: 'var(--color-paper)',
+                  color: 'var(--color-ink-2)',
+                  fontFamily: 'var(--font-numerals)',
+                }}
+              >
+                {meshMessages.length}
+              </span>
+            </button>
           </div>
 
           {/* Body Content */}
@@ -629,7 +714,7 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                     : 'Command link active: Client ID reconciliation enabled.'}
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'incidents' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
@@ -709,6 +794,170 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                     </div>
                   ))
                 )}
+              </div>
+            ) : (
+              /* activeTab === 'channel': Decentralized Tactical Mesh Comms */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* Simulation Disclosure Banner */}
+                <div
+                  style={{
+                    padding: '8px 10px',
+                    background: 'var(--color-paper)',
+                    border: '1px solid var(--color-warn)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.72rem',
+                    color: 'var(--color-ink-2)',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  <strong style={{ color: 'var(--color-ink)' }}>Simulated Mesh Transport:</strong> BroadcastChannel provides same-origin browser tab relay for multi-node evaluation; not a physical RF radio network.
+                </div>
+
+                {/* Node Identity Switcher */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-ink)' }}>
+                    Active Tab Node:
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {(['Alpha', 'Bravo', 'Command'] as MeshNodeId[]).map((node) => (
+                      <button
+                        key={node}
+                        type="button"
+                        onClick={() => {
+                          meshService.setCurrentNode(node);
+                          setCurrentNode(node);
+                        }}
+                        style={{
+                          padding: '2px 8px',
+                          fontSize: '0.72rem',
+                          borderRadius: 'var(--radius-sm)',
+                          border: currentNode === node ? '1.5px solid var(--accent)' : '1px solid var(--color-line)',
+                          background: currentNode === node ? 'var(--color-sheet)' : 'transparent',
+                          fontWeight: currentNode === node ? 800 : 500,
+                          color: currentNode === node ? 'var(--accent)' : 'var(--color-ink-2)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {node}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Link Quality Sliders */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'var(--color-paper)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-line)' }}>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--color-ink)' }}>
+                    Link Quality Simulation (Pass Rate):
+                  </span>
+                  {(['Alpha', 'Bravo', 'Command'] as MeshNodeId[]).map((node) => (
+                    <div key={node} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                      <span style={{ fontSize: '0.72rem', width: '56px', color: 'var(--color-ink-2)' }}>{node}:</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={linkQualities[node]}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          meshService.setLinkQuality(node, val);
+                          setLinkQualities((prev) => ({ ...prev, [node]: val }));
+                        }}
+                        style={{ flex: 1, accentColor: 'var(--accent)' }}
+                      />
+                      <span className="numeral" style={{ fontSize: '0.72rem', width: '36px', textAlign: 'right', fontWeight: 700, fontFamily: 'var(--font-numerals)' }}>
+                        {linkQualities[node]}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Send Tactical Message Form */}
+                <form onSubmit={handleSendMessage} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <select
+                      value={chatTarget}
+                      onChange={(e) => setChatTarget(e.target.value as MeshNodeId)}
+                      style={{ fontSize: '0.72rem', padding: '4px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-line)', background: 'var(--color-sheet)', color: 'var(--color-ink)' }}
+                    >
+                      <option value="Command">To: Command</option>
+                      <option value="Alpha">To: Alpha</option>
+                      <option value="Bravo">To: Bravo</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Transmit tactical message..."
+                      value={chatContent}
+                      onChange={(e) => setChatContent(e.target.value)}
+                      style={{ flex: 1, fontSize: '0.75rem', padding: '4px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-line)', background: 'var(--color-sheet)', color: 'var(--color-ink)' }}
+                    />
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={isSendingMessage || !chatContent.trim()}
+                      style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+                    >
+                      Send
+                    </button>
+                  </div>
+                </form>
+
+                {/* Mesh Comms Feed */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-ink)' }}>
+                      Mesh Traffic ({meshMessages.length})
+                    </span>
+                    <span style={{ fontSize: '0.66rem', color: 'var(--color-ink-2)' }}>
+                      Store-and-forward relay
+                    </span>
+                  </div>
+
+                  {meshMessages.map((msg) => {
+                    const isDelivered = msg.state === 'delivered';
+                    const isRelayed = msg.state === 'relayed';
+                    return (
+                      <div
+                        key={msg.id}
+                        style={{
+                          padding: '6px 8px',
+                          background: 'var(--color-paper)',
+                          border: '1px solid var(--color-line)',
+                          borderRadius: 'var(--radius-sm)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--color-ink)' }}>
+                            {msg.senderNode} &rarr; {msg.targetNode}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.62rem',
+                              fontWeight: 700,
+                              padding: '1px 4px',
+                              borderRadius: '2px',
+                              border: `1px solid ${isDelivered ? 'var(--color-ok)' : isRelayed ? 'var(--accent)' : 'var(--color-warn)'}`,
+                              color: isDelivered ? 'var(--color-ok)' : isRelayed ? 'var(--accent)' : 'var(--color-warn)',
+                            }}
+                          >
+                            {msg.state.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--color-ink)' }}>
+                          {msg.content}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.64rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
+                          <span>Hops: [{msg.hopPath.join(' &rarr; ')}]</span>
+                          <span className="numeral" style={{ fontFamily: 'var(--font-numerals)' }}>
+                            {msg.latencyMs ? `${msg.latencyMs}ms` : '--'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

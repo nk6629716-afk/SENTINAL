@@ -30,7 +30,7 @@ export type MeshEventListener = (event: {
   data: any;
 }) => void;
 
-class MeshService {
+export class MeshService {
   private currentNode: MeshNodeId = 'Alpha';
   private linkQualities: NodeLinkQuality = {
     Alpha: 90,
@@ -38,6 +38,7 @@ class MeshService {
     Command: 95,
   };
   private broadcastChannel: BroadcastChannel | null = null;
+  private messageEventHandler: ((event: MessageEvent) => void) | null = null;
   private listeners: Set<MeshEventListener> = new Set();
   private messages: MeshMessage[] = [];
   private markers: SharedMapMarker[] = [];
@@ -68,16 +69,40 @@ class MeshService {
     }
   }
 
-  private initBroadcastChannel(): void {
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+  public initBroadcastChannel(): void {
+    const hasChannel = typeof window !== 'undefined'
+      ? ('BroadcastChannel' in window)
+      : (typeof BroadcastChannel !== 'undefined');
+
+    if (hasChannel && !this.broadcastChannel) {
       try {
-        this.broadcastChannel = new BroadcastChannel('sentinel_mesh_bus');
-        this.broadcastChannel.onmessage = (event) => {
+        const ChannelCtor = typeof window !== 'undefined' && (window as any).BroadcastChannel
+          ? (window as any).BroadcastChannel
+          : BroadcastChannel;
+        const ch = new ChannelCtor('sentinel_mesh_bus');
+        this.messageEventHandler = (event: MessageEvent) => {
           this.handleIncomingBroadcast(event.data);
         };
+        ch.addEventListener('message', this.messageEventHandler as EventListener);
+        this.broadcastChannel = ch;
       } catch (err) {
-        console.warn('BroadcastChannel not available, using local loopback');
+        console.warn('BroadcastChannel not available, using local loopback', err);
       }
+    }
+  }
+
+  public closeBroadcastChannel(): void {
+    if (this.broadcastChannel) {
+      try {
+        if (this.messageEventHandler) {
+          this.broadcastChannel.removeEventListener('message', this.messageEventHandler as EventListener);
+          this.messageEventHandler = null;
+        }
+        this.broadcastChannel.close();
+      } catch (err) {
+        console.warn('Error closing BroadcastChannel:', err);
+      }
+      this.broadcastChannel = null;
     }
   }
 
@@ -193,6 +218,45 @@ class MeshService {
     this.notify({ type: 'LINK_QUALITY', data: this.linkQualities });
   }
 
+  public deduplicateMessages(): void {
+    const map = new Map<string, MeshMessage>();
+    for (const m of this.messages) {
+      if (!map.has(m.id)) {
+        map.set(m.id, m);
+      } else {
+        const existing = map.get(m.id)!;
+        if (m.state === 'delivered' || new Date(m.timestamp).getTime() >= new Date(existing.timestamp).getTime()) {
+          map.set(m.id, { ...existing, ...m });
+        }
+      }
+    }
+    this.messages = Array.from(map.values()).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }
+
+  public async refreshMessages(): Promise<MeshMessage[]> {
+    try {
+      const persisted = await dbService.getMeshMessages();
+      if (persisted && persisted.length > 0) {
+        for (const p of persisted) {
+          const idx = this.messages.findIndex((m) => m.id === p.id);
+          if (idx >= 0) {
+            if (p.state === 'delivered') {
+              this.messages[idx] = { ...this.messages[idx], ...p };
+            }
+          } else {
+            this.messages.push(p);
+          }
+        }
+        this.deduplicateMessages();
+      }
+    } catch (err) {
+      // In non-IndexedDB environments or cold boot, retain in-memory messages
+    }
+    return this.getMessages();
+  }
+
   public getMessages(): MeshMessage[] {
     return [...this.messages];
   }
@@ -245,6 +309,7 @@ class MeshService {
     };
 
     this.messages.unshift(newMessage);
+    this.deduplicateMessages();
     this.appendLog({
       id: `LOG-${Date.now()}-Q`,
       timestamp: new Date().toISOString(),
@@ -261,6 +326,10 @@ class MeshService {
       type: 'MESH_MESSAGE_UPDATE',
       payload: newMessage,
     });
+
+    try {
+      dbService.putMeshMessage(newMessage).catch(() => {});
+    } catch (e) {}
 
     // Run store-and-forward delivery asynchronously
     this.processStoreAndForward(newMessage);
@@ -340,6 +409,9 @@ class MeshService {
 
     this.notify({ type: 'MESSAGE', data: msg });
     this.broadcast({ type: 'MESH_MESSAGE_UPDATE', payload: msg });
+    try {
+      dbService.putMeshMessage(msg).catch(() => {});
+    } catch (e) {}
   }
 
   /**
@@ -406,10 +478,16 @@ class MeshService {
       const msg: MeshMessage = eventData.payload;
       const idx = this.messages.findIndex((m) => m.id === msg.id);
       if (idx >= 0) {
-        this.messages[idx] = msg;
+        this.messages[idx] = { ...this.messages[idx], ...msg };
       } else {
         this.messages.unshift(msg);
       }
+      this.deduplicateMessages();
+
+      try {
+        dbService.putMeshMessage(msg).catch(() => {});
+      } catch (e) {}
+
       this.notify({ type: 'MESSAGE', data: msg });
     }
 

@@ -4,7 +4,15 @@ import { CasualtyRecord } from '@shared/types';
  * Returns all active casualties from state.
  */
 export function selectCasualties(casualties: CasualtyRecord[] = []): CasualtyRecord[] {
-  return casualties;
+  const triageRank = (cat?: string) => {
+    if (!cat) return 99;
+    if (cat.startsWith('immediate')) return 0;
+    if (cat.startsWith('delayed')) return 1;
+    if (cat.startsWith('minimal')) return 2;
+    if (cat.startsWith('expectant')) return 3;
+    return 4;
+  };
+  return [...casualties].sort((a, b) => triageRank(a.triageCategory) - triageRank(b.triageCategory));
 }
 
 /**

@@ -194,6 +194,13 @@ export class Database {
           defaultState.incidents[inc.id] = inc;
         }
       });
+
+      // Preserve pending offline GeoIntel observations
+      Object.values(this.state.observations || {}).forEach((obs) => {
+        if ((obs as any).syncStatus === 'pending' || (obs as any).syncStatus === 'failed') {
+          defaultState.observations[obs.id] = obs;
+        }
+      });
     }
 
     this.state = defaultState;

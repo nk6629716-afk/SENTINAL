@@ -4,8 +4,9 @@ import { eventBus } from '../realtime/eventBus';
 
 export const demoRouter = Router();
 
-demoRouter.post('/reset', (_req: Request, res: Response) => {
-  db.resetToBaseline();
+demoRouter.post('/reset', (req: Request, res: Response) => {
+  const preservePending = req.query.preservePending !== 'false';
+  db.resetToBaseline(preservePending);
   eventBus.publish('demo:reset', { resetAt: new Date().toISOString() });
 
   res.status(200).json({

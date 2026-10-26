@@ -1,7 +1,18 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-const SCREENSHOT_DIR = '/home/nikhil/.gemini/antigravity-ide/brain/283d940f-8f41-42a6-9524-e9e8729462e3/screenshots';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '..');
+
+// Allow optional output directory argument (e.g. node scripts/ui_acceptance_runner.mjs [outputDir])
+const DEFAULT_SCREENSHOT_DIR = path.join(REPO_ROOT, 'docs', 'screenshots');
+const SCREENSHOT_DIR = process.argv[2] ? path.resolve(process.argv[2]) : DEFAULT_SCREENSHOT_DIR;
+
+if (!fs.existsSync(SCREENSHOT_DIR)) {
+  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+}
 
 class CDPClient {
   constructor(wsUrl) {
@@ -555,8 +566,8 @@ async function runAcceptanceSuite() {
     console.log('       ALL BROWSER ACCEPTANCE WORKFLOWS VERIFIED! ✓           ');
     console.log('===============================================================\n');
 
-    // Save report json
-    const outJson = '/home/nikhil/.gemini/antigravity-ide/brain/283d940f-8f41-42a6-9524-e9e8729462e3/scratch/ui_acceptance_summary.json';
+    // Save report json in screenshot directory
+    const outJson = path.join(SCREENSHOT_DIR, 'ui_acceptance_summary.json');
     fs.writeFileSync(outJson, JSON.stringify(report, null, 2));
     console.log(`Report summary saved to ${outJson}`);
 

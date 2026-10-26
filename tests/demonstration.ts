@@ -9,11 +9,133 @@
  * Step E: Atomic Reset & Repeatability (Proving Run 1 and Run 2 yield identical states without drift)
  */
 
+import { spawn, ChildProcess } from 'child_process';
+import net from 'net';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { GeoIntelImageDiff } from '../src/algorithms/geointel/imageDiff';
 import { rasterizeSyntheticSvgTerrain, mapRegionToCandidate } from '../src/modules/geointel/utils/canvasRaster';
 import { MediRouteGraphRouter } from '../src/algorithms/mediroute/graphRouter';
 
-const SERVER_BASE = 'http://localhost:5000';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
+
+let SERVER_BASE = process.env.DEMO_SERVER_URL || 'http://localhost:5000';
+
+async function findFreePort(preferredPort = 5099): Promise<number> {
+  return new Promise((resolve) => {
+    const srv = net.createServer();
+    srv.listen(preferredPort, () => {
+      srv.close(() => resolve(preferredPort));
+    });
+    srv.on('error', () => {
+      const fallback = net.createServer();
+      fallback.listen(0, () => {
+        const port = (fallback.address() as net.AddressInfo).port;
+        fallback.close(() => resolve(port));
+      });
+    });
+  });
+}
+
+async function waitForServerReady(url: string, timeoutMs = 15000): Promise<void> {
+  const start = Date.now();
+  let lastError = '';
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const res = await fetch(`${url}/api/health`);
+      if (res.ok) return;
+      lastError = `Server responded with HTTP ${res.status}`;
+    } catch (err: any) {
+      lastError = err.message;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error(`Isolated test server at ${url} failed to become ready within ${timeoutMs}ms (last error: ${lastError})`);
+}
+
+async function startIsolatedTestServer(): Promise<{ child: ChildProcess; tempDir: string; url: string }> {
+  const port = await findFreePort(5099);
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-demo-test-'));
+  const serverScript = path.join(rootDir, 'server', 'src', 'index.ts');
+  const tsxCli = path.join(rootDir, 'server', 'node_modules', 'tsx', 'dist', 'cli.mjs');
+
+  const spawnExec = fs.existsSync(tsxCli) ? process.execPath : 'npx';
+  const spawnArgs = fs.existsSync(tsxCli) ? [tsxCli, serverScript] : ['tsx', serverScript];
+
+  const child = spawn(spawnExec, spawnArgs, {
+    cwd: rootDir,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      DATA_DIR: tempDir,
+      STORAGE_MODE: 'file',
+      ENABLE_AUTO_TELEMETRY: 'false',
+      NODE_ENV: 'test',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stderrOutput = '';
+  child.stderr?.on('data', (chunk) => {
+    stderrOutput += chunk.toString();
+  });
+
+  const url = `http://localhost:${port}`;
+
+  try {
+    await waitForServerReady(url, 15000);
+  } catch (err: any) {
+    try {
+      child.kill('SIGKILL');
+    } catch {}
+    if (fs.existsSync(tempDir)) {
+      try {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      } catch {}
+    }
+    throw new Error(`${err.message}\n[Server Stderr]:\n${stderrOutput || '(no stderr emitted)'}`);
+  }
+
+  return { child, tempDir, url };
+}
+
+async function stopServer(child: ChildProcess, tempDir: string): Promise<void> {
+  if (child && !child.killed) {
+    await new Promise<void>((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (!done) {
+          done = true;
+          resolve();
+        }
+      };
+
+      child.once('exit', () => finish());
+      child.kill('SIGTERM');
+
+      setTimeout(() => {
+        if (!done) {
+          try {
+            child.kill('SIGKILL');
+          } catch {}
+          finish();
+        }
+      }, 2000).unref();
+    });
+  }
+
+  if (tempDir && fs.existsSync(tempDir)) {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch (err) {
+      console.warn(`[TEST-SERVER] Could not remove temp dir ${tempDir}:`, err);
+    }
+  }
+}
 
 function assert(condition: boolean, msg: string): void {
   if (!condition) {
@@ -290,7 +412,22 @@ export async function runDemonstrationWorkflow(runIndex: number): Promise<void> 
 }
 
 async function main(): Promise<void> {
+  let serverProcess: ChildProcess | null = null;
+  let testDataDir: string | null = null;
+
   try {
+    if (process.env.DEMO_SERVER_URL) {
+      SERVER_BASE = process.env.DEMO_SERVER_URL;
+      console.log(`[DEMO] Connecting to prestarted external server: ${SERVER_BASE}`);
+    } else {
+      console.log(`[DEMO] Starting isolated test server with deterministic telemetry...`);
+      const isolated = await startIsolatedTestServer();
+      serverProcess = isolated.child;
+      testDataDir = isolated.tempDir;
+      SERVER_BASE = isolated.url;
+      console.log(`[DEMO] Isolated test server ready at ${SERVER_BASE} (tempDataDir: ${testDataDir})`);
+    }
+
     // Execute Run 1
     await runDemonstrationWorkflow(1);
 
@@ -301,11 +438,19 @@ async function main(): Promise<void> {
     console.log('  HACKATHON READINESS CONFIRMED: REPEAT RUNS EXECUTED FLAWLESSLY');
     console.log('  ZERO DRIFT | ZERO STALE RECORDS | 100% IDEMPOTENCY PRESERVED');
     console.log('***************************************************************\n');
-    process.exit(0);
   } catch (err: any) {
     console.error('\n[DEMO ERROR]:', err.message);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    if (serverProcess && testDataDir) {
+      console.log('[DEMO] Shutting down isolated test server and cleaning temporary storage...');
+      await stopServer(serverProcess, testDataDir);
+    }
+    if (process.exitCode && process.exitCode !== 0) {
+      process.exit(process.exitCode);
+    }
   }
 }
 
 main();
+
