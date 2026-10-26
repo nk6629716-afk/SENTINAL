@@ -55,6 +55,9 @@ test('Database persists records to disk and reloads them on fresh instantiation 
 });
 
 test('POST /api/demo/reset resets data back to deterministic baseline fixtures', async () => {
+  // Reset clean first to remove any leftover pending items from prior test runs
+  await request(app).post('/api/demo/reset?preservePending=false');
+
   // Add a test record
   await request(app).post('/api/incidents').send({
     sourceModule: 'fieldlink',
@@ -75,3 +78,38 @@ test('POST /api/demo/reset resets data back to deterministic baseline fixtures',
   assert.strictEqual(listRes.body.data.length, 3);
   assert.strictEqual(listRes.body.data.some((i: any) => i.title === 'Ephemeral Incident Before Reset'), false);
 });
+
+test('POST /api/demo/reset preserves pending offline incident reports and custom user records', async () => {
+  const { db } = await import('../src/db/database');
+  const now = new Date().toISOString();
+
+  // Save a pending incident (e.g. from offline intake queue)
+  db.saveIncident({
+    id: 'INC-PENDING-OFFLINE-TEST',
+    clientId: 'cli-pending-test-01',
+    sourceModule: 'fieldlink',
+    type: 'medical_evac',
+    priority: 'critical',
+    status: 'pending_sync',
+    syncStatus: 'pending',
+    title: 'Pending Offline Report From Field',
+    notes: 'Must not be overwritten by demo reset.',
+    location: { lat: 34.06, lng: -118.24, name: 'Field Outpost' },
+    createdAt: now,
+    updatedAt: now,
+    isSimulated: true,
+  });
+
+  // Call reset
+  const resetRes = await request(app).post('/api/demo/reset');
+  assert.strictEqual(resetRes.status, 200);
+
+  // Verify that pending incident was preserved
+  const preserved = db.getIncidentById('INC-PENDING-OFFLINE-TEST');
+  assert.ok(preserved, 'Pending offline incident report must be preserved after demo reset');
+  assert.strictEqual(preserved?.syncStatus, 'pending');
+
+  // Clean up test record after assertion
+  await request(app).post('/api/demo/reset?preservePending=false');
+});
+

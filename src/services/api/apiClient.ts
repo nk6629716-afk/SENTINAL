@@ -731,7 +731,7 @@ export class SentinelApiClient {
             avoidedHazardIds: data.hazardsAvoided || [],
             algorithmUsed: 'Dijkstra-Hazard-Aware',
             hasActiveBlockage: (data.hazardsAvoided || []).length > 0,
-            alternativeFound: data.routeFound !== false,
+            alternativeFound: (data.hazardsAvoided || []).length > 0,
             explanation: data.message || `Route computed via backend Dijkstra engine (${data.totalDistanceKm} km).`,
             calculatedAt: new Date().toISOString(),
           };
@@ -743,7 +743,26 @@ export class SentinelApiClient {
 
     // Local fallback calculation based on current road hazard states in IndexedDB
     const localHazards = await dbService.getHazards();
-    const edge1Blocked = localHazards.some((h) => h.id === 'EDGE-1' && h.blocked);
+    const edge1Blocked = localHazards.some((h) => (h.id === 'EDGE-1' || (h as any).edgeId === 'EDGE-1') && h.blocked);
+    const edge2Blocked = localHazards.some((h) => (h.id === 'EDGE-2' || (h as any).edgeId === 'EDGE-2') && h.blocked);
+
+    if (edge1Blocked && edge2Blocked) {
+      return {
+        id: `ROUTE-${Date.now()}`,
+        sourceNodeId: startNodeId,
+        destinationNodeId: destinationNodeId,
+        totalDistanceKm: 0,
+        estimatedMinutes: 0,
+        pathNodeIds: [],
+        edgesTraversed: [],
+        avoidedHazardIds: ['EDGE-1', 'EDGE-2'],
+        algorithmUsed: 'Dijkstra-Hazard-Aware',
+        hasActiveBlockage: true,
+        alternativeFound: false,
+        explanation: 'All corridors blocked between origin and destination. No viable route found.',
+        calculatedAt: new Date().toISOString(),
+      };
+    }
 
     if (!edge1Blocked) {
       return {
@@ -757,7 +776,7 @@ export class SentinelApiClient {
         avoidedHazardIds: [],
         algorithmUsed: 'Dijkstra-Hazard-Aware',
         hasActiveBlockage: false,
-        alternativeFound: true,
+        alternativeFound: false,
         explanation: 'Fastest direct corridor selected via Highway 9. All 3 road segments clear (5.5 km, ~8 mins).',
         calculatedAt: new Date().toISOString(),
       };

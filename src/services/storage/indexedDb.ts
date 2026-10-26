@@ -104,24 +104,32 @@ export class SentinelDatabase {
 
     let preservedIncidents: IncidentReport[] = [];
     let preservedGeo: GeoIntelObservation[] = [];
+    let preservedCasualties: CasualtyRecord[] = [];
 
     if (preserveUserData) {
       try {
-        const readTx = db.transaction(['incidents', 'geointel'], 'readonly');
+        const readTx = db.transaction(['incidents', 'geointel', 'casualties'], 'readonly');
         const getIncReq = readTx.objectStore('incidents').getAll();
         const getGeoReq = readTx.objectStore('geointel').getAll();
+        const getCasReq = readTx.objectStore('casualties').getAll();
 
         await new Promise<void>((resolve) => {
           readTx.oncomplete = () => {
             const allInc = (getIncReq.result || []) as IncidentReport[];
+            const initialIncIds = new Set(INITIAL_INCIDENTS.map((i) => i.id));
             preservedIncidents = allInc.filter(
-              (inc) => inc.syncStatus === 'pending' || inc.syncStatus === 'failed'
+              (inc) => inc.syncStatus === 'pending' || inc.syncStatus === 'failed' || !initialIncIds.has(inc.id)
             );
 
             const allGeo = (getGeoReq.result || []) as GeoIntelObservation[];
+            const initialGeoIds = new Set(INITIAL_GEO_OBSERVATIONS.map((g) => g.id));
             preservedGeo = allGeo.filter(
-              (geo) => (geo as any).syncStatus === 'pending' || (geo as any).syncStatus === 'failed'
+              (geo) => (geo as any).syncStatus === 'pending' || (geo as any).syncStatus === 'failed' || !initialGeoIds.has(geo.id)
             );
+
+            const allCas = (getCasReq.result || []) as CasualtyRecord[];
+            const initialCasIds = new Set(INITIAL_CASUALTIES.map((c) => c.id));
+            preservedCasualties = allCas.filter((c) => !initialCasIds.has(c.id));
 
             resolve();
           };
@@ -155,6 +163,7 @@ export class SentinelDatabase {
 
     const casStore = tx.objectStore('casualties');
     for (const cas of INITIAL_CASUALTIES) casStore.put(cas);
+    for (const cas of preservedCasualties) casStore.put(cas);
 
     const hazStore = tx.objectStore('hazards');
     for (const haz of ROAD_HAZARD_EDGES) hazStore.put(haz);

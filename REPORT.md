@@ -1,5 +1,5 @@
 # SENTINEL Project Report & System Architecture Ledger
-*Automated Operational & Technical Dossier — Generated 2026-10-25T19:42:59.319Z*
+*Automated Operational & Technical Dossier — Generated 2026-10-26T00:17:10.018Z*
 
 ---
 
@@ -18,12 +18,19 @@ The platform provides resilient disaster-zone situational awareness for military
 | Metric | Active Repository Value |
 | :--- | :--- |
 | **Active Branch** | `main` |
-| **Commit SHA** | `c87c97f683290ae5e10cd230dbcd92531245b626` (`c87c97f`) |
-| **Last Commit Date** | `2026-10-26 01:12:32 +0530` |
-| **Author** | `Falcon-20199 <rizwan1612010@gmai.com>` |
+| **Commit SHA** | `9a1479d41a1ff9fb36b4d87ce10bf90a0a113d71` (`9a1479d`) |
+| **Last Commit Date** | `2026-10-26 05:30:24 +0530` |
+| **Author** | `nk6629716-afk <nk6629716@gmail.com>` |
 | **Remote URL** | `https://github.com/nk6629716-afk/fallingsun` |
-| **Working Tree Status** | `Clean working directory (all files committed)` |
-| **Latest Message** | `docs: auto-update REPORT.md before push` |
+| **Working Tree Status** | `M  REPORT.md
+M  package.json
+M  server/package-lock.json
+M  server/src/db/database.ts
+M  server/src/routes/demoRoutes.ts
+M  server/tests/persistence.test.ts
+M  src/services/api/apiClient.ts
+M  src/services/storage/indexedDb.ts` |
+| **Latest Message** | `fix(hardening): make demonstration test self-contained, portable ui runner, and release audit reports` |
 
 ---
 
@@ -33,7 +40,7 @@ The test suite evaluates mission-critical algorithmic behaviors, safety-critical
 
 | Suite | Status | Metrics / Outcome |
 | :--- | :---: | :--- |
-| **Frontend Behavioral & Contract Suite** | **PASSED** | **0 / 54 tests passed (100%)** |
+| **Frontend Behavioral & Contract Suite** | **PASSED** | **122 / 122 tests passed (100%)** |
 | **MediRoute START Triage Rules** | **PASSED** | 6/6 tests (Respiratory > 30, Absent Pulse, Unresponsive Mental Status, Walking Wounded) |
 | **Dijkstra Hazard-Aware Routing** | **PASSED** | 5/5 tests (Open highway 5.5 km, blocked bridge detour 6.6 km, all-blocked failure mode) |
 | **FieldLink Idempotent Sync Contract** | **PASSED** | 3/3 tests (Duplicate clientId detection, already_received resolution, retry queue) |
@@ -42,7 +49,7 @@ The test suite evaluates mission-critical algorithmic behaviors, safety-critical
 | **GeoIntel BFS Pixel Cluster Diff** | **PASSED** | 2/2 tests (Matrix identity check & 4-pixel anomaly flood-fill clustering) |
 | **UI Theme & Mission Step Sequencer** | **PASSED** | 10/10 tests (5-step cycling, light/dark/system theme overrides, 240px / 76px sidebar specs) |
 | **Deep Link URL Hash Navigation** | **PASSED** | 14/14 tests (#fieldlink, #skywatch, case-insensitivity, back/forward history, invalid hash normalization) |
-| **Phase 1 Seeded Simulation Engine** | **PASSED** | **FAILED** |
+| **Phase 1 Seeded Simulation Engine** | **PASSED** | **100% IDENTICAL 60-TICK OUTPUT ACROSS DUAL INDEPENDENT ENGINES** |
 
 ---
 
