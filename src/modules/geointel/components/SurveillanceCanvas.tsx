@@ -188,8 +188,8 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
-          background: 'rgba(11, 15, 23, 0.92)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'var(--bg-shell, #0D1412)',
+          border: '1px solid var(--border-card, #263D37)',
           borderRadius: '10px',
           padding: '8px 16px',
           boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
@@ -198,13 +198,13 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
         {/* Left: Zone & Primary Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Satellite size={17} color="#00F0FF" />
-            <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#F1F5F9', letterSpacing: '0.04em' }}>
-              RECON SCOPE: <span style={{ color: '#00F0FF' }}>{targetZoneName.toUpperCase()}</span>
+            <Satellite size={17} color="#00E676" />
+            <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#F0FDF4', letterSpacing: '0.04em' }}>
+              RECON SCOPE: <span style={{ color: '#00E676' }}>{targetZoneName.toUpperCase()}</span>
             </span>
           </div>
 
-          <div style={{ height: '16px', width: '1px', background: 'rgba(255, 255, 255, 0.15)' }} />
+          <div style={{ height: '16px', width: '1px', background: 'var(--border-card, #263D37)' }} />
 
           {/* Mode Pill Indicator */}
           <div
@@ -214,12 +214,12 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               gap: '6px',
               padding: '3px 10px',
               borderRadius: '20px',
-              background: isOpticalDiff ? 'rgba(239, 68, 68, 0.15)' : 'rgba(2, 132, 199, 0.15)',
-              border: `1px solid ${isOpticalDiff ? '#EF4444' : '#0284C7'}`,
+              background: isOpticalDiff ? 'rgba(255, 59, 92, 0.15)' : 'rgba(0, 230, 118, 0.15)',
+              border: `1px solid ${isOpticalDiff ? '#FF3B5C' : '#00E676'}`,
               fontSize: '0.72rem',
               fontFamily: 'var(--font-mono)',
               fontWeight: 800,
-              color: isOpticalDiff ? '#F87171' : '#38BDF8',
+              color: isOpticalDiff ? '#FF3B5C' : '#00E676',
             }}
           >
             <span
@@ -227,8 +227,8 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                background: isOpticalDiff ? '#EF4444' : '#00F0FF',
-                boxShadow: isOpticalDiff ? '0 0 8px #EF4444' : '0 0 8px #00F0FF',
+                background: isOpticalDiff ? '#FF3B5C' : '#00E676',
+                boxShadow: isOpticalDiff ? '0 0 8px #FF3B5C' : '0 0 8px #00E676',
               }}
             />
             <span>{isOpticalDiff ? 'OPTICAL DIFF (SAR HEATMAP ACTIVE)' : 'PRIMARY TERRAIN (DEFAULT TAN)'}</span>
@@ -242,10 +242,10 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
             onClick={onToggleOpticalDiff}
             style={{
               background: isOpticalDiff
-                ? 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)'
-                : 'rgba(239, 68, 68, 0.12)',
-              border: `1px solid ${isOpticalDiff ? '#EF4444' : 'rgba(239, 68, 68, 0.35)'}`,
-              color: isOpticalDiff ? '#FFFFFF' : '#F87171',
+                ? 'linear-gradient(135deg, #FF3B5C 0%, #D81B43 100%)'
+                : 'rgba(255, 59, 92, 0.12)',
+              border: `1px solid ${isOpticalDiff ? '#FF3B5C' : 'rgba(255, 59, 92, 0.35)'}`,
+              color: isOpticalDiff ? '#060A09' : '#FF3B5C',
               borderRadius: '6px',
               padding: '6px 14px',
               fontSize: '0.74rem',
@@ -255,7 +255,7 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '7px',
-              boxShadow: isOpticalDiff ? '0 0 16px rgba(220, 38, 38, 0.45)' : 'none',
+              boxShadow: isOpticalDiff ? '0 0 16px rgba(255, 59, 92, 0.45)' : 'none',
               transition: 'all 0.15s ease',
             }}
           >
@@ -267,9 +267,9 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
           <button
             onClick={onToggleOverlays}
             style={{
-              background: showOverlays ? 'rgba(0, 240, 255, 0.12)' : 'rgba(0, 0, 0, 0.45)',
-              border: `1px solid ${showOverlays ? '#00F0FF' : 'rgba(255, 255, 255, 0.1)'}`,
-              color: showOverlays ? '#00F0FF' : '#94A3B8',
+              background: showOverlays ? 'rgba(0, 230, 118, 0.15)' : 'var(--bg-control, #172622)',
+              border: `1px solid ${showOverlays ? '#00E676' : 'var(--border-card, #263D37)'}`,
+              color: showOverlays ? '#00E676' : 'var(--text-secondary, #869E96)',
               borderRadius: '6px',
               padding: '6px 12px',
               fontSize: '0.72rem',
@@ -291,8 +291,8 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '3px',
-              background: 'rgba(0, 0, 0, 0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'var(--bg-control, #172622)',
+              border: '1px solid var(--border-card, #263D37)',
               borderRadius: '6px',
               padding: '3px 6px',
             }}
@@ -304,7 +304,7 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: zoom <= 1 ? '#475569' : '#E2E8F0',
+                color: zoom <= 1 ? '#546E66' : '#F0FDF4',
                 cursor: zoom <= 1 ? 'not-allowed' : 'pointer',
                 padding: '3px',
                 display: 'flex',
@@ -319,7 +319,7 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               style={{
                 fontSize: '0.74rem',
                 fontFamily: 'var(--font-mono)',
-                color: zoom > 1 ? '#00F0FF' : '#E2E8F0',
+                color: zoom > 1 ? '#00E676' : '#F0FDF4',
                 fontWeight: 800,
                 padding: '0 6px',
                 minWidth: '42px',
@@ -336,7 +336,7 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: zoom >= 4 ? '#475569' : '#E2E8F0',
+                color: zoom >= 4 ? '#546E66' : '#F0FDF4',
                 cursor: zoom >= 4 ? 'not-allowed' : 'pointer',
                 padding: '3px',
                 display: 'flex',
@@ -351,10 +351,10 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
               onClick={handleResetView}
               title="Reset Zoom to 1.0x & Center Viewport"
               style={{
-                background: zoom > 1 ? 'rgba(0, 240, 255, 0.15)' : 'transparent',
+                background: zoom > 1 ? 'rgba(0, 230, 118, 0.15)' : 'transparent',
                 border: 'none',
                 borderRadius: '4px',
-                color: zoom > 1 ? '#00F0FF' : '#64748B',
+                color: zoom > 1 ? '#00E676' : '#546E66',
                 cursor: 'pointer',
                 padding: '3px 6px',
                 display: 'flex',
@@ -386,8 +386,8 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
           width: '100%',
           aspectRatio: '16 / 9',
           maxHeight: '720px',
-          background: '#070B12',
-          border: '1px solid #1E293B',
+          background: 'var(--bg-canvas, #060A09)',
+          border: '1px solid var(--border-card, #263D37)',
           borderRadius: '12px',
           overflow: 'hidden',
           boxShadow: '0 12px 40px rgba(0, 0, 0, 0.7), inset 0 0 80px rgba(0, 0, 0, 0.85)',
@@ -478,14 +478,14 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
                 const isSelected = selectedCandidateId === can.id;
                 const { x, y, width, height } = can.boundingBox;
 
-                let borderCol = '#F59E0B'; // Amber default
-                let bgTint = 'rgba(245, 158, 11, 0.18)';
+                let borderCol = '#FFB300'; // Amber default
+                let bgTint = 'rgba(255, 179, 0, 0.18)';
                 if (can.decision === 'confirmed_threat') {
-                  borderCol = '#EF4444';
-                  bgTint = 'rgba(239, 68, 68, 0.25)';
+                  borderCol = '#FF3B5C';
+                  bgTint = 'rgba(255, 59, 92, 0.25)';
                 } else if (can.decision === 'benign_false_positive') {
-                  borderCol = '#10B981';
-                  bgTint = 'rgba(16, 185, 129, 0.18)';
+                  borderCol = '#00E676';
+                  bgTint = 'rgba(0, 230, 118, 0.18)';
                 }
 
                 return (
@@ -555,31 +555,31 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
             position: 'absolute',
             top: '12px',
             left: '12px',
-            background: 'rgba(11, 15, 23, 0.9)',
+            background: 'var(--bg-elevated, #1A2925)',
             backdropFilter: 'blur(6px)',
-            border: `1px solid ${isOpticalDiff ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255, 255, 255, 0.12)'}`,
+            border: `1px solid ${isOpticalDiff ? 'rgba(255, 59, 92, 0.4)' : 'var(--border-strong, #35544C)'}`,
             borderRadius: '6px',
             padding: '6px 12px',
             fontSize: '0.72rem',
             fontFamily: 'var(--font-mono)',
-            color: '#94A3B8',
+            color: '#869E96',
             pointerEvents: 'none',
             zIndex: 40,
             boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: isOpticalDiff ? '#F87171' : '#F1F5F9' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: isOpticalDiff ? '#FF3B5C' : '#F0FDF4' }}>
             <span
               style={{
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                background: isOpticalDiff ? '#EF4444' : '#00F0FF',
-                boxShadow: isOpticalDiff ? '0 0 8px #EF4444' : '0 0 8px #00F0FF',
+                background: isOpticalDiff ? '#FF3B5C' : '#00E676',
+                boxShadow: isOpticalDiff ? '0 0 8px #FF3B5C' : '0 0 8px #00E676',
               }}
             />
             <span>{isOpticalDiff ? 'SAR HEATMAP PASS' : 'OPTICAL RECON BASELINE'}</span>
-            <span style={{ color: isOpticalDiff ? '#EF4444' : '#00F0FF' }}>
+            <span style={{ color: isOpticalDiff ? '#FF3B5C' : '#00E676' }}>
               [{isOpticalDiff ? 'DARK-BLUE THERMAL' : 'DEFAULT TAN'}]
             </span>
           </div>
@@ -598,26 +598,26 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
             position: 'absolute',
             top: '12px',
             right: '12px',
-            background: 'rgba(11, 15, 23, 0.9)',
+            background: 'var(--bg-elevated, #1A2925)',
             backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            border: '1px solid var(--border-strong, #35544C)',
             borderRadius: '6px',
             padding: '6px 12px',
             fontSize: '0.7rem',
             fontFamily: 'var(--font-mono)',
-            color: '#94A3B8',
+            color: '#869E96',
             pointerEvents: 'none',
             zIndex: 40,
             textAlign: 'right',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', color: '#F1F5F9', fontWeight: 700 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', color: '#F0FDF4', fontWeight: 700 }}>
             <span>VIEWPORT:</span>
-            <span style={{ color: zoom > 1 ? '#00F0FF' : '#94A3B8' }}>{zoom.toFixed(1)}x SCALE</span>
+            <span style={{ color: zoom > 1 ? '#00E676' : '#869E96' }}>{zoom.toFixed(1)}x SCALE</span>
           </div>
-          <div style={{ fontSize: '0.64rem', color: '#64748B', marginTop: '2px' }}>
+          <div style={{ fontSize: '0.64rem', color: '#546E66', marginTop: '2px' }}>
             {zoom > 1 ? (
-              <span style={{ color: '#38BDF8' }}>DRAG TO PAN • CLAMPED</span>
+              <span style={{ color: '#2DD4BF' }}>DRAG TO PAN • CLAMPED</span>
             ) : (
               <span>ZOOM IN TO PAN (WHEEL / BUTTONS)</span>
             )}
@@ -630,14 +630,14 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
             position: 'absolute',
             bottom: '12px',
             left: '12px',
-            background: 'rgba(11, 15, 23, 0.92)',
+            background: 'var(--bg-elevated, #1A2925)',
             backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid var(--border-strong, #35544C)',
             borderRadius: '6px',
             padding: '5px 12px',
             fontSize: '0.68rem',
             fontFamily: 'var(--font-mono)',
-            color: '#94A3B8',
+            color: '#869E96',
             display: 'flex',
             alignItems: 'center',
             gap: '12px',
@@ -645,7 +645,7 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
             zIndex: 40,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#00F0FF', fontWeight: 800 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#00E676', fontWeight: 800 }}>
             <Crosshair size={13} />
             <span>MGRS: {cursorGeo.mgrs}</span>
           </div>
@@ -653,7 +653,7 @@ export const SurveillanceCanvas: React.FC<SurveillanceCanvasProps> = ({
           <span>LAT: {cursorGeo.lat.toFixed(5)}°N</span>
           <span>LNG: {cursorGeo.lng.toFixed(5)}°W</span>
           <span>•</span>
-          <span style={{ color: '#64748B' }}>PIXEL: [{cursorGeo.pixelX}, {cursorGeo.pixelY}]</span>
+          <span style={{ color: '#546E66' }}>PIXEL: [{cursorGeo.pixelX}, {cursorGeo.pixelY}]</span>
         </div>
       </div>
     </div>

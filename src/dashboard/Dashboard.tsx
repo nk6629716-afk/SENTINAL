@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   DashboardSummary,
   IncidentReport,
@@ -11,11 +11,8 @@ import {
   EvacuationNode,
 } from '@shared/types';
 import {
-  Play,
-  Pause,
-  ExternalLink,
-  MapPin,
-  ChevronRight,
+  ChevronLeft,
+  GripVertical,
 } from 'lucide-react';
 import { TacticalMap } from '../components/TacticalMap';
 import {
@@ -25,6 +22,8 @@ import {
   selectRankedThreatQueue,
 } from '../selectors';
 import { formatIST } from '../utils/time';
+import { AlertsPanel } from './AlertsPanel';
+import { SimulationReplayFooter } from './SimulationReplayFooter';
 
 interface DashboardProps {
   summary: DashboardSummary;
@@ -78,75 +77,96 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [crossModuleStep, setCrossModuleStep] = useState<number>(3);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'alerts' | 'reports' | 'activity'>('alerts');
-  const [sessionStartTime] = useState<number>(() => Date.now());
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
-  // Single source of truth selectors
-  const pendingIncidents = selectPendingOutbox(incidents);
-  const openAlerts = selectOpenAlerts(alerts);
-  const syncedIncidents = selectSyncedIncidents(incidents);
-  const rankedThreats = selectRankedThreatQueue(tracks, zones, alerts);
+  // Resizable Right Information Tab State
+  const [rightPaneWidth, setRightPaneWidth] = useState<number>(340);
+  const [isRightPaneCollapsed, setIsRightPaneCollapsed] = useState<boolean>(false);
+  const isDraggingSplitter = useRef(false);
+  const startDragX = useRef(0);
+  const startWidth = useRef(340);
 
-  // Elapsed simulation session counter
-  useEffect(() => {
-    if (isSimPaused) return;
-    const interval = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - sessionStartTime) / 1000));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isSimPaused, sessionStartTime]);
+  const handleSplitterMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSplitter.current = true;
+    startDragX.current = e.clientX;
+    startWidth.current = rightPaneWidth;
 
-  const criticalIncident = incidents.find((i) => i.priority === 'critical') || incidents[0];
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingSplitter.current) return;
+      const deltaX = startDragX.current - moveEvent.clientX;
+      const newWidth = Math.max(240, Math.min(650, startWidth.current + deltaX));
+      setRightPaneWidth(newWidth);
+      setIsRightPaneCollapsed(false);
+    };
 
-  const missionSteps = [
-    {
-      step: 1,
-      title: 'Ground report filed',
-      statusText: 'Verified',
-      isCompleted: true,
-      module: 'fieldlink',
-    },
-    {
-      step: 2,
-      title: 'Airspace checked',
-      statusText: 'Verified',
-      isCompleted: true,
-      module: 'skywatch',
-    },
-    {
-      step: 3,
-      title: 'Imagery compared',
-      statusText: 'Active now',
-      isActive: true,
-      module: 'geointel',
-    },
-    {
-      step: 4,
-      title: 'Casualties triaged',
-      statusText: 'Medical',
-      isFuture: true,
-      module: 'mediroute',
-    },
-    {
-      step: 5,
-      title: 'Route cleared',
-      statusText: 'Logistics',
-      isFuture: true,
-      module: 'mediroute',
-    },
-  ];
+    const handleMouseUp = () => {
+      isDraggingSplitter.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
 
-  const handleNextStep = () => {
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [rightPaneWidth]);
+
+  // Single source of truth selectors - memoized to isolate re-evaluations
+  const pendingIncidents = useMemo(() => selectPendingOutbox(incidents), [incidents]);
+  const openAlerts = useMemo(() => selectOpenAlerts(alerts), [alerts]);
+  const syncedIncidents = useMemo(() => selectSyncedIncidents(incidents), [incidents]);
+  const rankedThreats = useMemo(() => selectRankedThreatQueue(tracks, zones, alerts), [tracks, zones, alerts]);
+
+  const criticalIncident = useMemo(
+    () => incidents.find((i) => i.priority === 'critical') || incidents[0] || null,
+    [incidents]
+  );
+
+  const missionSteps = useMemo(
+    () => [
+      {
+        step: 1,
+        title: 'Ground report filed',
+        statusText: 'Verified',
+        module: 'fieldlink',
+      },
+      {
+        step: 2,
+        title: 'Airspace checked',
+        statusText: 'Verified',
+        module: 'skywatch',
+      },
+      {
+        step: 3,
+        title: 'Imagery compared',
+        statusText: 'Active now',
+        module: 'geointel',
+      },
+      {
+        step: 4,
+        title: 'Casualties triaged',
+        statusText: 'Medical',
+        module: 'mediroute',
+      },
+      {
+        step: 5,
+        title: 'Route cleared',
+        statusText: 'Logistics',
+        module: 'mediroute',
+      },
+    ],
+    []
+  );
+
+  const handleNextStep = useCallback(() => {
     const next = crossModuleStep < 5 ? crossModuleStep + 1 : 1;
     setCrossModuleStep(next);
     const targetModule = missionSteps.find((s) => s.step === next)?.module;
     if (targetModule) {
       onNavigate(targetModule as any);
     }
-  };
+  }, [crossModuleStep, missionSteps, onNavigate]);
 
-  // Activity ticker: latest real event from state
-  const latestActivity = (() => {
+  // Activity ticker: latest real event from state memoized
+  const latestActivity = useMemo(() => {
     if (alerts.length > 0 && (!incidents.length || new Date(alerts[0].timestamp) >= new Date(incidents[0].createdAt))) {
       const a = alerts[0];
       return `Airspace Alert: ${a.ruleName} - ${a.trackCallsign} (${formatIST(a.timestamp, { seconds: false })})`;
@@ -156,19 +176,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return `Incident Intake: ${inc.title} - ${inc.location.name} (${formatIST(inc.createdAt, { seconds: false })})`;
     }
     return null;
-  })();
+  }, [alerts, incidents]);
 
   // Top-Left Metrics Panel (Passed into TacticalMap to sit with Mode Switch in ONE flex toolbar)
   const metricsPanel = (
     <div
       style={{
         background: 'var(--color-sheet)',
-        border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+        border: '1px solid var(--color-edge)',
         boxShadow: 'var(--shadow-flat)',
         borderRadius: 'var(--radius-sm)',
         display: 'flex',
         padding: '6px 14px',
-        gap: '20px',
+        gap: '16px',
         alignItems: 'center',
         flexShrink: 0,
       }}
@@ -177,7 +197,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
             color: 'var(--text-primary)',
@@ -187,33 +207,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {tracks.length}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Tracks monitored
+          Tracks
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
-            color: openAlerts.length > 0 ? 'var(--color-crit)' : 'var(--text-primary)',
+            color: openAlerts.length > 0 ? 'var(--status-critical, #FF3B5C)' : 'var(--text-primary)',
             lineHeight: 1,
           }}
         >
           {openAlerts.length}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Open alerts
+          Alerts
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
             color: 'var(--text-primary)',
@@ -223,25 +243,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {syncedIncidents.length}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Reports synced
+          Synced
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
-            color: pendingIncidents.length > 0 ? 'var(--color-warn)' : 'var(--text-primary)',
+            color: pendingIncidents.length > 0 ? 'var(--status-warning, #FFB300)' : 'var(--text-primary)',
             lineHeight: 1,
           }}
         >
           {pendingIncidents.length}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Outbox pending
+          Outbox
         </div>
       </div>
     </div>
@@ -265,10 +285,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       title="Evacuation Network Node Key"
     >
       <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Nodes:</span>
-      <span><strong>I:</strong> Intake Point</span>
-      <span><strong>F:</strong> Field Hospital</span>
-      <span><strong>R:</strong> Ridgeline Post</span>
-      <span><strong>C:</strong> Casualty Hub</span>
+      <span><strong style={{ color: 'var(--accent-secondary, #2DD4BF)' }}>I:</strong> Intake Point</span>
+      <span><strong style={{ color: 'var(--accent-secondary, #2DD4BF)' }}>F:</strong> Field Hospital</span>
+      <span><strong style={{ color: 'var(--accent-secondary, #2DD4BF)' }}>R:</strong> Ridgeline Post</span>
+      <span><strong style={{ color: 'var(--accent-secondary, #2DD4BF)' }}>C:</strong> Casualty Hub</span>
     </div>
   );
 
@@ -348,452 +368,95 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </button>
             </div>
           )}
+
+          {/* Floating expand tab button when information panel is collapsed */}
+          {isRightPaneCollapsed && (
+            <button
+              type="button"
+              onClick={() => setIsRightPaneCollapsed(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                zIndex: 30,
+                background: 'var(--color-sheet)',
+                border: '1px solid var(--color-edge)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: 'var(--shadow-flat)',
+                padding: '6px 12px',
+                fontSize: '0.78rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+              title="Expand intelligence tab"
+            >
+              <ChevronLeft size={14} />
+              <span>Intelligence</span>
+            </button>
+          )}
+        </div>
+
+        {/* Draggable Vertical Splitter Slider Handle */}
+        <div
+          onMouseDown={handleSplitterMouseDown}
+          title="Drag to resize information tab (Double-click to reset)"
+          onDoubleClick={() => {
+            setRightPaneWidth(340);
+            setIsRightPaneCollapsed(false);
+          }}
+          style={{
+            width: '8px',
+            cursor: 'col-resize',
+            background: 'var(--color-paper)',
+            borderLeft: '1px solid var(--color-edge)',
+            borderRight: '1px solid var(--color-edge)',
+            display: isRightPaneCollapsed ? 'none' : 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            zIndex: 25,
+            userSelect: 'none',
+          }}
+        >
+          <GripVertical size={12} color="var(--text-secondary)" style={{ opacity: 0.6 }} />
         </div>
 
         {/* Right Intel Pane */}
-        <aside className="intel-pane" aria-label="Intelligence Pane">
-          {/* Header & Tabs (Sticky) */}
-          <div className="intel-header">
-            <div style={{ display: 'flex', borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)', paddingBottom: '2px' }}>
-              <button
-                type="button"
-                onClick={() => setActiveTab('alerts')}
-                style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: activeTab === 'alerts' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                  padding: '6px 8px',
-                  fontSize: '0.82rem',
-                  fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
-                  color: activeTab === 'alerts' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                Alerts {openAlerts.length}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('reports')}
-                style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: activeTab === 'reports' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                  padding: '6px 8px',
-                  fontSize: '0.82rem',
-                  fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
-                  color: activeTab === 'reports' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                Reports {incidents.length}
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('activity')}
-                style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  borderBottom: activeTab === 'activity' ? '2.5px solid var(--accent)' : '2.5px solid transparent',
-                  padding: '6px 8px',
-                  fontSize: '0.82rem',
-                  fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
-                  color: activeTab === 'activity' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                Activity
-              </button>
-            </div>
-          </div>
-
-          {/* Intel Body (Scrollable, full mission sequence reachable) */}
-          <div className="intel-body">
-            {/* Command Link Status Card */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '3px',
-                paddingBottom: '6px',
-                borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span
-                    style={{
-                      width: '7px',
-                      height: '7px',
-                      backgroundColor: isOfflineMode ? 'var(--color-crit)' : 'var(--color-ok)',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                    {isOfflineMode ? 'Air-gap queue active' : 'Command link synchronized'}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                  {isOfflineMode ? 'Local cache' : 'Live stream'}
-                </span>
-              </div>
-            </div>
-
-            {/* Critical Incident Highlight Card */}
-            {criticalIncident && (
-              <div
-                style={{
-                  border: 'var(--border-width, 1.2px) solid var(--color-crit)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-paper)',
-                  padding: '10px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '6px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <span
-                    style={{
-                      fontSize: '0.66rem',
-                      fontWeight: 700,
-                      background: 'var(--color-crit)',
-                      color: '#FFFFFF',
-                      padding: '1px 6px',
-                      borderRadius: '1px',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Critical Ground Incident
-                  </span>
-                  <span className="mono" style={{ fontSize: '0.66rem', color: 'var(--text-secondary)', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatIST(criticalIncident.createdAt, { seconds: false })}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {criticalIncident.title}
-                </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                  {criticalIncident.notes}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  style={{ marginTop: '6px', width: '100%', padding: '6px' }}
-                  onClick={() => onNavigate('fieldlink')}
-                >
-                  Open in FieldLink
-                </button>
-              </div>
-            )}
-
-            {/* Threat Queue built strictly from real tracks */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                  Threat queue
-                </span>
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                  Ranked by score
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {rankedThreats.map((threat) => (
-                  <div
-                    key={threat.id}
-                    onClick={() => {
-                      setSelectedEntity({ type: 'track', id: threat.id, raw: threat.track });
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 8px',
-                      border: '1px solid var(--color-line)',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'var(--color-paper)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {threat.severity === 'critical' ? (
-                        <span style={{ color: 'var(--color-crit)', fontSize: '1.1rem' }}>◆</span>
-                      ) : threat.severity === 'high' ? (
-                        <span style={{ color: 'var(--color-warn)', fontSize: '1rem' }}>✤</span>
-                      ) : (
-                        <span style={{ color: 'var(--color-ok)', fontSize: '1rem' }}>▲</span>
-                      )}
-
-                      <div>
-                        <div style={{ fontSize: '0.82rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                          {threat.callsign}
-                        </div>
-                        <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                          {threat.reason}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                      <span
-                        className="numeral"
-                        style={{
-                          fontSize: '1.15rem',
-                          fontFamily: 'var(--font-numerals)',
-                          fontWeight: 800,
-                          color:
-                            threat.score > 80
-                              ? 'var(--color-crit)'
-                              : threat.score > 50
-                              ? 'var(--color-warn)'
-                              : 'var(--text-primary)',
-                          lineHeight: 1,
-                        }}
-                      >
-                        {threat.score}
-                      </span>
-                      <div
-                        style={{
-                          width: '42px',
-                          height: '4px',
-                          background: 'var(--color-line)',
-                          borderRadius: '1px',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: `${threat.score}%`,
-                            height: '100%',
-                            background:
-                              threat.score > 80
-                                ? 'var(--color-crit)'
-                                : threat.score > 50
-                                ? 'var(--color-warn)'
-                                : 'var(--color-edge)',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Mission Sequence Stepper (Full 5-step mission sequence reachable) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                  <span style={{ fontSize: '0.85rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                    Mission sequence
-                  </span>
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                    Step {crossModuleStep} of 5
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={handleNextStep}
-                  style={{ padding: '3px 8px', fontSize: '0.72rem' }}
-                >
-                  Next step
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '4px 0' }}>
-                {missionSteps.map((s) => {
-                  const isStepActive = crossModuleStep === s.step;
-                  const isStepCompleted = crossModuleStep > s.step;
-
-                  return (
-                    <div
-                      key={s.step}
-                      onClick={() => {
-                        setCrossModuleStep(s.step);
-                        onNavigate(s.module as any);
-                      }}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        padding: '4px 0',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {isStepCompleted ? (
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              background: 'var(--color-ok)',
-                              color: '#FFFFFF',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.65rem',
-                            }}
-                          >
-                            ✓
-                          </div>
-                        ) : isStepActive ? (
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              border: '2px solid var(--accent)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: 'var(--accent)',
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              border: '1.5px dashed var(--color-edge)',
-                            }}
-                          />
-                        )}
-
-                        <span
-                          style={{
-                            fontSize: '0.8rem',
-                            fontWeight: isStepActive ? 700 : 500,
-                            color: isStepActive
-                              ? 'var(--text-primary)'
-                              : isStepCompleted
-                              ? 'var(--text-primary)'
-                              : 'var(--text-secondary)',
-                          }}
-                        >
-                          {s.title}
-                        </span>
-                      </div>
-
-                      <span
-                        style={{
-                          fontSize: '0.68rem',
-                          fontWeight: isStepActive ? 700 : 500,
-                          color: isStepActive ? 'var(--accent)' : 'var(--text-secondary)',
-                        }}
-                      >
-                        {s.statusText}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </aside>
+        <AlertsPanel
+          width={rightPaneWidth}
+          isCollapsed={isRightPaneCollapsed}
+          onToggleCollapse={() => setIsRightPaneCollapsed(true)}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          openAlerts={openAlerts}
+          incidents={incidents}
+          criticalIncident={criticalIncident}
+          rankedThreats={rankedThreats}
+          selectedEntityId={selectedEntity?.id || null}
+          onSelectEntity={setSelectedEntity}
+          crossModuleStep={crossModuleStep}
+          missionSteps={missionSteps}
+          onStepClick={(stepNum, module) => {
+            setCrossModuleStep(stepNum);
+            onNavigate(module as any);
+          }}
+          onNextStep={handleNextStep}
+          isOfflineMode={isOfflineMode}
+          onNavigate={onNavigate}
+        />
       </div>
 
       {/* Bottom Simulation Bar */}
-      <footer
-        className="bottom-replay-bar"
-        style={{
-          height: '36px',
-          minHeight: '36px',
-          borderTop: 'var(--border-width, 1.2px) solid var(--color-edge)',
-          background: 'var(--color-sheet)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 16px',
-          fontSize: '0.74rem',
-          zIndex: 30,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Simulation Pause / Resume Button */}
-          {onToggleSimulationPause && (
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={onToggleSimulationPause}
-              style={{ width: '24px', height: '24px', minWidth: '24px', padding: 0 }}
-              title={isSimPaused ? 'Resume simulation' : 'Pause simulation'}
-            >
-              {isSimPaused ? <Play size={12} /> : <Pause size={12} />}
-            </button>
-          )}
-
-          {/* Live Indicator & Elapsed Time */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span
-                style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: isSimPaused ? 'var(--color-warn)' : 'var(--color-ok)',
-                }}
-              />
-              <span
-                style={{
-                  fontSize: '0.68rem',
-                  fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
-                  color: isSimPaused ? 'var(--color-warn)' : 'var(--color-ok)',
-                }}
-              >
-                {isSimPaused ? 'PAUSED' : 'LIVE'}
-              </span>
-            </div>
-
-            <span
-              className="mono"
-              style={{
-                fontSize: '0.72rem',
-                color: 'var(--text-secondary)',
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              Elapsed: {elapsedSeconds}s
-            </span>
-          </div>
-        </div>
-
-        {/* Real Activity Ticker */}
-        {latestActivity && (
-          <div
-            style={{
-              color: 'var(--text-secondary)',
-              fontSize: '0.72rem',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: '60%',
-            }}
-          >
-            {latestActivity}
-          </div>
-        )}
-      </footer>
+      <SimulationReplayFooter
+        isSimPaused={isSimPaused}
+        onToggleSimulationPause={onToggleSimulationPause}
+        latestActivity={latestActivity}
+      />
     </div>
   );
 };

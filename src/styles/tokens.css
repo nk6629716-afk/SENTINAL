@@ -1,193 +1,227 @@
 /* ==========================================================================
-   SENTINEL v2.6 — Design Tokens (Tactical Plotting Table System)
-   Pure Flat Instrumental Interface: Hard 4px 4px 0 Shadows, 1.2px Borders,
-   Barlow Semi Condensed Headings, Atkinson Hyperlegible Body & Tabular Numerals.
-   Day: Paper & Ink Tactical Chart | Night: Deep Red-Light Command Station
+   SENTINEL v2.6 — Deep Pine Grey & Cyber Emerald Tactical Color System
+   Standard C4ISR Operational Palette
    ========================================================================== */
 
 :root,
-:root[data-theme="light"] {
-  /* Day (Light) Base Tokens */
-  --color-paper: #E3E8DF;
-  --color-sheet: #F6F8F3;
-  --color-ink: #16202E;
-  --color-ink-2: #556270;
-  --color-edge: #8D9A8F;
-  --color-line: #C3CCC1;
-  --color-accent: #E8590C;
-  --color-map: #EDF0E6;
-  --color-water: #BFDCE8;
-  --color-forest: #D5E5C9;
-  --color-contour: #C2AE86;
-  --color-grid: #6F93AB;
-  --color-strip: #16202E;
+:root[data-theme="dark"] {
+  /* 1. Surface Hierarchy & Backgrounds */
+  --bg-canvas: #060A09;
+  --bg-shell: #0D1412;
+  --bg-card: #131E1B;
+  --bg-elevated: #1A2925;
+  --bg-control: #172622;
+  --bg-hover: #223832;
 
-  /* Status Colors */
-  --color-ok: #2D7A33;
-  --color-warn: #B77700;
-  --color-crit: #A61B1B;
-  --color-info: #0B5D82;
+  /* 2. Typography & Text Colors */
+  --text-primary: #F0FDF4;
+  --text-secondary: #869E96;
+  --text-muted: #546E66;
 
-  /* Entity Symbols (Day) */
-  --entity-friendly-fill: #80E0FF;
-  --entity-friendly-stroke: #0B5D82;
-  --entity-hostile-fill: #FF9494;
-  --entity-hostile-stroke: #A61B1B;
-  --entity-neutral-fill: #B4F0B4;
-  --entity-neutral-stroke: #2D7A33;
-  --entity-unknown-fill: #FFF08A;
-  --entity-unknown-stroke: #7D6B00;
-  --entity-incident: #A61B1B;
-  --entity-hospital: #2D7A33;
+  /* 3. Borders & Grid Lines */
+  --border-grid: #14221E;
+  --border-card: #263D37;
+  --border-strong: #35544C;
 
-  /* Surfaces & Mappings for app backwards-compatibility */
-  --surface: var(--color-paper);
-  --surface-raised: var(--color-sheet);
-  --surface-elevated: var(--color-sheet);
-  --surface-inset: var(--color-paper);
-  --surface-card: var(--color-sheet);
-  --surface-strip: var(--color-strip);
-  --map-canvas: var(--color-map);
+  /* 4. Brand & Tactical Accents */
+  --accent-primary: #00E676;
+  --accent-secondary: #2DD4BF;
 
-  /* Text Mappings */
-  --text-primary: var(--color-ink);
-  --text-secondary: var(--color-ink-2);
-  --text-muted: var(--color-ink-2);
+  /* 5. Semantic Status Colors (Strictly Reserved for Meaning) */
+  --status-safe: #00E676;
+  --status-info: #38BDF8;
+  --status-warning: #FFB300;
+  --status-critical: #FF3B5C;
 
-  /* Border & Line */
-  --border-subtle: var(--color-line);
-  --border-edge: var(--color-edge);
+  /* Backward Compatibility & Component Aliases */
+  --color-paper: var(--bg-canvas);
+  --color-sheet: var(--bg-card);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-edge: var(--border-card);
+  --color-line: var(--border-grid);
+  --color-accent: var(--accent-primary);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-map: var(--bg-canvas);
+  --color-water: #0D1E19;
+  --color-forest: #0D261F;
+  --color-contour: var(--border-grid);
+  --color-grid: var(--border-grid);
+  --color-strip: var(--bg-shell);
 
-  /* Accents & Status */
-  --accent: var(--color-accent);
-  --accent-light: #FFECE0;
-  --healthy: var(--color-ok);
-  --healthy-bg: #EAF4EA;
-  --warning: var(--color-warn);
-  --warning-bg: #FFF8E6;
-  --critical: var(--color-crit);
-  --critical-bg: #FDE8E8;
-  --informational: var(--color-info);
-  --informational-bg: #E5F3F9;
+  --surface: var(--bg-canvas);
+  --surface-raised: var(--bg-card);
+  --surface-elevated: var(--bg-elevated);
+  --surface-inset: var(--bg-shell);
+  --surface-card: var(--bg-card);
+  --surface-strip: var(--bg-shell);
+  --surface-control: var(--bg-control);
+  --surface-hover: var(--bg-hover);
+  --map-canvas: var(--bg-canvas);
 
-  /* Hard Offset Shadow (No blur, no glow) */
-  --shadow-flat: 4px 4px 0 rgba(22, 32, 46, 0.14);
-  --shadow-flat-sm: 2px 2px 0 rgba(22, 32, 46, 0.14);
-  --shadow-raised: 4px 4px 0 rgba(22, 32, 46, 0.14);
-  --shadow-raised-sm: 2px 2px 0 rgba(22, 32, 46, 0.14);
-  --shadow-raised-hover: 4px 4px 0 rgba(22, 32, 46, 0.22);
-  --shadow-inset: none;
-  --shadow-inset-sm: none;
-  --shadow-sidebar: none;
+  --border-subtle: var(--border-grid);
+  --border-edge: var(--border-card);
 
-  /* Radar Beam & Trail */
-  --radar-beam: #E8590C;
-  --radar-glow: rgba(232, 89, 12, 0.4);
-  --radar-sweep: rgba(232, 89, 12, 0.15);
-  --radar-grid: var(--color-grid);
-  --radar-ring: #8D9A8F;
+  --accent: var(--accent-primary);
+  --accent-light: rgba(0, 230, 118, 0.15);
+  --color-ok: var(--status-safe);
+  --color-warn: var(--status-warning);
+  --color-crit: var(--status-critical);
+  --color-info: var(--status-info);
+
+  --healthy: var(--status-safe);
+  --healthy-bg: rgba(0, 230, 118, 0.12);
+  --warning: var(--status-warning);
+  --warning-bg: rgba(255, 179, 0, 0.12);
+  --critical: var(--status-critical);
+  --critical-bg: rgba(255, 59, 92, 0.15);
+  --informational: var(--status-info);
+  --informational-bg: rgba(56, 189, 248, 0.12);
+
+  /* Entity Symbols */
+  --entity-friendly-fill: rgba(0, 230, 118, 0.2);
+  --entity-friendly-stroke: #00E676;
+  --entity-hostile-fill: rgba(255, 59, 92, 0.25);
+  --entity-hostile-stroke: #FF3B5C;
+  --entity-neutral-fill: rgba(56, 189, 248, 0.2);
+  --entity-neutral-stroke: #38BDF8;
+  --entity-unknown-fill: rgba(255, 179, 0, 0.2);
+  --entity-unknown-stroke: #FFB300;
+  --entity-incident: #FF3B5C;
+  --entity-hospital: #00E676;
+
+  /* Modern Tactical Shadows */
+  --shadow-flat: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-flat-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-raised-sm: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-raised-hover: 0 8px 24px rgba(0, 0, 0, 0.65);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-inset-sm: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+  --shadow-sidebar: 1px 0 0 var(--border-card);
+
+  /* Radar Scope */
+  --radar-beam: #00E676;
+  --radar-glow: rgba(0, 230, 118, 0.35);
+  --radar-sweep: rgba(0, 230, 118, 0.12);
+  --radar-grid: var(--border-grid);
+  --radar-ring: var(--border-card);
 }
 
-:root[data-theme="dark"] {
-  /* Night (Dark, red light) Base Tokens */
-  --color-paper: #120707;
-  --color-sheet: #1D0D0C;
-  --color-ink: #FFB3A3;
-  --color-ink-2: #D58C7E;
-  --color-edge: #7A2F28;
-  --color-line: #3B1816;
-  --color-accent: #FF5A3C;
-  --color-map: #170909;
-  --color-water: #281110;
-  --color-forest: #230E0E;
-  --color-contour: #54221C;
-  --color-grid: #8C3A31;
-  --color-strip: #0A0303;
+:root[data-theme="light"] {
+  /* Day / High Contrast Mode (Retains Cyber Emerald Accents) */
+  --bg-canvas: #F0FDF4;
+  --bg-shell: #E2ECE7;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #FFFFFF;
+  --bg-control: #E6EFEA;
+  --bg-hover: #D5E5DE;
 
-  /* Status Colors in Night Red/Amber palette */
-  --color-ok: #FF9A6C;
-  --color-warn: #FFB35A;
-  --color-crit: #FF5A3C;
-  --color-info: #FF9486;
+  --text-primary: #060A09;
+  --text-secondary: #35544C;
+  --text-muted: #546E66;
 
-  /* Entity Symbols (Night) */
-  --entity-friendly-fill: #FF9A86;
-  --entity-friendly-stroke: #7A2F28;
-  --entity-hostile-fill: #FFD9D0;
-  --entity-hostile-stroke: #FF5A3C;
-  --entity-neutral-fill: #FFC0B0;
-  --entity-neutral-stroke: #8C3A31;
-  --entity-unknown-fill: #FFC77A;
-  --entity-unknown-stroke: #B8665A;
-  --entity-incident: #FF5A3C;
-  --entity-hospital: #FF9A6C;
+  --border-grid: #D5E5DE;
+  --border-card: #B9D1C8;
+  --border-strong: #869E96;
 
-  /* Surfaces & Mappings */
-  --surface: var(--color-paper);
-  --surface-raised: var(--color-sheet);
-  --surface-elevated: var(--color-sheet);
-  --surface-inset: var(--color-paper);
-  --surface-card: var(--color-sheet);
+  --accent-primary: #00B359;
+  --accent-secondary: #0D9488;
+
+  --status-safe: #00B359;
+  --status-info: #0284C7;
+  --status-warning: #D97706;
+  --status-critical: #DC2626;
+
+  --color-paper: var(--bg-canvas);
+  --color-sheet: var(--bg-card);
+  --color-ink: var(--text-primary);
+  --color-ink-2: var(--text-secondary);
+  --color-edge: var(--border-card);
+  --color-line: var(--border-grid);
+  --color-accent: var(--accent-primary);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-map: var(--bg-canvas);
+  --color-water: #DCFCE7;
+  --color-forest: #BBF7D0;
+  --color-contour: var(--border-grid);
+  --color-grid: var(--border-grid);
+  --color-strip: #060A09;
+
+  --surface: var(--bg-canvas);
+  --surface-raised: var(--bg-card);
+  --surface-elevated: var(--bg-elevated);
+  --surface-inset: #E6EFEA;
+  --surface-card: var(--bg-card);
   --surface-strip: var(--color-strip);
-  --map-canvas: var(--color-map);
+  --surface-control: var(--bg-control);
+  --surface-hover: var(--bg-hover);
+  --map-canvas: var(--bg-canvas);
 
-  /* Text Mappings */
-  --text-primary: var(--color-ink);
-  --text-secondary: var(--color-ink-2);
-  --text-muted: var(--color-ink-2);
+  --border-subtle: var(--border-grid);
+  --border-edge: var(--border-card);
 
-  /* Border & Line */
-  --border-subtle: var(--color-line);
-  --border-edge: var(--color-edge);
+  --accent: var(--accent-primary);
+  --accent-light: rgba(0, 179, 89, 0.15);
+  --color-ok: var(--status-safe);
+  --color-warn: var(--status-warning);
+  --color-crit: var(--status-critical);
+  --color-info: var(--status-info);
 
-  /* Accents & Status */
-  --accent: var(--color-accent);
-  --accent-light: rgba(255, 90, 60, 0.18);
-  --healthy: var(--color-ok);
-  --healthy-bg: rgba(255, 154, 108, 0.15);
-  --warning: var(--color-warn);
-  --warning-bg: rgba(255, 179, 90, 0.15);
-  --critical: var(--color-crit);
-  --critical-bg: rgba(255, 90, 60, 0.2);
-  --informational: var(--color-info);
-  --informational-bg: rgba(255, 148, 134, 0.15);
+  --healthy: var(--status-safe);
+  --healthy-bg: #DCFCE7;
+  --warning: var(--status-warning);
+  --warning-bg: #FEF3C7;
+  --critical: var(--status-critical);
+  --critical-bg: #FEE2E2;
+  --informational: var(--status-info);
+  --informational-bg: #E0F2FE;
 
-  /* Hard Offset Shadow for Night (No blur, no glow) */
-  --shadow-flat: 4px 4px 0 rgba(0, 0, 0, 0.6);
-  --shadow-flat-sm: 2px 2px 0 rgba(0, 0, 0, 0.6);
-  --shadow-raised: 4px 4px 0 rgba(0, 0, 0, 0.6);
-  --shadow-raised-sm: 2px 2px 0 rgba(0, 0, 0, 0.6);
-  --shadow-raised-hover: 4px 4px 0 rgba(0, 0, 0, 0.85);
-  --shadow-inset: none;
-  --shadow-inset-sm: none;
-  --shadow-sidebar: none;
+  --entity-friendly-fill: #DCFCE7;
+  --entity-friendly-stroke: #00B359;
+  --entity-hostile-fill: #FEE2E2;
+  --entity-hostile-stroke: #DC2626;
+  --entity-neutral-fill: #E0F2FE;
+  --entity-neutral-stroke: #0284C7;
+  --entity-unknown-fill: #FEF3C7;
+  --entity-unknown-stroke: #D97706;
+  --entity-incident: #DC2626;
+  --entity-hospital: #00B359;
 
-  /* Radar Scope Tokens (Night) */
-  --radar-beam: #FF5A3C;
-  --radar-glow: rgba(255, 90, 60, 0.4);
-  --radar-sweep: rgba(255, 90, 60, 0.18);
-  --radar-grid: var(--color-grid);
-  --radar-ring: #7A2F28;
+  --shadow-flat: 0 1px 3px rgba(6, 10, 9, 0.08);
+  --shadow-flat-sm: 0 1px 2px rgba(6, 10, 9, 0.05);
+  --shadow-raised: 0 4px 6px -1px rgba(6, 10, 9, 0.08);
+  --shadow-raised-sm: 0 1px 3px rgba(6, 10, 9, 0.06);
+  --shadow-raised-hover: 0 10px 15px -3px rgba(6, 10, 9, 0.12);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-inset-sm: inset 0 1px 1px rgba(0, 0, 0, 0.04);
+  --shadow-sidebar: 1px 0 0 var(--border-card);
+
+  --radar-beam: #00B359;
+  --radar-glow: rgba(0, 179, 89, 0.25);
+  --radar-sweep: rgba(0, 179, 89, 0.1);
+  --radar-grid: var(--border-grid);
+  --radar-ring: var(--border-card);
 }
 
 /* Common System Dimensions & Typography */
 :root {
   --radius-none: 0px;
-  --radius-xs: 1px;
-  --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-xl: 2px;
-  --radius-pill: 2px; /* Redesign spec: radius 0 to 2px, flat panels */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
 
-  --border-width: 1.2px;
+  --border-width: 1px;
 
-  /* Typography Stacks */
-  --font-heading: 'Barlow Semi Condensed', -apple-system, sans-serif;
-  --font-numerals: 'Barlow Semi Condensed', -apple-system, sans-serif;
-  --font-body: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'Barlow Semi Condensed', monospace;
+  /* Typography Stacks - Clean, Modern & Highly Legible */
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-numerals: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* App Dimensions */
   --header-height: 48px;

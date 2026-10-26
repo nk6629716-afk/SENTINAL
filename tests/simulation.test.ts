@@ -83,8 +83,10 @@ if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('tests/simul
   try {
     runSimulationDeterminismTest();
     console.log('PHASE 1 SIMULATION TEST PASSED! ✓');
+    process.exit(0);
   } catch (err: any) {
     console.error('PHASE 1 TEST FAILED:', err.message);
     process.exit(1);
   }
 }
+

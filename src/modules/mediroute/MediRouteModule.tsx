@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CasualtyRecord,
   RoadHazardEdge,
@@ -13,6 +13,9 @@ import {
   Pause,
   X,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
   FilePlus,
   Route as RouteIcon,
   CheckCircle,
@@ -259,6 +262,37 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
     }
   };
 
+  // Resizable Right Information Tab State
+  const [rightPaneWidth, setRightPaneWidth] = useState<number>(360);
+  const [isRightPaneCollapsed, setIsRightPaneCollapsed] = useState<boolean>(false);
+  const isDraggingSplitter = useRef(false);
+  const startDragX = useRef(0);
+  const startWidth = useRef(360);
+
+  const handleSplitterMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSplitter.current = true;
+    startDragX.current = e.clientX;
+    startWidth.current = rightPaneWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingSplitter.current) return;
+      const deltaX = startDragX.current - moveEvent.clientX;
+      const newWidth = Math.max(240, Math.min(650, startWidth.current + deltaX));
+      setRightPaneWidth(newWidth);
+      setIsRightPaneCollapsed(false);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingSplitter.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [rightPaneWidth]);
+
   // Metrics from Single Source of Truth
   const realCasualties = selectCasualties(casualties);
   const immediateCasualtiesCount = selectImmediateCasualties(casualties).length;
@@ -383,7 +417,7 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
             lineHeight: 1,
           }}
         >
-          {etaMinutes ? `${etaMinutes}m` : '--'}
+          {etaMinutes ? etaMinutes : '--'}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--color-ink-2)', marginTop: '2px' }}>
           Mean ETA
@@ -489,7 +523,7 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                   width: '8px',
                   height: '8px',
                   borderRadius: '50%',
-                  background: edge.blocked ? 'var(--color-crit)' : 'var(--color-ok)',
+                  background: edge.blocked ? 'var(--status-critical, #FF3B5C)' : 'var(--status-safe, #00E676)',
                   flexShrink: 0,
                 }}
               />
@@ -517,8 +551,8 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                 flexShrink: 0,
                 minWidth: '58px',
                 textAlign: 'center',
-                color: edge.blocked ? 'var(--color-ok)' : 'var(--color-crit)',
-                borderColor: edge.blocked ? 'var(--color-ok)' : 'var(--color-crit)',
+                color: edge.blocked ? 'var(--status-safe, #00E676)' : 'var(--status-critical, #FF3B5C)',
+                borderColor: edge.blocked ? 'var(--status-safe, #00E676)' : 'var(--status-critical, #FF3B5C)',
               }}
             >
               {edge.blocked ? 'Unblock' : 'Block'}
@@ -553,15 +587,70 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
             topLeftContent={topLeftMetrics}
             bottomLeftContent={bottomLeftHazards}
           />
+
+          {/* Floating expand tab button when information panel is collapsed */}
+          {isRightPaneCollapsed && (
+            <button
+              type="button"
+              onClick={() => setIsRightPaneCollapsed(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                zIndex: 30,
+                background: 'var(--color-sheet)',
+                border: '1px solid var(--color-edge)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: 'var(--shadow-flat)',
+                padding: '6px 12px',
+                fontSize: '0.78rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+              title="Expand information tab"
+            >
+              <ChevronLeft size={14} />
+              <span>Triage Queue</span>
+            </button>
+          )}
         </div>
 
-        {/* Right Intel Pane: Fixed width clamp, sticky header, internal scroll */}
+        {/* Draggable Vertical Splitter Slider Handle */}
+        <div
+          onMouseDown={handleSplitterMouseDown}
+          title="Drag to resize information tab (Double-click to reset)"
+          onDoubleClick={() => {
+            setRightPaneWidth(360);
+            setIsRightPaneCollapsed(false);
+          }}
+          style={{
+            width: '8px',
+            cursor: 'col-resize',
+            background: 'var(--color-paper)',
+            borderLeft: '1px solid var(--color-edge)',
+            borderRight: '1px solid var(--color-edge)',
+            display: isRightPaneCollapsed ? 'none' : 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            zIndex: 25,
+            userSelect: 'none',
+          }}
+        >
+          <GripVertical size={12} color="var(--text-secondary)" style={{ opacity: 0.6 }} />
+        </div>
+
+        {/* Right Intel Pane: Resizable width slider, sticky header, internal scroll */}
         <aside
           style={{
-            width: 'clamp(320px, 28vw, 440px)',
+            width: isRightPaneCollapsed ? 0 : `${rightPaneWidth}px`,
+            display: isRightPaneCollapsed ? 'none' : 'flex',
             background: 'var(--color-sheet)',
-            borderLeft: 'var(--border-width, 1.2px) solid var(--color-edge)',
-            display: 'flex',
             flexDirection: 'column',
             overflowY: 'auto',
             overflowX: 'hidden',
@@ -582,16 +671,34 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
               gap: '12px',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <div style={{ fontSize: '0.95rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
-                Triage Priority Queue
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 800, fontFamily: 'var(--font-heading)', color: 'var(--color-ink)' }}>
+                  Triage Priority Queue
+                </div>
+                <div
+                  className="numeral"
+                  style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', fontFamily: 'var(--font-numerals)' }}
+                >
+                  {realCasualties.length} assessed
+                </div>
               </div>
-              <div
-                className="numeral"
-                style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', fontFamily: 'var(--font-numerals)' }}
+              <button
+                type="button"
+                onClick={() => setIsRightPaneCollapsed(true)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Collapse information tab"
               >
-                {realCasualties.length} assessed
-              </div>
+                <ChevronRight size={16} />
+              </button>
             </div>
 
             {/* Casualty Cards List */}
@@ -617,12 +724,12 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                   const isMin = cas.triageCategory === 'minimal';
 
                   const badgeBg = isImm
-                    ? 'var(--color-crit)'
+                    ? 'var(--status-critical, #FF3B5C)'
                     : isDel
-                    ? '#D97706'
+                    ? 'var(--status-warning, #FFB300)'
                     : isMin
-                    ? 'var(--color-ok)'
-                    : '#64748B';
+                    ? 'var(--status-safe, #00E676)'
+                    : 'var(--text-muted, #546E66)';
                   const badgeLetter = isImm ? 'I' : isDel ? 'D' : isMin ? 'M' : 'E';
 
                   return (
@@ -885,8 +992,8 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
                 width: '7px',
                 height: '7px',
                 borderRadius: '50%',
-                background: isSimPaused ? 'var(--color-warn)' : 'var(--color-crit)',
-                boxShadow: isSimPaused ? 'none' : '0 0 6px var(--color-crit)',
+                background: isSimPaused ? 'var(--status-warning, #FFB300)' : 'var(--status-safe, #00E676)',
+                boxShadow: isSimPaused ? 'none' : '0 0 6px var(--status-safe, #00E676)',
               }}
             />
             <span style={{ fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.04em', color: 'var(--color-ink)' }}>

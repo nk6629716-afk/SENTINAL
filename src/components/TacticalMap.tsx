@@ -50,146 +50,7 @@ function boxesIntersect(a: BoundingBox2D, b: BoundingBox2D): boolean {
   return !(a.x2 < b.x1 || a.x1 > b.x2 || a.y2 < b.y1 || a.y1 > b.y2);
 }
 
-interface StaticRadarScopeBezelProps {
-  centerPt: { x: number; y: number };
-  scopeRadius: number;
-  radarMode: 'ppi' | 'flir' | 'topo';
-  showTerrain: boolean;
-  showRangeRings: boolean;
-}
 
-const StaticRadarScopeBezel = React.memo<StaticRadarScopeBezelProps>(({
-  centerPt,
-  scopeRadius,
-  radarMode,
-  showTerrain,
-  showRangeRings,
-}) => {
-  return (
-    <>
-      {/* Scope Outer Housing Bezel & Instrument Rim */}
-      <g pointerEvents="none">
-        <rect width="1000" height="680" fill="url(#radar-drafting-grid)" />
-        <circle
-          cx={centerPt.x}
-          cy={centerPt.y}
-          r={scopeRadius + 14}
-          fill="#090E17"
-          stroke="rgba(56, 189, 248, 0.3)"
-          strokeWidth="3"
-        />
-        {Array.from({ length: 72 }).map((_, i) => {
-          const deg = i * 5;
-          const isMajor = deg % 30 === 0;
-          const isMedium = deg % 10 === 0 && !isMajor;
-          const rad = (deg * Math.PI) / 180;
-          const rInner = scopeRadius + (isMajor ? 4 : isMedium ? 8 : 10);
-          const rOuter = scopeRadius + 14;
-          const x1 = centerPt.x + Math.sin(rad) * rInner;
-          const y1 = centerPt.y - Math.cos(rad) * rInner;
-          const x2 = centerPt.x + Math.sin(rad) * rOuter;
-          const y2 = centerPt.y - Math.cos(rad) * rOuter;
-          return (
-            <line
-              key={`tick-${deg}`}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke={isMajor ? '#00F2FE' : isMedium ? 'rgba(0, 242, 254, 0.7)' : 'rgba(0, 242, 254, 0.3)'}
-              strokeWidth={isMajor ? 1.5 : 0.8}
-            />
-          );
-        })}
-        {Array.from({ length: 12 }).map((_, i) => {
-          const deg = i * 30;
-          const rad = (deg * Math.PI) / 180;
-          const labelR = scopeRadius + 26;
-          const x = centerPt.x + Math.sin(rad) * labelR;
-          const y = centerPt.y - Math.cos(rad) * labelR + 3.5;
-          let label = `${deg.toString().padStart(3, '0')}°`;
-          let isCardinal = false;
-          let color = '#94A3B8';
-          if (deg === 0) { label = 'N 000°'; isCardinal = true; color = '#00F2FE'; }
-          else if (deg === 90) { label = 'E 090°'; isCardinal = true; color = '#00F2FE'; }
-          else if (deg === 180) { label = 'S 180°'; isCardinal = true; color = '#00F2FE'; }
-          else if (deg === 270) { label = 'W 270°'; isCardinal = true; color = '#00F2FE'; }
-          return (
-            <text
-              key={`az-deg-${deg}`}
-              x={x}
-              y={y}
-              fill={color}
-              fontSize={isCardinal ? '10' : '8'}
-              fontFamily="var(--font-mono)"
-              fontWeight={isCardinal ? '800' : '600'}
-              textAnchor="middle"
-            >
-              {label}
-            </text>
-          );
-        })}
-      </g>
-      <circle
-        cx={centerPt.x}
-        cy={centerPt.y}
-        r={scopeRadius}
-        fill={radarMode === 'flir' ? 'url(#flir-gradient)' : 'url(#crt-glass-gradient)'}
-      />
-      <rect
-        x={centerPt.x - scopeRadius}
-        y={centerPt.y - scopeRadius}
-        width={scopeRadius * 2}
-        height={scopeRadius * 2}
-        fill="url(#radar-scanlines)"
-        pointerEvents="none"
-      />
-      {showTerrain && (
-        <g opacity={radarMode === 'flir' ? 0.25 : 0.16} pointerEvents="none">
-          <path d="M 160,420 Q 320,360 480,380 T 680,320 T 840,300 T 960,330" fill="none" stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'} strokeWidth="1.2" strokeDasharray="6,4" />
-          <path d="M 120,500 Q 300,450 510,480 T 740,420 T 920,460" fill="none" stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'} strokeWidth="1" strokeDasharray="4,6" />
-          <path d="M 280,200 Q 440,150 620,180 T 840,160" fill="none" stroke={radarMode === 'flir' ? '#EF4444' : '#00F2FE'} strokeWidth="0.8" strokeDasharray="3,5" />
-        </g>
-      )}
-      {showRangeRings && (
-        <g pointerEvents="none">
-          {[0.25, 0.5, 0.75, 1.0].map((ratio, idx) => {
-            const r = scopeRadius * ratio;
-            const km = (idx + 1) * 5;
-            const nm = ((idx + 1) * 2.7).toFixed(1);
-            return (
-              <g key={`ring-${idx}`}>
-                <circle cx={centerPt.x} cy={centerPt.y} r={r} fill="none" stroke={radarMode === 'flir' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(0, 242, 254, 0.22)'} strokeWidth={ratio === 1.0 ? '1.5' : '1'} strokeDasharray={ratio === 1.0 ? undefined : '4,6'} />
-                <text x={centerPt.x + r + 5} y={centerPt.y - 4} fill={radarMode === 'flir' ? '#FCA5A5' : '#7DD3FC'} fontSize="8.5" fontFamily="var(--font-mono)" fontWeight="700">
-                  {km}KM / {nm}NM
-                </text>
-                <text x={centerPt.x - r - 5} y={centerPt.y - 4} fill={radarMode === 'flir' ? '#FCA5A5' : '#7DD3FC'} fontSize="8.5" fontFamily="var(--font-mono)" fontWeight="700" textAnchor="end">
-                  {km}KM
-                </text>
-              </g>
-            );
-          })}
-          <line x1={centerPt.x - scopeRadius} y1={centerPt.y} x2={centerPt.x + scopeRadius} y2={centerPt.y} stroke={radarMode === 'flir' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 242, 254, 0.28)'} strokeWidth="1" />
-          <line x1={centerPt.x} y1={centerPt.y - scopeRadius} x2={centerPt.x} y2={centerPt.y + scopeRadius} stroke={radarMode === 'flir' ? 'rgba(239, 68, 68, 0.35)' : 'rgba(0, 242, 254, 0.28)'} strokeWidth="1" />
-          {[-220, -165, -110, -55, 55, 110, 165, 220].map((offset) => (
-            <g key={`mil-${offset}`}>
-              <line x1={centerPt.x + offset} y1={centerPt.y - 3} x2={centerPt.x + offset} y2={centerPt.y + 3} stroke="rgba(0, 242, 254, 0.5)" strokeWidth="1" />
-              <line x1={centerPt.x - 3} y1={centerPt.y + offset} x2={centerPt.x + 3} y2={centerPt.y + offset} stroke="rgba(0, 242, 254, 0.5)" strokeWidth="1" />
-            </g>
-          ))}
-          {Array.from({ length: 12 }).map((_, i) => {
-            const deg = i * 30;
-            if (deg % 90 === 0) return null;
-            const rad = (deg * Math.PI) / 180;
-            return (
-              <line key={`rad-spoke-${deg}`} x1={centerPt.x} y1={centerPt.y} x2={centerPt.x + Math.sin(rad) * scopeRadius} y2={centerPt.y - Math.cos(rad) * scopeRadius} stroke="rgba(0, 242, 254, 0.12)" strokeWidth="0.8" strokeDasharray="2,6" />
-            );
-          })}
-        </g>
-      )}
-    </>
-  );
-});
 
 export const TacticalMap: React.FC<TacticalMapProps> = ({
   incidents = [],
@@ -506,7 +367,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         zIndex: isFullscreen ? 9999 : 1,
         height: computedHeight,
         width: '100%',
-        backgroundColor: radarMode === 'ppi' ? '#040202' : 'var(--color-map)',
+        backgroundColor: radarMode === 'ppi' ? '#060A09' : 'var(--bg-canvas, #060A09)',
         overflow: 'hidden',
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none',
@@ -791,9 +652,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </clipPath>
         </defs>
 
-        {/* Tactical Grid (Letters A-E and Numbers 31-37) */}
-        {activeLayers.grid && (
-          <g opacity={0.65}>
+        {/* Tactical Grid (Letters A-E and Numbers 31-37, Chart mode only) */}
+        {activeLayers.grid && radarMode === 'topo' && (
+          <g opacity={0.35}>
             {[130, 240, 350, 460, 570].map((y, i) => (
               <g key={`grid-h-${i}`}>
                 <line x1="0" y1={y} x2="1000" y2={y} stroke="var(--color-grid)" strokeWidth="0.8" strokeDasharray="3 3" />
@@ -813,110 +674,34 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           </g>
         )}
 
-        {/* Natural Topography & Rivers (Chart mode) */}
-        {radarMode === 'topo' && (
-          <g>
-            <path
-              d="M 0,520 Q 200,500 400,530 T 700,480 T 1000,510 L 1000,560 Q 700,530 400,580 T 0,570 Z"
-              fill="var(--color-water)"
-              stroke="#A2C8DC"
-              strokeWidth="1.2"
-            />
-            <path
-              d="M 160,590 Q 240,550 320,590 T 360,670 T 200,680 Z"
-              fill="var(--color-forest)"
-              opacity="0.75"
-            />
-            <path
-              d="M 240,320 Q 400,260 560,280 T 780,240 T 960,260"
-              fill="none"
-              stroke="var(--color-contour)"
-              strokeWidth="1.2"
-            />
-            <path
-              d="M 280,360 Q 420,300 580,320 T 760,290"
-              fill="none"
-              stroke="var(--color-contour)"
-              strokeWidth="1"
-            />
-            <path
-              d="M 320,390 Q 440,340 580,360"
-              fill="none"
-              stroke="var(--color-contour)"
-              strokeWidth="0.8"
-            />
-          </g>
-        )}
 
-        {/* PPI / Thermal CRT Bezel & Azimuth Compass Dial */}
+        {/* Clean Modern Radar Scope Bezel */}
         {(radarMode === 'ppi' || radarMode === 'flir') && (
           <g pointerEvents="none">
+            {/* Outer dark scope housing & border */}
             <circle
               cx={centerPt.x}
               cy={centerPt.y}
-              r={scopeRadius + 16}
-              fill="#0E0505"
-              stroke="var(--color-edge)"
-              strokeWidth="2"
+              r={scopeRadius}
+              fill="#060A09"
+              stroke="#263D37"
+              strokeWidth="1.5"
             />
 
-            {Array.from({ length: 72 }).map((_, i) => {
-              const deg = i * 5;
-              const isMajor = deg % 30 === 0;
-              const isMedium = deg % 10 === 0 && !isMajor;
-              const rad = (deg * Math.PI) / 180;
-              const rInner = scopeRadius + (isMajor ? 4 : isMedium ? 8 : 10);
-              const rOuter = scopeRadius + 14;
-              const x1 = centerPt.x + Math.sin(rad) * rInner;
-              const y1 = centerPt.y - Math.cos(rad) * rInner;
-              const x2 = centerPt.x + Math.sin(rad) * rOuter;
-              const y2 = centerPt.y - Math.cos(rad) * rOuter;
-
-              return (
-                <line
-                  key={`tick-${deg}`}
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
-                  stroke={isMajor ? 'var(--color-ink)' : 'var(--color-edge)'}
-                  strokeWidth={isMajor ? 1.5 : 0.8}
-                />
-              );
-            })}
-
-            {Array.from({ length: 12 }).map((_, i) => {
-              const deg = i * 30;
-              const rad = (deg * Math.PI) / 180;
-              const labelR = scopeRadius + 26;
-              const x = centerPt.x + Math.sin(rad) * labelR;
-              const y = centerPt.y - Math.cos(rad) * labelR + 3.5;
-              const label = deg.toString().padStart(3, '0');
-
-              return (
-                <text
-                  key={`az-num-${deg}`}
-                  x={x}
-                  y={y}
-                  fill="var(--color-ink)"
-                  fontSize="8.5"
-                  fontFamily="var(--font-heading)"
-                  fontWeight="700"
-                  textAnchor="middle"
-                >
-                  {label}
-                </text>
-              );
-            })}
+            {/* 4 Cardinal Markers */}
+            <text x={centerPt.x} y={centerPt.y - scopeRadius - 8} fill="#00E676" fontSize="11" fontFamily="var(--font-heading)" fontWeight="700" textAnchor="middle">N</text>
+            <text x={centerPt.x + scopeRadius + 14} y={centerPt.y + 4} fill="#546E66" fontSize="11" fontFamily="var(--font-heading)" fontWeight="600" textAnchor="middle">E</text>
+            <text x={centerPt.x} y={centerPt.y + scopeRadius + 16} fill="#546E66" fontSize="11" fontFamily="var(--font-heading)" fontWeight="600" textAnchor="middle">S</text>
+            <text x={centerPt.x - scopeRadius - 14} y={centerPt.y + 4} fill="#546E66" fontSize="11" fontFamily="var(--font-heading)" fontWeight="600" textAnchor="middle">W</text>
           </g>
         )}
 
         {/* Content Inside Radar Scope or Chart Canvas */}
         <g clipPath={radarMode === 'ppi' || radarMode === 'flir' ? 'url(#radar-scope-circle)' : undefined}>
-          {/* Calibrated Concentric Range Rings */}
+          {/* Clean Concentric Range Rings */}
           {activeLayers.rangeRings && (
             <g pointerEvents="none">
-              {[0.25, 0.5, 0.75, 1.0].map((ratio, idx) => {
+              {[0.33, 0.66, 1.0].map((ratio, idx) => {
                 const r = scopeRadius * ratio;
                 const km = (idx + 1) * 5;
 
@@ -927,17 +712,16 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                       cy={centerPt.y}
                       r={r}
                       fill="none"
-                      stroke={radarMode === 'ppi' ? 'rgba(255, 90, 60, 0.28)' : 'rgba(141, 154, 143, 0.4)'}
+                      stroke={radarMode === 'ppi' ? '#263D37' : '#14221E'}
                       strokeWidth="1"
-                      strokeDasharray="4 4"
                     />
                     <text
-                      x={centerPt.x + 4}
+                      x={centerPt.x + 6}
                       y={centerPt.y - r + 12}
-                      fill={radarMode === 'ppi' ? 'var(--color-ink-2)' : 'var(--color-ink-2)'}
-                      fontSize="8"
-                      fontFamily="var(--font-heading)"
-                      fontWeight="700"
+                      fill="#546E66"
+                      fontSize="9"
+                      fontFamily="var(--font-mono)"
+                      fontWeight="600"
                     >
                       {km} km
                     </text>
@@ -945,65 +729,54 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 );
               })}
 
+              {/* Clean Subtle Axes */}
               <line
                 x1={centerPt.x - scopeRadius}
                 y1={centerPt.y}
                 x2={centerPt.x + scopeRadius}
                 y2={centerPt.y}
-                stroke={radarMode === 'ppi' ? 'rgba(255, 90, 60, 0.2)' : 'rgba(141, 154, 143, 0.3)'}
-                strokeWidth="0.8"
+                stroke="#14221E"
+                strokeWidth="1"
               />
               <line
                 x1={centerPt.x}
                 y1={centerPt.y - scopeRadius}
                 x2={centerPt.x}
                 y2={centerPt.y + scopeRadius}
-                stroke={radarMode === 'ppi' ? 'rgba(255, 90, 60, 0.2)' : 'rgba(141, 154, 143, 0.3)'}
-                strokeWidth="0.8"
+                stroke="#14221E"
+                strokeWidth="1"
               />
             </g>
           )}
 
-          {/* Restricted Airspace Zones (clean circular clipping & edge labels) */}
+          {/* Restricted Airspace Zones */}
           {activeLayers.zones &&
             zones.map((zone) => {
               const pos = project(zone.center.lat, zone.center.lng);
               const radiusPx = zone.radiusKm * 40 * zoom;
 
               return (
-                <g key={zone.id}>
+                <g key={zone.id} pointerEvents="none">
                   <circle
                     cx={pos.x}
                     cy={pos.y}
                     r={radiusPx}
-                    fill={radarMode === 'ppi' ? 'rgba(255, 90, 60, 0.25)' : 'rgba(166, 27, 27, 0.12)'}
-                    stroke="var(--color-crit)"
-                    strokeWidth="1.5"
-                    strokeDasharray="5 3"
+                    fill="rgba(255, 59, 92, 0.08)"
+                    stroke="#FF3B5C"
+                    strokeWidth="1.2"
+                    strokeDasharray="4 4"
                   />
-                  {/* Zone Tag on top edge */}
-                  <g transform={`translate(${pos.x - 42}, ${pos.y - radiusPx - 8})`}>
-                    <rect
-                      x="0"
-                      y="0"
-                      width="84"
-                      height="16"
-                      fill="var(--color-sheet)"
-                      stroke="var(--color-crit)"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x="42"
-                      y="11.5"
-                      fill="var(--color-crit)"
-                      fontSize="8"
-                      fontFamily="var(--font-heading)"
-                      fontWeight="700"
-                      textAnchor="middle"
-                    >
-                      {zone.name.length > 16 ? zone.name.substring(0, 15) + '…' : zone.name}
-                    </text>
-                  </g>
+                  <text
+                    x={pos.x}
+                    y={pos.y - radiusPx - 6}
+                    fill="#FF3B5C"
+                    fontSize="9"
+                    fontFamily="var(--font-heading)"
+                    fontWeight="700"
+                    textAnchor="middle"
+                  >
+                    {zone.name}
+                  </text>
                 </g>
               );
             })}
@@ -1028,27 +801,26 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                     y2={p2.y}
                     stroke={
                       edge.blocked
-                        ? 'rgba(220, 38, 38, 0.65)'
+                        ? 'rgba(255, 59, 92, 0.6)'
                         : isRouteEdge
-                        ? 'var(--color-ok)'
-                        : '#C3CCC1'
+                        ? '#2DD4BF'
+                        : '#263D37'
                     }
-                    strokeWidth={isRouteEdge ? 3.5 : edge.blocked ? 2 : 1.6}
-                    strokeDasharray={edge.blocked ? '6 3' : undefined}
+                    strokeWidth={isRouteEdge ? 3 : edge.blocked ? 1.8 : 1.4}
+                    strokeDasharray={edge.blocked ? '4 3' : undefined}
                   />
 
-                  {/* Red Cross Barricade for Blocked Road */}
                   {edge.blocked && (
                     <g transform={`translate(${(p1.x + p2.x) / 2}, ${(p1.y + p2.y) / 2})`}>
-                      <line x1="-7" y1="-7" x2="7" y2="7" stroke="var(--color-crit)" strokeWidth="2.5" />
-                      <line x1="-7" y1="7" x2="7" y2="-7" stroke="var(--color-crit)" strokeWidth="2.5" />
+                      <line x1="-5" y1="-5" x2="5" y2="5" stroke="#FF3B5C" strokeWidth="2" />
+                      <line x1="-5" y1="5" x2="5" y2="-5" stroke="#FF3B5C" strokeWidth="2" />
                     </g>
                   )}
                 </g>
               );
             })}
 
-          {/* Evacuation Nodes & Medical Facilities with hover names and legend */}
+          {/* Evacuation Nodes & Medical Facilities */}
           {activeLayers.routes &&
             nodes.map((node) => {
               const pos = project(node.coordinates.lat, node.coordinates.lng);
@@ -1066,33 +838,34 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 >
                   <title>{node.name} ({node.type})</title>
                   {isHospital ? (
-                    <g transform="translate(-10, -10)">
+                    <g transform="translate(-9, -9)">
                       <rect
                         x="0"
                         y="0"
-                        width="20"
-                        height="20"
-                        fill="#FFFFFF"
-                        stroke="var(--color-ok)"
-                        strokeWidth="1.5"
+                        width="18"
+                        height="18"
+                        fill="var(--bg-card, #131E1B)"
+                        stroke="#00E676"
+                        strokeWidth="1.2"
+                        rx="3"
                       />
-                      <rect x="8" y="3" width="4" height="14" fill="var(--color-ok)" />
-                      <rect x="3" y="8" width="14" height="4" fill="var(--color-ok)" />
+                      <rect x="7.5" y="3.5" width="3" height="11" fill="#00E676" />
+                      <rect x="3.5" y="7.5" width="11" height="3" fill="#00E676" />
                     </g>
                   ) : (
                     <g>
                       <circle
-                        r="10"
-                        fill="#FFFFFF"
-                        stroke="var(--color-info)"
-                        strokeWidth="1.5"
+                        r="8"
+                        fill="var(--bg-card, #131E1B)"
+                        stroke="#38BDF8"
+                        strokeWidth="1.2"
                       />
                       <text
-                        y="3.5"
-                        fill="var(--color-info)"
-                        fontSize="9"
+                        y="3"
+                        fill="#38BDF8"
+                        fontSize="8"
                         fontFamily="var(--font-heading)"
-                        fontWeight="800"
+                        fontWeight="700"
                         textAnchor="middle"
                       >
                         {node.name.charAt(0)}
@@ -1119,198 +892,112 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                   }}
                 >
                   <title>{inc.title}</title>
-                  <circle r="14" fill="none" stroke="var(--color-crit)" strokeWidth="1.2" />
-                  <circle r="9" fill="none" stroke="var(--color-crit)" strokeWidth="0.8" />
-                  <circle r="4.5" fill="var(--color-crit)" />
-
-                  <g transform="translate(18, -24)">
-                    <line x1="-12" y1="18" x2="0" y2="0" stroke="var(--color-crit)" strokeWidth="1" />
-                    <rect
-                      x="0"
-                      y="-14"
-                      width="135"
-                      height="28"
-                      fill="var(--color-sheet)"
-                      stroke="var(--color-crit)"
-                      strokeWidth="1.2"
-                    />
-                    <text
-                      x="6"
-                      y="-3"
-                      fill="var(--color-crit)"
-                      fontSize="8.5"
-                      fontFamily="var(--font-heading)"
-                      fontWeight="700"
-                    >
-                      {inc.priority === 'critical' ? 'Critical' : 'Incident'}, {inc.id}
-                    </text>
-                    <text
-                      x="6"
-                      y="8"
-                      fill="var(--text-primary)"
-                      fontSize="7.5"
-                      fontFamily="var(--font-body)"
-                    >
-                      {inc.title.length > 20 ? inc.title.substring(0, 19) + '…' : inc.title}
-                    </text>
-                  </g>
+                  <circle r="7" fill="rgba(255, 59, 92, 0.2)" stroke="#FF3B5C" strokeWidth="1.2" />
+                  <circle r="3" fill="#FF3B5C" />
+                  <text
+                    x="10"
+                    y="3"
+                    fill="var(--text-primary, #F0FDF4)"
+                    fontSize="8.5"
+                    fontFamily="var(--font-heading)"
+                    fontWeight="600"
+                  >
+                    {inc.id}
+                  </text>
                 </g>
               );
             })}
 
-          {/* SkyWatch Airspace Telemetry Tracks with 8-Offset Declutter Algorithm */}
+          {/* SkyWatch Airspace Telemetry Tracks */}
           {activeLayers.airspace &&
             tracks.map((track) => {
               const pos = project(track.lat, track.lng);
               const isHostile = track.status === 'hostile' || track.status === 'suspicious';
               const isFriendly = track.type === 'friendly_uav' || (track.status as string) === 'friendly';
               const isNeutral = track.type === 'commercial_fixed_wing' || (track.status as string) === 'neutral';
-
-              const layout = computedTrackLayouts.get(track.id) || {
-                offset: CANDIDATE_OFFSETS[0],
-                collapsed: false,
-                boxW: 95,
-                boxH: 26,
-              };
+              const isSelected = selectedEntityId === track.id;
 
               return (
-                <g key={track.id}>
-                  {/* Flight History Dots */}
-                  {track.flightHistory.slice(-4, -1).map((hist, hIdx) => {
-                    const hPos = project(hist.lat, hist.lng);
-                    return (
-                      <circle
-                        key={`h-${hIdx}`}
-                        cx={hPos.x}
-                        cy={hPos.y}
-                        r="2.5"
-                        fill="var(--color-ink-2)"
-                        opacity={0.3 + hIdx * 0.2}
-                      />
-                    );
-                  })}
+                <g
+                  key={track.id}
+                  transform={`translate(${pos.x}, ${pos.y})`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectEntity?.({ type: 'track', id: track.id, raw: track });
+                  }}
+                >
+                  <title>{`${track.callsign} (${track.status}) - ${track.altitude}m, ${Math.round(track.speed)} km/h`}</title>
 
-                  {/* Trajectory Prediction: 60-second forward projected path as dotted line */}
-                  {track.predictedPath && track.predictedPath.length > 0 && (
-                    <polyline
-                      points={`${pos.x},${pos.y} ` + track.predictedPath.map((p) => {
-                        const pr = project(p.lat, p.lng);
-                        return `${pr.x},${pr.y}`;
-                      }).join(' ')}
-                      fill="none"
-                      stroke={isHostile ? '#EF4444' : '#00F2FE'}
-                      strokeWidth="1.6"
-                      strokeDasharray="4,4"
-                      opacity="0.65"
-                    />
+                  {/* Target Symbol */}
+                  {isHostile ? (
+                    <g>
+                      {isSelected && (
+                        <circle r="14" fill="none" stroke="#FF3B5C" strokeWidth="1" opacity="0.6">
+                          <animate attributeName="r" values="10;18;10" dur="2s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite" />
+                        </circle>
+                      )}
+                      <polygon
+                        points="0,-8 8,0 0,8 -8,0"
+                        fill="#FF3B5C"
+                        stroke="#FFFFFF"
+                        strokeWidth="1.2"
+                      />
+                    </g>
+                  ) : isFriendly ? (
+                    <g>
+                      <polygon
+                        points="0,-7 7,5 -7,5"
+                        fill="#00E676"
+                        stroke="#FFFFFF"
+                        strokeWidth="1.2"
+                      />
+                    </g>
+                  ) : isNeutral ? (
+                    <g>
+                      <circle
+                        r="6"
+                        fill="#38BDF8"
+                        stroke="#FFFFFF"
+                        strokeWidth="1.2"
+                      />
+                    </g>
+                  ) : (
+                    <g>
+                      <circle
+                        r="5"
+                        fill="#FFB300"
+                        stroke="#FFFFFF"
+                        strokeWidth="1.2"
+                      />
+                    </g>
                   )}
 
-                  <g
-                    transform={`translate(${pos.x}, ${pos.y})`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectEntity?.({ type: 'track', id: track.id, raw: track });
-                    }}
-                  >
-                    <title>{`${track.callsign} (${track.status}) - ${track.altitude}m, ${Math.round(track.speed)} km/h`}</title>
-
-                    {/* Symbol Shape */}
-                    {isHostile ? (
-                      <g>
-                        <polygon
-                          points="0,-12 12,0 0,12 -12,0"
-                          fill="var(--entity-hostile-fill)"
-                          stroke="var(--entity-hostile-stroke)"
-                          strokeWidth="1.5"
-                        />
-                        <line x1="-4" y1="-4" x2="4" y2="4" stroke="var(--entity-hostile-stroke)" strokeWidth="1.5" />
-                        <line x1="-4" y1="4" x2="4" y2="-4" stroke="var(--entity-hostile-stroke)" strokeWidth="1.5" />
-                      </g>
-                    ) : isFriendly ? (
-                      <g>
-                        <rect
-                          x="-10"
-                          y="-8"
-                          width="20"
-                          height="16"
-                          fill="var(--entity-friendly-fill)"
-                          stroke="var(--entity-friendly-stroke)"
-                          strokeWidth="1.5"
-                        />
-                        <polygon points="0,-4 5,4 -5,4" fill="var(--entity-friendly-stroke)" />
-                      </g>
-                    ) : isNeutral ? (
-                      <g>
-                        <rect
-                          x="-9"
-                          y="-9"
-                          width="18"
-                          height="18"
-                          fill="var(--entity-neutral-fill)"
-                          stroke="var(--entity-neutral-stroke)"
-                          strokeWidth="1.5"
-                        />
-                        <polygon points="0,-4 4,4 -4,4" fill="var(--entity-neutral-stroke)" />
-                      </g>
-                    ) : (
-                      <g>
-                        <circle cx="-5" cy="0" r="5" fill="var(--entity-unknown-fill)" stroke="var(--entity-unknown-stroke)" strokeWidth="1.2" />
-                        <circle cx="5" cy="0" r="5" fill="var(--entity-unknown-fill)" stroke="var(--entity-unknown-stroke)" strokeWidth="1.2" />
-                        <circle cx="0" cy="-5" r="5" fill="var(--entity-unknown-fill)" stroke="var(--entity-unknown-stroke)" strokeWidth="1.2" />
-                        <circle cx="0" cy="5" r="5" fill="var(--entity-unknown-fill)" stroke="var(--entity-unknown-stroke)" strokeWidth="1.2" />
-                        <circle cx="0" cy="0" r="4" fill="var(--entity-unknown-fill)" />
-                      </g>
-                    )}
-
-                    {/* Flight Data Block with Leader Line */}
-                    <g transform={`translate(${layout.offset.dx}, ${layout.offset.dy})`}>
-                      <line
-                        x1={layout.offset.anchorX}
-                        y1={layout.offset.anchorY}
-                        x2={0}
-                        y2={0}
-                        stroke="var(--color-edge)"
-                        strokeWidth="1"
-                      />
-                      <rect
-                        x="0"
-                        y="-12"
-                        width={layout.boxW}
-                        height={layout.boxH}
-                        fill="var(--color-sheet)"
-                        stroke="var(--color-edge)"
-                        strokeWidth="1"
-                      />
-                      <text
-                        x="5"
-                        y={layout.collapsed ? 0 : -1}
-                        fill="var(--text-primary)"
-                        fontSize="8"
-                        fontFamily="var(--font-heading)"
-                        fontWeight="700"
-                      >
-                        {track.callsign.length > 14 ? track.callsign.substring(0, 13) + '…' : track.callsign}
-                      </text>
-                      {!layout.collapsed && (
-                        <text
-                          x="5"
-                          y="9.5"
-                          fill="var(--text-secondary)"
-                          fontSize="7"
-                          fontFamily="var(--font-heading)"
-                          data-numeral="true"
-                        >
-                          {track.altitude}m {Math.round(track.speed)}km/h
-                        </text>
-                      )}
-                    </g>
+                  {/* Clean Floating Callsign & Readout */}
+                  <g transform="translate(12, -4)" pointerEvents="none">
+                    <text
+                      fill={isHostile ? '#FF3B5C' : '#F0FDF4'}
+                      fontSize="9.5"
+                      fontFamily="var(--font-heading)"
+                      fontWeight="700"
+                    >
+                      {track.callsign}
+                    </text>
+                    <text
+                      y="11"
+                      fill="#546E66"
+                      fontSize="8"
+                      fontFamily="var(--font-mono)"
+                    >
+                      {track.altitude}m · {Math.round(track.speed)}km/h
+                    </text>
                   </g>
                 </g>
               );
             })}
 
-          {/* Continuous Rotating Radar Sweep Beam */}
+          {/* Clean Rotating Radar Sweep Beam */}
           {(radarMode === 'ppi' || radarMode === 'flir') && sweepActive && (
             <g pointerEvents="none">
               <animateTransform
@@ -1322,28 +1009,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 repeatCount="indefinite"
               />
               <path
-                d={createSweepWedgePath(centerPt.x, centerPt.y, scopeRadius, 12)}
-                fill="rgba(255, 90, 60, 0.28)"
-              />
-              <path
-                d={createSweepWedgePath(centerPt.x, centerPt.y, scopeRadius, 28)}
-                fill="rgba(255, 90, 60, 0.16)"
-              />
-              <path
-                d={createSweepWedgePath(centerPt.x, centerPt.y, scopeRadius, 46)}
-                fill="rgba(255, 90, 60, 0.08)"
-              />
-              <path
-                d={createSweepWedgePath(centerPt.x, centerPt.y, scopeRadius, 64)}
-                fill="rgba(255, 90, 60, 0.03)"
+                d={createSweepWedgePath(centerPt.x, centerPt.y, scopeRadius, 25)}
+                fill="rgba(0, 230, 118, 0.12)"
               />
               <line
                 x1={centerPt.x}
                 y1={centerPt.y}
                 x2={centerPt.x}
                 y2={centerPt.y - scopeRadius}
-                stroke="var(--color-accent)"
-                strokeWidth="2"
+                stroke="#00E676"
+                strokeWidth="1.5"
+                strokeOpacity="0.85"
               />
             </g>
           )}
@@ -1353,7 +1029,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             const pos = project(marker.location.lat, marker.location.lng);
             const isRally = marker.type === 'rally_point';
             const isContact = marker.type === 'contact';
-            const color = isRally ? '#10B981' : isContact ? '#EF4444' : '#F59E0B';
+            const color = isRally ? '#00E676' : isContact ? '#FF3B5C' : '#FFB300';
 
             return (
               <g
@@ -1366,24 +1042,19 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 }}
               >
                 <title>{`Tactical Marker [${marker.type.toUpperCase()}]: ${marker.label} • Node ${marker.createdByNode}`}</title>
-                <circle r="10" fill="rgba(9, 14, 24, 0.95)" stroke={color} strokeWidth="2" filter="url(#radar-glow-cyan)" />
-                <text y="3.5" fill={color} fontSize="9" fontFamily="var(--font-mono)" fontWeight="800" textAnchor="middle">
+                <circle r="8" fill="var(--bg-card, #131E1B)" stroke={color} strokeWidth="1.5" />
+                <text y="3" fill={color} fontSize="8.5" fontFamily="var(--font-mono)" fontWeight="700" textAnchor="middle">
                   {isRally ? '⚑' : isContact ? '✕' : '▲'}
                 </text>
-                <g transform="translate(13, -7)">
-                  <rect x="0" y="0" width="84" height="15" rx="3" fill="rgba(9, 14, 24, 0.9)" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8" />
-                  <text x="42" y="11" fill="#E2E8F0" fontSize="7.5" fontFamily="var(--font-mono)" fontWeight="700" textAnchor="middle">
-                    {marker.label.substring(0, 14)}
-                  </text>
-                </g>
+                <text x="12" y="3" fill="var(--text-primary, #F0FDF4)" fontSize="8" fontFamily="var(--font-heading)" fontWeight="600">
+                  {marker.label}
+                </text>
               </g>
             );
           })}
 
-          {/* Central Radar Transmitter Antenna Node */}
-          <circle cx={centerPt.x} cy={centerPt.y} r="3.5" fill="#00F2FE" />
-          <circle cx={centerPt.x} cy={centerPt.y} r="8" fill="none" stroke="#00F2FE" strokeWidth="1.2" opacity="0.75" />
-          <circle cx={centerPt.x} cy={centerPt.y} r="14" fill="none" stroke="#00F2FE" strokeWidth="0.8" strokeDasharray="3,3" opacity="0.45" />
+          {/* Central Radar Origin Node */}
+          <circle cx={centerPt.x} cy={centerPt.y} r="2.5" fill="#00E676" opacity="0.9" />
         </g>
       </svg>
     </div>

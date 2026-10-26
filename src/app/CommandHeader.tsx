@@ -139,7 +139,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               fontSize: '1.05rem',
               fontFamily: 'var(--font-heading)',
               fontWeight: 700,
-              color: '#FFFFFF',
+              color: 'var(--text-primary, #F0FDF4)',
               letterSpacing: '-0.01em',
               margin: 0,
               lineHeight: 1,
@@ -151,7 +151,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             className="header-subtitle"
             style={{
               fontSize: '0.74rem',
-              color: '#8D9A8F',
+              color: 'var(--text-secondary, #869E96)',
               fontWeight: 400,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -166,11 +166,11 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
       <div className="header-notice-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div
           style={{
-            border: '1px solid #B77700',
+            border: '1px solid rgba(255, 179, 0, 0.4)',
             borderRadius: 'var(--radius-sm)',
             padding: '2px 8px',
             fontSize: '0.72rem',
-            color: '#FFB35A',
+            color: '#FFB300',
             fontWeight: 600,
             letterSpacing: '0.01em',
             whiteSpace: 'nowrap',
@@ -189,7 +189,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             fontSize: '0.82rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: 'var(--text-primary, #F0FDF4)',
             fontVariantNumeric: 'tabular-nums',
             letterSpacing: '0.02em',
             marginRight: '2px',
@@ -219,7 +219,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               onClick={() => handleThemeChange('light')}
               style={{
                 background: themeMode === 'light' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                color: themeMode === 'light' ? '#FFB35A' : '#8D9A8F',
+                color: themeMode === 'light' ? '#FFB300' : '#869E96',
                 border: 'none',
                 padding: '3px 6px',
                 borderRadius: 'var(--radius-sm)',
@@ -241,7 +241,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               onClick={() => handleThemeChange('system')}
               style={{
                 background: themeMode === 'system' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                color: themeMode === 'system' ? '#FFFFFF' : '#8D9A8F',
+                color: themeMode === 'system' ? '#F0FDF4' : '#869E96',
                 border: 'none',
                 padding: '3px 6px',
                 borderRadius: 'var(--radius-sm)',
@@ -266,7 +266,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               onClick={() => handleThemeChange('dark')}
               style={{
                 background: themeMode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-                color: themeMode === 'dark' ? '#FF5A3C' : '#8D9A8F',
+                color: themeMode === 'dark' ? '#00E676' : '#869E96',
                 border: 'none',
                 padding: '3px 6px',
                 borderRadius: 'var(--radius-sm)',
@@ -275,8 +275,8 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              title="Dark Theme (Red light)"
-              aria-label="Dark Theme (Red light)"
+              title="Dark Theme"
+              aria-label="Dark Theme"
               aria-pressed={themeMode === 'dark'}
             >
               <Moon size={13} />
@@ -293,16 +293,16 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               gap: '5px',
               padding: '3px 9px',
               borderRadius: 'var(--radius-sm)',
-              border: isOfflineMode ? '1.2px solid #A61B1B' : '1px solid rgba(255, 255, 255, 0.25)',
-              background: isOfflineMode ? 'rgba(166, 27, 27, 0.25)' : 'transparent',
-              color: isOfflineMode ? '#FF9494' : '#FFFFFF',
+              border: isOfflineMode ? '1.2px solid rgba(255, 59, 92, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
+              background: isOfflineMode ? 'rgba(255, 59, 92, 0.15)' : 'transparent',
+              color: isOfflineMode ? '#FF3B5C' : '#F0FDF4',
               fontSize: '0.75rem',
               fontWeight: 700,
               cursor: 'pointer',
             }}
             title={isOfflineMode ? 'Air-gap mode active (Click to restore online simulation)' : 'Simulate tactical radio blackout'}
           >
-            {isOfflineMode ? <WifiOff size={13} color="#FF9494" /> : <Wifi size={13} color="#8D9A8F" />}
+            {isOfflineMode ? <WifiOff size={13} color="#FF3B5C" /> : <Wifi size={13} color="#869E96" />}
             <span>{isOfflineMode ? 'Offline Mode' : 'Go offline'}</span>
           </button>
 
@@ -318,7 +318,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               borderRadius: 'var(--radius-sm)',
               border: '1px solid rgba(255, 255, 255, 0.25)',
               background: 'transparent',
-              color: '#FFFFFF',
+              color: '#F0FDF4',
               fontSize: '0.75rem',
               fontWeight: 700,
               cursor: 'pointer',
@@ -341,9 +341,9 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             gap: '6px',
             padding: '3px 10px',
             borderRadius: 'var(--radius-sm)',
-            border: pendingSyncCount > 0 ? '1.2px solid #E8590C' : '1px solid rgba(255, 255, 255, 0.25)',
-            background: pendingSyncCount > 0 ? '#E8590C' : 'transparent',
-            color: '#FFFFFF',
+            border: pendingSyncCount > 0 ? '1.2px solid #00E676' : '1px solid rgba(255, 255, 255, 0.25)',
+            background: pendingSyncCount > 0 ? '#00E676' : 'transparent',
+            color: pendingSyncCount > 0 ? '#060A09' : '#F0FDF4',
             fontSize: '0.75rem',
             fontWeight: 700,
             cursor: pendingSyncCount > 0 ? 'pointer' : 'default',
@@ -358,8 +358,8 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
                 width: '16px',
                 height: '16px',
                 borderRadius: '50%',
-                background: '#FFFFFF',
-                color: '#E8590C',
+                background: '#060A09',
+                color: '#00E676',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -372,7 +372,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           )}
         </button>
 
-        {/* Live SSE / Command Link Status Indicator (Strictly aligned with sidebar health card) */}
+        {/* Live SSE / Command Link Status Indicator */}
         <div
           style={{
             display: 'flex',
@@ -384,7 +384,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
             fontSize: '0.68rem',
             fontFamily: 'var(--font-heading)',
             fontWeight: 700,
-            color: isOfflineMode ? '#FF9494' : '#B4F0B4',
+            color: isOfflineMode ? '#FF3B5C' : '#00E676',
             height: '24px',
             whiteSpace: 'nowrap',
             flexShrink: 0,
@@ -400,7 +400,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               width: '6px',
               height: '6px',
               borderRadius: '50%',
-              background: isOfflineMode ? '#FF9494' : '#2D7A33',
+              background: isOfflineMode ? '#FF3B5C' : '#00E676',
             }}
           />
           <span>
@@ -446,7 +446,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
               }}
               onClick={() => setIsOverflowOpen(false)}
             >
-              <div style={{ fontSize: '0.72rem', color: '#8D9A8F', marginBottom: '2px' }}>Theme</div>
+              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginBottom: '2px' }}>Theme</div>
               <div style={{ display: 'flex', gap: '4px' }}>
                 <button
                   type="button"
