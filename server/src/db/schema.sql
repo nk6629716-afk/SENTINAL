@@ -115,6 +115,26 @@ CREATE TABLE IF NOT EXISTS public.sentinel_sync_registry (
     synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- H. Soldier Vitals Table (Operational Medical Monitoring)
+CREATE TABLE IF NOT EXISTS public.sentinel_soldier_vitals (
+    id TEXT PRIMARY KEY,
+    soldier_id TEXT NOT NULL,
+    callsign TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    heart_rate_bpm NUMERIC,
+    blood_pressure_systolic NUMERIC,
+    blood_pressure_diastolic NUMERIC,
+    temperature_celsius NUMERIC,
+    oxygen_saturation_pct NUMERIC,
+    respiratory_rate_bpm NUMERIC,
+    clinical_notes TEXT,
+    recorded_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_simulated BOOLEAN NOT NULL DEFAULT TRUE
+);
+
 -- ----------------------------------------------------------------------------
 -- 2. Performance Indexes
 -- ----------------------------------------------------------------------------
@@ -126,6 +146,8 @@ CREATE INDEX IF NOT EXISTS idx_alerts_track_id ON public.sentinel_alerts(track_i
 CREATE INDEX IF NOT EXISTS idx_alerts_acknowledged ON public.sentinel_alerts(acknowledged);
 CREATE INDEX IF NOT EXISTS idx_patients_triage ON public.sentinel_patients(triage_category);
 CREATE INDEX IF NOT EXISTS idx_hazards_edge_id ON public.sentinel_hazards(edge_id);
+CREATE INDEX IF NOT EXISTS idx_soldier_vitals_soldier_id ON public.sentinel_soldier_vitals(soldier_id);
+CREATE INDEX IF NOT EXISTS idx_soldier_vitals_timestamp ON public.sentinel_soldier_vitals(timestamp DESC);
 
 -- ----------------------------------------------------------------------------
 -- 3. Row Level Security (RLS) Policies
@@ -137,6 +159,7 @@ ALTER TABLE public.sentinel_observations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sentinel_patients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sentinel_hazards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sentinel_sync_registry ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sentinel_soldier_vitals ENABLE ROW LEVEL SECURITY;
 
 -- Allow read access for authenticated and anonymous clients (Demo evaluation)
 CREATE POLICY "Allow public read on incidents" ON public.sentinel_incidents FOR SELECT USING (true);
@@ -146,6 +169,7 @@ CREATE POLICY "Allow public read on observations" ON public.sentinel_observation
 CREATE POLICY "Allow public read on patients" ON public.sentinel_patients FOR SELECT USING (true);
 CREATE POLICY "Allow public read on hazards" ON public.sentinel_hazards FOR SELECT USING (true);
 CREATE POLICY "Allow public read on sync_registry" ON public.sentinel_sync_registry FOR SELECT USING (true);
+CREATE POLICY "Allow public read on soldier_vitals" ON public.sentinel_soldier_vitals FOR SELECT USING (true);
 
 -- Allow full write/update access for service role
 CREATE POLICY "Service role full access on incidents" ON public.sentinel_incidents FOR ALL USING (true) WITH CHECK (true);
@@ -155,6 +179,7 @@ CREATE POLICY "Service role full access on observations" ON public.sentinel_obse
 CREATE POLICY "Service role full access on patients" ON public.sentinel_patients FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Service role full access on hazards" ON public.sentinel_hazards FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Service role full access on sync_registry" ON public.sentinel_sync_registry FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Service role full access on soldier_vitals" ON public.sentinel_soldier_vitals FOR ALL USING (true) WITH CHECK (true);
 
 -- ----------------------------------------------------------------------------
 -- 4. Seed Baseline Deterministic Data
@@ -188,6 +213,14 @@ INSERT INTO public.sentinel_hazards (id, edge_id, from_node, to_node, hazard_typ
 VALUES
     ('HAZ-001', 'EDGE-1', 'NODE-CAS-3', 'NODE-INT-5', 'bridge_damage', false, 'Field Recon Team 2'),
     ('HAZ-002', 'EDGE-2', 'NODE-CAS-3', 'NODE-AID-2', 'clear_pathway', false, 'Patrol Bravo')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Soldier Vitals
+INSERT INTO public.sentinel_soldier_vitals (id, soldier_id, callsign, unit, timestamp, heart_rate_bpm, blood_pressure_systolic, blood_pressure_diastolic, temperature_celsius, oxygen_saturation_pct, respiratory_rate_bpm, clinical_notes, recorded_by)
+VALUES
+    ('VTL-101-1', 'SOL-101', 'Viper 1', '1st Recon Team Alpha', '2026-10-25T07:15:00.000Z', 72, 118, 76, 36.8, 98, 14, 'Pre-mission baseline check. Normal physiology; no complaints.', 'med_officer_1@sentinel.mil'),
+    ('VTL-101-2', 'SOL-101', 'Viper 1', '1st Recon Team Alpha', '2026-10-25T08:00:00.000Z', 84, 122, 78, 37.0, 97, 16, 'Post-patrol telemetry check. Mild physical exertion observed.', 'med_officer_1@sentinel.mil'),
+    ('VTL-102-1', 'SOL-102', 'Ghost 4', '2nd Infantry Patrol Bravo', '2026-10-25T07:30:00.000Z', 68, 115, 74, 36.7, 99, 13, 'Routine morning vitals check at forward assembly area.', 'med_officer_2@sentinel.mil')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Road Graph Nodes & Edges via comment for reference

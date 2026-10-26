@@ -189,7 +189,7 @@ export interface TelemetryTrack {
   timestamp: string;
   status: TrackStatus;
   flightHistory: Waypoint[];
-  anomalyFlags?: string[];
+  anomalyFlags?: AnomalyRuleName[];
   isSimulated: true;
   // Phase 1 & 3: Threat scoring and trajectory predictions
   threatScore?: number;
@@ -216,20 +216,27 @@ export interface TelemetryTrack {
   isSwarm?: boolean;
 }
 
-export type AnomalyRuleName =
-  | 'NO_FLY_ZONE_INCURSION'
-  | 'ZONE_INCURSION'
-  | 'RAPID_ACCELERATION_SPIKE'
-  | 'SUDDEN_ACCELERATION'
-  | 'UNUSUAL_ALTITUDE_DROP'
-  | 'FLIGHT_PATH_DEVIATION'
-  | 'ROUTE_DEVIATION'
-  | 'STALE_TELEMETRY_SIGNAL'
-  | 'STALE_TELEMETRY'
-  | 'speed_anomaly'
-  | 'route_deviation'
-  | 'restricted_zone_entry'
-  | 'stale_telemetry';
+export const VALID_ANOMALY_RULE_NAMES = [
+  'NO_FLY_ZONE_INCURSION',
+  'ZONE_INCURSION',
+  'RAPID_ACCELERATION_SPIKE',
+  'SUDDEN_ACCELERATION',
+  'UNUSUAL_ALTITUDE_DROP',
+  'FLIGHT_PATH_DEVIATION',
+  'ROUTE_DEVIATION',
+  'STALE_TELEMETRY_SIGNAL',
+  'STALE_TELEMETRY',
+  'speed_anomaly',
+  'route_deviation',
+  'restricted_zone_entry',
+  'stale_telemetry',
+] as const;
+
+export type AnomalyRuleName = (typeof VALID_ANOMALY_RULE_NAMES)[number];
+
+export function isAnomalyRuleName(val: unknown): val is AnomalyRuleName {
+  return typeof val === 'string' && (VALID_ANOMALY_RULE_NAMES as readonly string[]).includes(val);
+}
 
 export type AlertSeverity = 'info' | 'warning' | 'high' | 'critical' | 'low' | 'medium';
 
@@ -662,5 +669,69 @@ export interface SimulationMeasurableMetrics {
   casualtiesTriaged: number;
   routeRecalculations: number;
   changeDetectionsConfirmed: number;
+}
+
+// -------------------------------------------------------------
+// SUPABASE AUTHENTICATION & ROLE-BASED ACCESS CONTROL (RBAC)
+// -------------------------------------------------------------
+export type UserRole =
+  | 'administrator'
+  | 'operations_officer'
+  | 'medical_officer'
+  | 'read_only_viewer';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  role: UserRole;
+  callsign?: string;
+  unit?: string;
+}
+
+export interface AuthSession {
+  token: string;
+  user: UserProfile;
+  expiresAt?: number;
+}
+
+// -------------------------------------------------------------
+// MODULE: SOLDIER VITALS & HEALTH MONITORING
+// -------------------------------------------------------------
+export interface SoldierProfile {
+  id: string; // e.g. 'SOL-101'
+  callsign: string; // e.g. 'Viper 1'
+  unit: string; // e.g. '1st Recon Bravo'
+  status: 'active' | 'in_transit' | 'standby';
+}
+
+export interface SoldierVitalsRecord {
+  id: string;
+  soldierId: string;
+  callsign: string;
+  unit: string;
+  timestamp: string;
+  heartRateBpm?: number;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  temperatureCelsius?: number;
+  oxygenSaturationPct?: number;
+  respiratoryRateBpm?: number;
+  clinicalNotes?: string;
+  recordedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  isSimulated: true;
+}
+
+export interface CreateSoldierVitalsInput {
+  soldierId: string;
+  timestamp?: string;
+  heartRateBpm?: number;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  temperatureCelsius?: number;
+  oxygenSaturationPct?: number;
+  respiratoryRateBpm?: number;
+  clinicalNotes?: string;
 }
 

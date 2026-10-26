@@ -12,6 +12,7 @@ import {
   PriorityLevel,
   SourceModule,
   IncidentType,
+  CreateSoldierVitalsInput,
 } from '../../../shared/types';
 import { ERROR_CODES } from '../../../shared/contracts';
 
@@ -436,5 +437,83 @@ export function validateRouteCalculation(body: unknown): RouteCalculationRequest
     startNodeId: (b.startNodeId as string).trim(),
     destinationNodeId: (b.destinationNodeId as string).trim(),
     avoidHazards: b.avoidHazards !== false, // default true
+  };
+}
+
+export function validateCreateSoldierVitals(body: unknown): CreateSoldierVitalsInput {
+  if (!body || typeof body !== 'object') {
+    throw new ValidationError('Soldier vitals request body must be a valid JSON object');
+  }
+  const b = body as Record<string, unknown>;
+  const errors: ValidationErrorDetail[] = [];
+
+  if (!b.soldierId || typeof b.soldierId !== 'string' || b.soldierId.trim().length === 0) {
+    errors.push({ field: 'soldierId', message: 'soldierId is required and must not be empty' });
+  }
+
+  if (b.heartRateBpm !== undefined && b.heartRateBpm !== null) {
+    const hr = Number(b.heartRateBpm);
+    if (isNaN(hr) || hr < 30 || hr > 250) {
+      errors.push({ field: 'heartRateBpm', message: 'Heart rate must be between 30 and 250 bpm' });
+    }
+  }
+
+  if (b.bloodPressureSystolic !== undefined && b.bloodPressureSystolic !== null) {
+    const sys = Number(b.bloodPressureSystolic);
+    if (isNaN(sys) || sys < 50 || sys > 260) {
+      errors.push({ field: 'bloodPressureSystolic', message: 'Systolic blood pressure must be between 50 and 260 mmHg' });
+    }
+  }
+
+  if (b.bloodPressureDiastolic !== undefined && b.bloodPressureDiastolic !== null) {
+    const dia = Number(b.bloodPressureDiastolic);
+    if (isNaN(dia) || dia < 30 || dia > 160) {
+      errors.push({ field: 'bloodPressureDiastolic', message: 'Diastolic blood pressure must be between 30 and 160 mmHg' });
+    }
+  }
+
+  if (b.temperatureCelsius !== undefined && b.temperatureCelsius !== null) {
+    const temp = Number(b.temperatureCelsius);
+    if (isNaN(temp) || temp < 30 || temp > 45) {
+      errors.push({ field: 'temperatureCelsius', message: 'Body temperature must be between 30.0 and 45.0 °C' });
+    }
+  }
+
+  if (b.oxygenSaturationPct !== undefined && b.oxygenSaturationPct !== null) {
+    const spo2 = Number(b.oxygenSaturationPct);
+    if (isNaN(spo2) || spo2 < 50 || spo2 > 100) {
+      errors.push({ field: 'oxygenSaturationPct', message: 'Oxygen saturation must be between 50% and 100%' });
+    }
+  }
+
+  if (b.respiratoryRateBpm !== undefined && b.respiratoryRateBpm !== null) {
+    const rr = Number(b.respiratoryRateBpm);
+    if (isNaN(rr) || rr < 4 || rr > 60) {
+      errors.push({ field: 'respiratoryRateBpm', message: 'Respiratory rate must be between 4 and 60 breaths/min' });
+    }
+  }
+
+  if (b.clinicalNotes !== undefined && b.clinicalNotes !== null) {
+    if (typeof b.clinicalNotes !== 'string') {
+      errors.push({ field: 'clinicalNotes', message: 'Clinical notes must be a string' });
+    } else if (b.clinicalNotes.length > 1000) {
+      errors.push({ field: 'clinicalNotes', message: 'Clinical notes must not exceed 1000 characters' });
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new ValidationError('Validation failed for soldier vitals record', errors);
+  }
+
+  return {
+    soldierId: (b.soldierId as string).trim(),
+    timestamp: typeof b.timestamp === 'string' ? b.timestamp : new Date().toISOString(),
+    heartRateBpm: b.heartRateBpm !== undefined && b.heartRateBpm !== null ? Number(b.heartRateBpm) : undefined,
+    bloodPressureSystolic: b.bloodPressureSystolic !== undefined && b.bloodPressureSystolic !== null ? Number(b.bloodPressureSystolic) : undefined,
+    bloodPressureDiastolic: b.bloodPressureDiastolic !== undefined && b.bloodPressureDiastolic !== null ? Number(b.bloodPressureDiastolic) : undefined,
+    temperatureCelsius: b.temperatureCelsius !== undefined && b.temperatureCelsius !== null ? Number(b.temperatureCelsius) : undefined,
+    oxygenSaturationPct: b.oxygenSaturationPct !== undefined && b.oxygenSaturationPct !== null ? Number(b.oxygenSaturationPct) : undefined,
+    respiratoryRateBpm: b.respiratoryRateBpm !== undefined && b.respiratoryRateBpm !== null ? Number(b.respiratoryRateBpm) : undefined,
+    clinicalNotes: typeof b.clinicalNotes === 'string' ? b.clinicalNotes.trim() : undefined,
   };
 }

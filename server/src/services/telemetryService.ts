@@ -3,6 +3,7 @@ import {
   TelemetryTrack,
   Alert,
   AnomalyRuleName,
+  isAnomalyRuleName,
 } from '../../../shared/types';
 import { eventBus } from '../realtime/eventBus';
 
@@ -100,8 +101,9 @@ export class TelemetryService {
       const speedDelta = speedKts - prevSpeed;
       this.previousSpeeds.set(track.id, speedKts);
 
-      // Current active anomaly flags set for this track
-      const currentFlags = new Set<AnomalyRuleName>(track.anomalyFlags || []);
+      // Current active anomaly flags set for this track (runtime-validated via type guard)
+      const validFlags = (track.anomalyFlags || []).filter(isAnomalyRuleName);
+      const currentFlags = new Set<AnomalyRuleName>(validFlags);
 
       // Check Anomaly Rules
       // 1. Zone incursion

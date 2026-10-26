@@ -8,14 +8,15 @@ import {
   Wifi,
   WifiOff,
   Database,
+  Activity,
   X,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
 
 export interface SidebarProps {
-  activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
-  onNavigate: (module: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute') => void;
+  activeModule: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitals';
+  onNavigate: (module: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitals') => void;
   pendingSyncCount: number;
   unackAlertsCount: number;
   isOfflineMode: boolean;
@@ -75,6 +76,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'MediRoute Logistics',
       icon: HeartPulse,
       description: 'Triage and evacuation',
+    },
+    {
+      id: 'vitals',
+      code: 'VTL',
+      label: 'Soldier Vitals',
+      icon: Activity,
+      description: 'Physiological health telemetry',
     },
   ];
 

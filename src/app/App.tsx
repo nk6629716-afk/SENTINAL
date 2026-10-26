@@ -30,13 +30,14 @@ import { FieldLinkModule } from '../modules/fieldlink/FieldLinkModule';
 import { SkyWatchModule } from '../modules/skywatch/SkyWatchModule';
 import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
+import { SoldierVitalsModule } from '../modules/vitals/SoldierVitalsModule';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
 import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
-import { Layers, Radio, Crosshair, Compass, HeartPulse } from 'lucide-react';
+import { Layers, Radio, Crosshair, Compass, HeartPulse, Activity } from 'lucide-react';
 
-export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
+export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitals';
 
-export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute'] as const;
+export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute', 'vitals'] as const;
 
 export const DEFAULT_INITIAL_SUMMARY: DashboardSummary = {
   systemStatus: 'nominal',
@@ -631,6 +632,8 @@ export const App: React.FC = () => {
             isSimPaused={isSimPaused}
           />
         )}
+
+        {activeModule === 'vitals' && <SoldierVitalsModule />}
       </main>
 
       {/* Mobile Bottom Dock (< 768px) */}
@@ -706,6 +709,15 @@ export const App: React.FC = () => {
         >
           <HeartPulse size={18} />
           <span>MediRoute</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'vitals' ? 'active' : ''}`}
+          onClick={() => handleNavigate('vitals')}
+        >
+          <Activity size={18} />
+          <span>Vitals</span>
         </button>
       </nav>
     </div>

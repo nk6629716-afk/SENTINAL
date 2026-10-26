@@ -430,7 +430,7 @@ select.form-input {
   max-height: var(--header-height, 48px);
   position: sticky;
   top: 0;
-  z-index: 30;
+  z-index: 100;
   background: var(--bg-glass-header, rgba(8, 12, 10, 0.92));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -441,7 +441,7 @@ select.form-input {
   justify-content: space-between;
   padding: 0 16px;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* App Main Content Container */

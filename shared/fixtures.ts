@@ -13,6 +13,8 @@ import {
   RoadHazardEdge,
   EvacuationNode,
   RoadGraphEdge,
+  SoldierProfile,
+  SoldierVitalsRecord,
 } from './types';
 
 export const DEMO_BASELINE_TIMESTAMP = '2026-10-25T08:00:00.000Z';
@@ -432,6 +434,73 @@ export const INITIAL_HAZARDS: RoadHazardEdge[] = [
     blocked: true,
     reportedBy: 'Ground Scout Team 4',
     reportedAt: '2026-10-25T07:47:00.000Z',
+    isSimulated: true,
+  },
+];
+
+// --------------------------------------------------------------------------
+// 7. Initial Soldiers & Historical Vitals (Simulated Baseline)
+// --------------------------------------------------------------------------
+export const INITIAL_SOLDIERS: SoldierProfile[] = [
+  { id: 'SOL-101', callsign: 'Viper 1', unit: '1st Recon Team Alpha', status: 'active' },
+  { id: 'SOL-102', callsign: 'Ghost 4', unit: '2nd Infantry Patrol Bravo', status: 'active' },
+  { id: 'SOL-103', callsign: 'Echo 6', unit: 'Combat Support Medevac', status: 'standby' },
+  { id: 'SOL-104', callsign: 'Titan 2', unit: 'Heavy Mobility Detachment Delta', status: 'in_transit' },
+];
+
+export const INITIAL_SOLDIER_VITALS: SoldierVitalsRecord[] = [
+  {
+    id: 'VTL-101-1',
+    soldierId: 'SOL-101',
+    callsign: 'Viper 1',
+    unit: '1st Recon Team Alpha',
+    timestamp: '2026-10-25T07:15:00.000Z',
+    heartRateBpm: 72,
+    bloodPressureSystolic: 118,
+    bloodPressureDiastolic: 76,
+    temperatureCelsius: 36.8,
+    oxygenSaturationPct: 98,
+    respiratoryRateBpm: 14,
+    clinicalNotes: 'Pre-mission baseline check. Normal physiology; no complaints.',
+    recordedBy: 'med_officer_1@sentinel.mil',
+    createdAt: '2026-10-25T07:15:00.000Z',
+    updatedAt: '2026-10-25T07:15:00.000Z',
+    isSimulated: true,
+  },
+  {
+    id: 'VTL-101-2',
+    soldierId: 'SOL-101',
+    callsign: 'Viper 1',
+    unit: '1st Recon Team Alpha',
+    timestamp: '2026-10-25T08:00:00.000Z',
+    heartRateBpm: 84,
+    bloodPressureSystolic: 122,
+    bloodPressureDiastolic: 78,
+    temperatureCelsius: 37.0,
+    oxygenSaturationPct: 97,
+    respiratoryRateBpm: 16,
+    clinicalNotes: 'Post-patrol telemetry check. Mild physical exertion observed.',
+    recordedBy: 'med_officer_1@sentinel.mil',
+    createdAt: '2026-10-25T08:00:00.000Z',
+    updatedAt: '2026-10-25T08:00:00.000Z',
+    isSimulated: true,
+  },
+  {
+    id: 'VTL-102-1',
+    soldierId: 'SOL-102',
+    callsign: 'Ghost 4',
+    unit: '2nd Infantry Patrol Bravo',
+    timestamp: '2026-10-25T07:30:00.000Z',
+    heartRateBpm: 68,
+    bloodPressureSystolic: 115,
+    bloodPressureDiastolic: 74,
+    temperatureCelsius: 36.7,
+    oxygenSaturationPct: 99,
+    respiratoryRateBpm: 13,
+    clinicalNotes: 'Routine morning vitals check at forward assembly area.',
+    recordedBy: 'med_officer_2@sentinel.mil',
+    createdAt: '2026-10-25T07:30:00.000Z',
+    updatedAt: '2026-10-25T07:30:00.000Z',
     isSimulated: true,
   },
 ];
