@@ -334,7 +334,7 @@ export class MeshService {
     });
 
     try {
-      dbService.putMeshMessage(newMessage).catch(() => {});
+      dbService.queueMutation('mesh_message', 'send', newMessage, newMessage.id).catch(() => {});
     } catch (e) {}
 
     // Run store-and-forward delivery asynchronously
@@ -470,6 +470,9 @@ export class MeshService {
 
     this.notify({ type: 'MARKER', data: newMarker });
     this.broadcast({ type: 'MARKER_SYNC', payload: newMarker });
+    try {
+      dbService.queueMutation('marker', 'place', newMarker, newMarker.id).catch(() => {});
+    } catch (e) {}
 
     return newMarker;
   }

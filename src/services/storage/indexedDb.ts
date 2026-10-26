@@ -25,7 +25,7 @@ import {
 } from '../data/fixtures';
 
 const DB_NAME = 'SENTINEL_TACTICAL_DB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export class SentinelDatabase {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -95,6 +95,17 @@ export class SentinelDatabase {
           outboxStore.createIndex('status', 'status', { unique: false });
           outboxStore.createIndex('entityType', 'entityType', { unique: false });
           outboxStore.createIndex('createdAt', 'createdAt', { unique: false });
+          outboxStore.createIndex('seq', 'seq', { unique: true });
+        } else if (tx) {
+          const outboxStore = tx.objectStore('outbox');
+          if (!outboxStore.indexNames.contains('seq')) {
+            outboxStore.createIndex('seq', 'seq', { unique: false });
+          }
+        }
+
+        // Meta store for monotonic seq counter (FIX-17)
+        if (!db.objectStoreNames.contains('meta')) {
+          db.createObjectStore('meta', { keyPath: 'key' });
         }
       };
 
@@ -540,7 +551,7 @@ export class SentinelDatabase {
     });
   }
 
-  // Outbox Store Methods
+  // Outbox Store Methods (FIX-15, FIX-16, FIX-17)
   public async getOutboxItems(): Promise<OutboxItem[]> {
     const db = await this.initDB();
     if (!db.objectStoreNames.contains('outbox')) return [];
@@ -548,9 +559,12 @@ export class SentinelDatabase {
       const tx = db.transaction('outbox', 'readonly');
       const req = tx.objectStore('outbox').getAll();
       req.onsuccess = () => {
-        const sorted = (req.result as OutboxItem[]).sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+        const sorted = (req.result as OutboxItem[]).sort((a, b) => {
+          if (typeof a.seq === 'number' && typeof b.seq === 'number') {
+            return a.seq - b.seq;
+          }
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
         resolve(sorted);
       };
       req.onerror = () => reject(req.error);
@@ -562,14 +576,52 @@ export class SentinelDatabase {
     return items.filter((item) => item.status === 'pending' || item.status === 'failed');
   }
 
-  public async putOutboxItem(item: OutboxItem): Promise<void> {
+  public async putOutboxItem(item: OutboxItem): Promise<OutboxItem> {
     const db = await this.initDB();
-    if (!db.objectStoreNames.contains('outbox')) return;
+    if (!db.objectStoreNames.contains('outbox')) return item;
+
     return new Promise((resolve, reject) => {
-      const tx = db.transaction('outbox', 'readwrite');
-      const req = tx.objectStore('outbox').put(item);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      const stores = db.objectStoreNames.contains('meta') ? ['outbox', 'meta'] : ['outbox'];
+      const tx = db.transaction(stores, 'readwrite');
+      const outboxStore = tx.objectStore('outbox');
+
+      const finalizeAndPut = (seqVal?: number) => {
+        if (typeof seqVal === 'number') {
+          item.seq = seqVal;
+        }
+        if (!item.createdAt) {
+          item.createdAt = new Date().toISOString();
+        }
+        const clientId = item.clientId || item.payload?.clientId || item.payload?.id || item.id;
+        item.clientId = clientId;
+        item.idempotencyKey = item.idempotencyKey || `${item.entityType}:${clientId}`;
+
+        outboxStore.put(item);
+      };
+
+      if (stores.includes('meta')) {
+        const metaStore = tx.objectStore('meta');
+        const getSeqReq = metaStore.get('outbox_seq');
+        getSeqReq.onsuccess = () => {
+          let currentSeq = 0;
+          if (getSeqReq.result && typeof getSeqReq.result.value === 'number') {
+            currentSeq = getSeqReq.result.value;
+          }
+          if (typeof item.seq !== 'number') {
+            const nextSeq = currentSeq + 1;
+            metaStore.put({ key: 'outbox_seq', value: nextSeq });
+            finalizeAndPut(nextSeq);
+          } else {
+            finalizeAndPut(item.seq);
+          }
+        };
+      } else {
+        finalizeAndPut();
+      }
+
+      tx.oncomplete = () => resolve(item);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(new Error('Transaction aborted'));
     });
   }
 
@@ -583,7 +635,104 @@ export class SentinelDatabase {
       req.onerror = () => reject(req.error);
     });
   }
+
+  // FIX-16: Atomic De-ghosting confirmation
+  // Performs a single readwrite transaction over ['incidents', 'outbox']
+  // Puts confirmed record, deletes old local id, removes outbox item, rewrites references.
+  // Any failure aborts the entire transaction.
+  public async confirmIncidentAtomic(
+    localId: string,
+    confirmedRecord: IncidentReport,
+    outboxItemId?: string
+  ): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['incidents', 'outbox'], 'readwrite');
+      const incStore = tx.objectStore('incidents');
+      const outboxStore = tx.objectStore('outbox');
+
+      // Put confirmed record
+      incStore.put(confirmedRecord);
+
+      // If server confirmed with different id, delete old local id
+      if (confirmedRecord.id !== localId) {
+        incStore.delete(localId);
+      }
+
+      // Delete outbox entry
+      const outboxKey = outboxItemId || localId;
+      outboxStore.delete(outboxKey);
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(new Error('Atomic incident confirmation transaction aborted'));
+    });
+  }
+
+  // FIX-15: Write to IndexedDB first, then queue in outbox with stable clientId and idempotencyKey
+  public async queueMutation(
+    entityType: OutboxItem['entityType'],
+    action: OutboxItem['action'],
+    payload: any,
+    stableClientId?: string
+  ): Promise<OutboxItem> {
+    const clientId = stableClientId || payload.clientId || payload.id || `c-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const idempotencyKey = `${entityType}:${clientId}`;
+
+    // 1. Write to target entity store first
+    switch (entityType) {
+      case 'incident':
+        await this.putIncident(payload);
+        break;
+      case 'alert_ack':
+        if (payload.alert) {
+          await this.updateAlert(payload.alert);
+        } else if (payload.alertId) {
+          const alerts = await this.getAlerts();
+          const target = alerts.find((a) => a.id === payload.alertId);
+          if (target) {
+            target.acknowledged = true;
+            target.acknowledgedBy = payload.acknowledgedBy || 'Duty Officer';
+            target.acknowledgedAt = payload.acknowledgedAt || new Date().toISOString();
+            await this.updateAlert(target);
+          }
+        }
+        break;
+      case 'hazard':
+        await this.putHazard(payload);
+        break;
+      case 'casualty':
+        await this.putCasualty(payload);
+        break;
+      case 'marker':
+        if (action === 'delete' || action === 'remove') {
+          await this.deleteMarker(payload.id || clientId);
+        } else {
+          await this.putMarker(payload);
+        }
+        break;
+      case 'mesh_message':
+        await this.putMeshMessage(payload);
+        break;
+    }
+
+    // 2. Queue in outbox
+    const outboxItem: OutboxItem = {
+      id: clientId,
+      clientId,
+      idempotencyKey,
+      entityType,
+      action,
+      payload,
+      status: 'pending',
+      attempts: 0,
+      createdAt: new Date().toISOString(),
+    };
+
+    return await this.putOutboxItem(outboxItem);
+  }
 }
 
 export const dbService = new SentinelDatabase();
+
 

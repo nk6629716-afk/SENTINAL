@@ -299,20 +299,17 @@ export class SentinelApiClient {
           syncStatus: 'synced',
           syncedAt: saved.syncedAt || new Date().toISOString(),
         };
-        if (oldLocalId !== normalized.id) {
-          await dbService.deleteIncident(oldLocalId);
-        }
-        await dbService.putIncident(normalized);
+        await dbService.confirmIncidentAtomic(oldLocalId, normalized, report.clientId);
         return normalized;
       }
     } catch (err) {
       console.warn('[ApiClient] Failed to create incident on server, queuing in local outbox:', err);
     }
 
-    // Fallback: save to outbox as pending
+    // Fallback: save to outbox as pending with stable clientId
     report.syncStatus = 'pending';
     report.status = 'pending_sync';
-    await dbService.putIncident(report);
+    await dbService.queueMutation('incident', 'create', report, report.clientId || report.id);
     return report;
   }
 
@@ -374,10 +371,7 @@ export class SentinelApiClient {
               match.id = resItem.serverId || match.id;
               match.syncedAt = resItem.syncTimestamp || (resItem as any).syncedAt || new Date().toISOString();
               delete (match as any).syncError;
-              if (oldLocalId !== match.id) {
-                await dbService.deleteIncident(oldLocalId);
-              }
-              await dbService.putIncident(match);
+              await dbService.confirmIncidentAtomic(oldLocalId, match, match.clientId);
             } else if (resItem.outcome === 'rejected' || (resItem as any).status === 'rejected') {
               match.syncStatus = 'failed';
               match.status = 'pending_sync';
@@ -456,6 +450,12 @@ export class SentinelApiClient {
     alert.acknowledgedAt = new Date().toISOString();
     alert.acknowledgedBy = user;
     await dbService.updateAlert(alert);
+    await dbService.queueMutation(
+      'alert_ack',
+      'acknowledge',
+      { alertId: id, acknowledged: true, acknowledgedBy: user, acknowledgedAt: alert.acknowledgedAt },
+      id
+    );
     return alert;
   }
 
@@ -710,6 +710,7 @@ export class SentinelApiClient {
     cas.updatedAt = new Date().toISOString();
 
     await dbService.putCasualty(cas);
+    await dbService.queueMutation('casualty', 'update', cas, cas.id);
     return cas;
   }
 
@@ -726,6 +727,7 @@ export class SentinelApiClient {
     edge.blocked = blocked;
     edge.updatedAt = new Date().toISOString();
     await dbService.putHazard(edge);
+    await dbService.queueMutation('hazard', blocked ? 'block' : 'unblock', edge, edge.id);
 
     // Broadcast HAZARD_UPDATE across tabs (FIX-13)
     meshBus.publish('HAZARD_UPDATE', {

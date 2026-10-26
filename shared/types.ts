@@ -51,7 +51,7 @@ export type IncidentType =
   | 'recon'
   | 'general';
 
-export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'pending_sync' | 'archived' | 'open' | 'triaged';
+export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'pending_sync' | 'failed_sync' | 'archived' | 'open' | 'triaged';
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
 export interface IncidentReport {
@@ -98,6 +98,24 @@ export interface OfflineSyncPayload {
   clientId: string;
   report: IncidentReport;
   clientTimestamp: string;
+}
+
+export interface OutboxItem {
+  id: string; // client operation id
+  clientId?: string;
+  idempotencyKey?: string;
+  entityType: 'incident' | 'geointel' | 'casualty' | 'hazard' | 'alert_ack' | 'marker' | 'mesh_message';
+  action: 'create' | 'update' | 'delete' | 'block' | 'unblock' | 'acknowledge' | 'place' | 'remove' | 'send';
+  payload: any;
+  status: 'pending' | 'syncing' | 'synced' | 'failed';
+  attempts: number;
+  lastAttemptAt?: string;
+  nextRetryAt?: number;
+  errorMessage?: string;
+  createdAt: string; // device time
+  serverTime?: string; // server time
+  syncedAt?: string;
+  seq?: number; // monotonic sequence counter (FIX-17)
 }
 
 export type SyncItemOutcome = 'accepted' | 'already_received' | 'rejected';
@@ -333,9 +351,14 @@ export interface GeoIntelObservation {
   createdAt: string;
   updatedAt?: string;
   isSimulated: true;
+  clientId?: string;
+  syncStatus?: SyncStatus;
+  syncedAt?: string;
 }
 
 export interface CreateGeoObservationInput {
+  id?: string;
+  clientId?: string;
   samplePairId: string;
   beforeImageId: string;
   afterImageId: string;
