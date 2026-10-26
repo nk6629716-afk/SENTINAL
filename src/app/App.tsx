@@ -27,19 +27,17 @@ import { Sidebar } from './Sidebar';
 import { CommandHeader } from './CommandHeader';
 import { Dashboard } from '../dashboard/Dashboard';
 import { FieldLinkModule } from '../modules/fieldlink/FieldLinkModule';
-import { SkyWatchModule } from '../modules/skywatch/SkyWatchModule';
-import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
 import { SoldierVitalsModule } from '../modules/vitals/SoldierVitalsModule';
 import { MediRouteSubTab } from '../modules/mediroute/medirouteTypes';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
 import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
-import { Layers, Radio, Crosshair, Compass, HeartPulse, Activity } from 'lucide-react';
+import { Layers, Radio, HeartPulse, Activity } from 'lucide-react';
 import { TacticalSkeletonWireframe } from '../components/TacticalSkeletonWireframe';
 
 export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitals';
 
-export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute', 'vitals'] as const;
+export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'mediroute', 'vitals'] as const;
 
 export const DEFAULT_INITIAL_SUMMARY: DashboardSummary = {
   systemStatus: 'nominal',
@@ -674,25 +672,6 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeModule === 'skywatch' && (
-          <SkyWatchModule
-            tracks={tracks}
-            alerts={alerts}
-            zones={zones}
-            onRefreshAlerts={refreshAllData}
-            onStepSimulation={handleStepSimulation}
-            onToggleSimulationPause={handleToggleSimPause}
-            isSimPaused={isSimPaused}
-          />
-        )}
-
-        {activeModule === 'geointel' && (
-          <GeoIntelModule
-            observations={observations}
-            onRefreshObservations={refreshAllData}
-          />
-        )}
-
         {activeModule === 'mediroute' && (
           <MediRouteModule
             casualties={casualties}
@@ -742,38 +721,6 @@ export const App: React.FC = () => {
               }}
             />
           )}
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-dock-item ${activeModule === 'skywatch' ? 'active' : ''}`}
-          onClick={() => handleNavigate('skywatch')}
-          style={{ position: 'relative' }}
-        >
-          <Crosshair size={18} />
-          <span>SkyWatch</span>
-          {unackAlertsCount > 0 && (
-            <span
-              style={{
-                position: 'absolute',
-                top: '4px',
-                right: '18px',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: 'var(--color-crit)',
-              }}
-            />
-          )}
-        </button>
-
-        <button
-          type="button"
-          className={`mobile-dock-item ${activeModule === 'geointel' ? 'active' : ''}`}
-          onClick={() => handleNavigate('geointel')}
-        >
-          <Compass size={18} />
-          <span>GeoIntel</span>
         </button>
 
         <button

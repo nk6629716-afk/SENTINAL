@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Layers,
   Radio,
-  Crosshair,
-  Compass,
   HeartPulse,
   Activity,
   X,
@@ -30,6 +28,16 @@ export interface SidebarProps {
   onSelectMediRouteSubTab?: (subTab: MediRouteSubTab) => void;
 }
 
+interface NavItem {
+  id: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitals';
+  code: string;
+  label: string;
+  icon: any;
+  badge?: number;
+  badgeType?: 'warn' | 'crit';
+  description: string;
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeModule,
   onNavigate,
@@ -43,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   medirouteSubTab = 'overview',
   onSelectMediRouteSubTab,
 }) => {
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       id: 'dashboard',
       code: 'COP',
@@ -57,24 +65,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'FieldLink Reports',
       icon: Radio,
       badge: pendingSyncCount > 0 ? pendingSyncCount : undefined,
-      badgeType: 'warn' as const,
+      badgeType: 'warn',
       description: 'Offline ground outbox',
-    },
-    {
-      id: 'skywatch',
-      code: 'SKY',
-      label: 'SkyWatch Airspace',
-      icon: Crosshair,
-      badge: unackAlertsCount > 0 ? unackAlertsCount : undefined,
-      badgeType: 'crit' as const,
-      description: 'Airspace and geofence alerts',
-    },
-    {
-      id: 'geointel',
-      code: 'GEO',
-      label: 'GeoIntel Recon',
-      icon: Compass,
-      description: 'Satellite change review',
     },
     {
       id: 'mediroute',
