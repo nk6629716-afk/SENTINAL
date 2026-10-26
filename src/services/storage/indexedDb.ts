@@ -13,8 +13,9 @@ import {
   SharedMapMarker,
   MeshMessage,
   SyncLogEntry,
+  OutboxItem,
 } from '@shared/types';
-export type { SyncLogEntry };
+export type { SyncLogEntry, OutboxItem };
 import {
   INITIAL_INCIDENTS,
   INITIAL_ALERTS,
@@ -24,7 +25,7 @@ import {
 } from '../data/fixtures';
 
 const DB_NAME = 'SENTINEL_TACTICAL_DB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export class SentinelDatabase {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -41,11 +42,18 @@ export class SentinelDatabase {
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
+        const tx = (event.target as IDBOpenDBRequest).transaction;
 
         if (!db.objectStoreNames.contains('incidents')) {
           const store = db.createObjectStore('incidents', { keyPath: 'id' });
           store.createIndex('syncStatus', 'syncStatus', { unique: false });
+          store.createIndex('clientId', 'clientId', { unique: false });
           store.createIndex('createdAt', 'createdAt', { unique: false });
+        } else if (tx) {
+          const store = tx.objectStore('incidents');
+          if (!store.indexNames.contains('clientId')) {
+            store.createIndex('clientId', 'clientId', { unique: false });
+          }
         }
 
         if (!db.objectStoreNames.contains('alerts')) {
@@ -53,7 +61,13 @@ export class SentinelDatabase {
         }
 
         if (!db.objectStoreNames.contains('geointel')) {
-          db.createObjectStore('geointel', { keyPath: 'id' });
+          const store = db.createObjectStore('geointel', { keyPath: 'id' });
+          store.createIndex('syncStatus', 'syncStatus', { unique: false });
+        } else if (tx) {
+          const store = tx.objectStore('geointel');
+          if (!store.indexNames.contains('syncStatus')) {
+            store.createIndex('syncStatus', 'syncStatus', { unique: false });
+          }
         }
 
         if (!db.objectStoreNames.contains('casualties')) {
@@ -75,6 +89,13 @@ export class SentinelDatabase {
         if (!db.objectStoreNames.contains('sync_logs')) {
           db.createObjectStore('sync_logs', { keyPath: 'id' });
         }
+
+        if (!db.objectStoreNames.contains('outbox')) {
+          const outboxStore = db.createObjectStore('outbox', { keyPath: 'id' });
+          outboxStore.createIndex('status', 'status', { unique: false });
+          outboxStore.createIndex('entityType', 'entityType', { unique: false });
+          outboxStore.createIndex('createdAt', 'createdAt', { unique: false });
+        }
       };
 
       request.onsuccess = () => {
@@ -91,11 +112,41 @@ export class SentinelDatabase {
 
 
   // Populate initial fixtures if DB is freshly opened
+  // FIX-11: Runs inside leader lock and as one IndexedDB readwrite transaction (check count, then put with stable ids)
   public async seedDefaultFixturesIfEmpty(): Promise<void> {
-    const db = await this.initDB();
-    const count = await this.count('incidents');
-    if (count === 0) {
-      await this.resetToDeterministicBaseline();
+    const executeSeedInTx = async () => {
+      const db = await this.initDB();
+      const tx = db.transaction(['incidents', 'alerts', 'geointel', 'casualties', 'hazards'], 'readwrite');
+      const incStore = tx.objectStore('incidents');
+      const alertStore = tx.objectStore('alerts');
+      const geoStore = tx.objectStore('geointel');
+      const casStore = tx.objectStore('casualties');
+      const hazStore = tx.objectStore('hazards');
+
+      const countReq = incStore.count();
+
+      return new Promise<void>((resolve, reject) => {
+        countReq.onsuccess = () => {
+          if (countReq.result === 0) {
+            for (const inc of INITIAL_INCIDENTS) incStore.put(inc);
+            for (const alt of INITIAL_ALERTS) alertStore.put(alt);
+            for (const geo of INITIAL_GEO_OBSERVATIONS) geoStore.put(geo);
+            for (const cas of INITIAL_CASUALTIES) casStore.put(cas);
+            for (const haz of ROAD_HAZARD_EDGES) hazStore.put(haz);
+          }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(new Error('Transaction aborted'));
+      });
+    };
+
+    if (typeof navigator !== 'undefined' && (navigator as any).locks?.request) {
+      await (navigator as any).locks.request('sentinel-leader', async () => {
+        await executeSeedInTx();
+      });
+    } else {
+      await executeSeedInTx();
     }
   }
 
@@ -403,6 +454,131 @@ export class SentinelDatabase {
     return new Promise((resolve, reject) => {
       const tx = db.transaction('sync_logs', 'readwrite');
       const req = tx.objectStore('sync_logs').put(log);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Deletion methods
+  public async deleteIncident(id: string): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('incidents', 'readwrite');
+      const req = tx.objectStore('incidents').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async getIncidentById(id: string): Promise<IncidentReport | null> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('incidents', 'readonly');
+      const req = tx.objectStore('incidents').get(id);
+      req.onsuccess = () => resolve((req.result as IncidentReport) || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async deleteGeoObservation(id: string): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('geointel', 'readwrite');
+      const req = tx.objectStore('geointel').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async getGeoObservationById(id: string): Promise<GeoIntelObservation | null> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('geointel', 'readonly');
+      const req = tx.objectStore('geointel').get(id);
+      req.onsuccess = () => resolve((req.result as GeoIntelObservation) || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async deleteCasualty(id: string): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('casualties', 'readwrite');
+      const req = tx.objectStore('casualties').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async deleteHazard(id: string): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('hazards', 'readwrite');
+      const req = tx.objectStore('hazards').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async deleteMarker(id: string): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('markers', 'readwrite');
+      const req = tx.objectStore('markers').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async deleteMeshMessage(id: string): Promise<void> {
+    const db = await this.initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('mesh_messages', 'readwrite');
+      const req = tx.objectStore('mesh_messages').delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Outbox Store Methods
+  public async getOutboxItems(): Promise<OutboxItem[]> {
+    const db = await this.initDB();
+    if (!db.objectStoreNames.contains('outbox')) return [];
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('outbox', 'readonly');
+      const req = tx.objectStore('outbox').getAll();
+      req.onsuccess = () => {
+        const sorted = (req.result as OutboxItem[]).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        resolve(sorted);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async getPendingOutboxItems(): Promise<OutboxItem[]> {
+    const items = await this.getOutboxItems();
+    return items.filter((item) => item.status === 'pending' || item.status === 'failed');
+  }
+
+  public async putOutboxItem(item: OutboxItem): Promise<void> {
+    const db = await this.initDB();
+    if (!db.objectStoreNames.contains('outbox')) return;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('outbox', 'readwrite');
+      const req = tx.objectStore('outbox').put(item);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  public async deleteOutboxItem(id: string): Promise<void> {
+    const db = await this.initDB();
+    if (!db.objectStoreNames.contains('outbox')) return;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('outbox', 'readwrite');
+      const req = tx.objectStore('outbox').delete(id);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
