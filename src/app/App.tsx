@@ -35,6 +35,7 @@ import { MediRouteSubTab } from '../modules/mediroute/medirouteTypes';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
 import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
 import { Layers, Radio, Crosshair, Compass, HeartPulse, Activity } from 'lucide-react';
+import { TacticalSkeletonWireframe } from '../components/TacticalSkeletonWireframe';
 
 export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitals';
 
@@ -133,6 +134,36 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
+  // Tactical Skeleton Wireframe States (2s Initial Load & 250ms Async Fallback)
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
+  const [isSkeletonFadingOut, setIsSkeletonFadingOut] = useState<boolean>(false);
+  const [isFallbackWireframe, setIsFallbackWireframe] = useState<boolean>(false);
+  const [isFallbackFadingOut, setIsFallbackFadingOut] = useState<boolean>(false);
+
+  // Exact 2.0s initial loading wireframe, followed by seamless 240ms reveal handshake
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsSkeletonFadingOut(true);
+      setTimeout(() => {
+        setIsInitialLoading(false);
+      }, 240);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleSimulateSlowLoad = useCallback((durationMs = 2000) => {
+    setIsFallbackFadingOut(false);
+    setIsFallbackWireframe(true);
+    setTimeout(() => {
+      setIsFallbackFadingOut(true);
+      setTimeout(() => {
+        setIsFallbackWireframe(false);
+        setIsFallbackFadingOut(false);
+      }, 240);
+    }, durationMs);
+  }, []);
+
   // App Shell States & Persistence
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -204,6 +235,13 @@ export const App: React.FC = () => {
 
   // 1. Initial Database Seed & Resilient Load (Uses Promise.allSettled so failures never block UI)
   const refreshAllData = useCallback(async () => {
+    let slowFallbackTriggered = false;
+    const fallbackTimer = setTimeout(() => {
+      slowFallbackTriggered = true;
+      setIsFallbackFadingOut(false);
+      setIsFallbackWireframe(true);
+    }, 250);
+
     try {
       const results = await Promise.allSettled([
         api.getDashboardSummary(),
@@ -243,7 +281,15 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('Error refreshing SENTINEL data:', err);
     } finally {
+      clearTimeout(fallbackTimer);
       setIsLoading(false);
+      if (slowFallbackTriggered) {
+        setIsFallbackFadingOut(true);
+        setTimeout(() => {
+          setIsFallbackWireframe(false);
+          setIsFallbackFadingOut(false);
+        }, 240);
+      }
     }
   }, []);
 
@@ -495,53 +541,6 @@ export const App: React.FC = () => {
   const pendingSyncCount = selectPendingOutbox(incidents).length;
   const unackAlertsCount = selectOpenAlerts(alerts).length;
 
-  if (isLoading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100vh',
-          backgroundColor: 'var(--surface)',
-          color: 'var(--text-primary)',
-          fontFamily: 'var(--font-sans)',
-          gap: '16px',
-        }}
-      >
-        <div
-          style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: 'var(--radius-pill)',
-            background: 'var(--surface-raised)',
-            boxShadow: 'var(--shadow-raised)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            style={{
-              width: '16px',
-              height: '16px',
-              borderRadius: '50%',
-              background: 'var(--accent)',
-              boxShadow: '0 0 10px rgba(70, 105, 168, 0.6)',
-            }}
-          />
-        </div>
-        <div style={{ letterSpacing: '0.04em', fontSize: '1rem', fontWeight: 700 }}>
-          INITIALIZING SENTINEL NEUMORPHIC CONSOLE...
-        </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>
-          Mounting IndexedDB stores and deterministic scenario fixtures
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       className={`app-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}
@@ -596,11 +595,50 @@ export const App: React.FC = () => {
         onToggleHeaderMinimized={handleToggleHeaderMinimized}
         realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}
         lastEventTimestamp={realtimeState.lastEventTimestamp}
+        onSimulateSlowLoad={handleSimulateSlowLoad}
       />
 
       {/* 3. Main Content Area */}
-      <main className="app-main" style={{ padding: 0 }}>
-        {activeModule === 'dashboard' && (
+      <main
+        className="app-main"
+        style={{
+          padding: 0,
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 'calc(100vh - var(--header-height))',
+        }}
+      >
+        {/* Tactical Skeleton Wireframe Fallback / Initial Loading Layer (2s on Load, 250ms Fallback) */}
+        {(isInitialLoading || isFallbackWireframe) && (
+          <div
+            className={isSkeletonFadingOut || isFallbackFadingOut ? 'wireframe-fade-out' : 'wireframe-fade-in'}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 40,
+              display: 'flex',
+              flexDirection: 'column',
+              background: '#121614',
+            }}
+          >
+            <TacticalSkeletonWireframe />
+          </div>
+        )}
+
+        {/* Operational Modules View (Reveals over 240ms with Zero Layout Shift) */}
+        <div
+          className={`tactical-view-enter ${isInitialLoading || isFallbackWireframe ? 'wireframe-fade-out' : 'wireframe-fade-in'}`}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+            height: '100%',
+          }}
+        >
+          {activeModule === 'dashboard' && (
           <Dashboard
             summary={summary}
             incidents={incidents}
@@ -667,8 +705,8 @@ export const App: React.FC = () => {
             onSubTabChange={handleNavigateMediRouteSubTab}
           />
         )}
-
         {activeModule === 'vitals' && <SoldierVitalsModule />}
+        </div>
       </main>
 
       {/* Mobile Bottom Dock (< 768px) */}

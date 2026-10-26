@@ -343,8 +343,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               aria-label={`${item.label}: ${item.description}`}
               aria-current={isActive ? 'page' : undefined}
               style={{
-                borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
-                background: isActive ? 'rgba(0, 230, 118, 0.06)' : 'transparent',
+                borderLeft: isActive ? '3px solid var(--tactical-olive, #617325)' : '3px solid transparent',
+                background: isActive ? 'rgba(97, 115, 37, 0.12)' : 'transparent',
                 justifyContent: isCollapsedEffective ? 'center' : 'flex-start',
                 padding: isCollapsedEffective ? '7px 0' : '5px 8px',
               }}
@@ -359,7 +359,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <Icon
                   size={17}
-                  color={isActive ? 'var(--accent)' : 'var(--text-secondary)'}
+                  color={isActive ? 'var(--tactical-olive, #617325)' : 'var(--text-secondary)'}
                   strokeWidth={isActive ? 2.2 : 1.8}
                   aria-hidden="true"
                 />

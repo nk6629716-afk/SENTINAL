@@ -392,13 +392,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
           {/* Mode Switcher Segmented Control */}
           <div
+            className="segmented-switch"
             style={{
-              display: 'inline-flex',
-              border: 'var(--border-width, 1.2px) solid var(--color-edge)',
-              boxShadow: 'var(--shadow-flat-sm)',
-              background: 'var(--color-sheet)',
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
               pointerEvents: 'auto',
               flexShrink: 0,
             }}
@@ -408,53 +403,24 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           >
             <button
               type="button"
+              className={`segmented-switch-btn ${radarMode === 'topo' ? 'active' : ''}`}
               onClick={() => handleSetMode('topo')}
-              style={{
-                background: radarMode === 'topo' ? '#5b7050' : 'transparent',
-                color: radarMode === 'topo' ? '#e9ece9' : 'var(--text-secondary, #94a192)',
-                border: 'none',
-                padding: '5px 12px',
-                fontSize: '0.72rem',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
               title="Cartographic Terrain Chart"
             >
               CHART
             </button>
             <button
               type="button"
+              className={`segmented-switch-btn ${radarMode === 'ppi' ? 'active' : ''}`}
               onClick={() => handleSetMode('ppi')}
-              style={{
-                background: radarMode === 'ppi' ? '#5b7050' : 'transparent',
-                color: radarMode === 'ppi' ? '#e9ece9' : 'var(--text-secondary, #94a192)',
-                border: 'none',
-                padding: '5px 12px',
-                fontSize: '0.72rem',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-                borderLeft: '1px solid rgba(115, 138, 101, 0.25)',
-                borderRight: '1px solid rgba(115, 138, 101, 0.25)',
-              }}
               title="Plan Position Indicator (PPI) Radar Scope"
             >
               RADAR
             </button>
             <button
               type="button"
+              className={`segmented-switch-btn ${radarMode === 'flir' ? 'active' : ''}`}
               onClick={() => handleSetMode('flir')}
-              style={{
-                background: radarMode === 'flir' ? '#5b7050' : 'transparent',
-                color: radarMode === 'flir' ? '#e9ece9' : 'var(--text-secondary, #94a192)',
-                border: 'none',
-                padding: '5px 12px',
-                fontSize: '0.72rem',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
               title="Forward Looking Infrared (FLIR) Thermal Sensor"
             >
               THERMAL

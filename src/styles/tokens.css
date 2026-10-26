@@ -52,6 +52,30 @@
   --status-warning: #d4a373;   /* Crisp amber ("ACTIVE", "ALERT") */
   --status-critical: #c85a53;  /* High threat / warning indicator */
 
+  /* 7. Tactical Military Command Hover Highlight Tokens (#617325) */
+  --tactical-olive: #617325;                    /* Sharp luminous olive-green */
+  --tactical-sage-border: rgba(97, 115, 37, 0.30);  /* Subtle sage idle border */
+  --tactical-olive-border: #617325;             /* Hover luminous border */
+  --tactical-surface-base: #181d1a;             /* Dark surface base */
+  --tactical-surface-lift: #1f2622;             /* Surface lift shift */
+  --tactical-glow-outer: 0 0 16px rgba(97, 115, 37, 0.40);
+  --tactical-glow-inner: inset 0 0 10px rgba(97, 115, 37, 0.16);
+  --tactical-corner-border: rgba(97, 115, 37, 0.35);
+  --tactical-corner-glow: 0 0 8px rgba(97, 115, 37, 0.70);
+  --transition-tactical: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-floating-focus: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring-dampened: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-reveal-handshake: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 8. Tactical Skeleton Wireframe Fallback Tokens */
+  --skeleton-fill-base: #161b17;
+  --skeleton-fill-pulse: #222a22;
+  --skeleton-border-subtle: rgba(97, 115, 37, 0.15);
+  --skeleton-border-card: rgba(97, 115, 37, 0.20);
+  --skeleton-radar-sweep: linear-gradient(90deg, #161b17 25%, #222a22 50%, #161b17 75%);
+  --skeleton-uplink-text: #8a9685;
+  --skeleton-amber-cursor: #d4a373;
+
   /* Status Transparency Variants */
   --status-safe-dim: rgba(88, 129, 87, 0.12);
   --status-info-dim: rgba(115, 138, 101, 0.12);
@@ -282,7 +306,7 @@
   /* App Dimensions */
   --header-height: 48px;
   --sidebar-width: 240px;
-  --sidebar-collapsed-width: 72px;
+  --sidebar-collapsed-width: 76px;
 
   /* Animation Timing */
   --transition-fast: 120ms ease;

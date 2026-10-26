@@ -165,18 +165,39 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-primary,
-.btn-neu-primary {
-  background: var(--accent-primary, #00E676);
-  color: #060A09 !important;
+.btn-neu-primary,
+.btn-primary-action {
+  background: #5b7050;
+  color: #ffffff !important;
+  font-family: var(--font-mono);
   font-weight: 700;
-  border-color: var(--accent-primary, #00E676);
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(97, 115, 37, 0.30);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.40);
+  transition: all 220ms ease-out;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+  will-change: transform, box-shadow;
 }
 
-.btn-primary:hover,
-.btn-neu-primary:hover {
-  background: #00C853;
-  border-color: #00C853;
-  color: #060A09 !important;
+.btn-primary:hover:not(:disabled),
+.btn-neu-primary:hover:not(:disabled),
+.btn-primary-action:hover:not(:disabled) {
+  background: #617325 !important;
+  border-color: #617325 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 0 16px rgba(97, 115, 37, 0.45), 0 4px 14px rgba(0, 0, 0, 0.60), inset 0 0 8px rgba(97, 115, 37, 0.22) !important;
+}
+
+.btn-primary:active:not(:disabled),
+.btn-neu-primary:active:not(:disabled),
+.btn-primary-action:active:not(:disabled) {
+  background: #546520 !important;
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 0 8px rgba(97, 115, 37, 0.35), inset 0 0 10px rgba(0, 0, 0, 0.30) !important;
 }
 
 .btn-critical,
@@ -184,11 +205,13 @@ h1, h2, h3, h4, h5, h6 {
   background: transparent;
   color: var(--status-critical, #FF3B5C) !important;
   border-color: var(--status-critical, #FF3B5C);
+  transition: background 0.25s ease-out, border-color 0.25s ease-out, box-shadow 0.25s ease-out;
 }
 
-.btn-critical:hover,
-.btn-neu-critical:hover {
+.btn-critical:hover:not(:disabled),
+.btn-neu-critical:hover:not(:disabled) {
   background: var(--critical-bg);
+  box-shadow: 0 0 12px rgba(200, 90, 83, 0.35);
 }
 
 .btn-sm,
@@ -197,38 +220,60 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.75rem;
 }
 
+/* Disabled States: Strictly prevent any highlight, glow, lift, or surface shift */
 .btn:disabled,
-.btn-neu:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  pointer-events: none;
-  box-shadow: none;
+.btn-neu:disabled,
+.btn-primary:disabled,
+.btn-neu-primary:disabled,
+.btn-tactical:disabled,
+.btn-tactical-primary:disabled,
+.btn-tactical-olive:disabled,
+button:disabled,
+[disabled],
+.disabled {
+  opacity: 0.40 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  background: rgba(24, 29, 26, 0.50) !important;
+  border-color: rgba(115, 138, 101, 0.15) !important;
+  color: rgba(148, 161, 146, 0.45) !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
-/* Tactical Form Inputs */
+/* Tactical Form Inputs (Floating Focus & Olive Glow Layer) */
 .input-neu,
-.form-input {
+.form-input,
+.tactical-input-field {
   width: 100%;
-  background: var(--color-paper);
-  border: var(--border-width, 1.2px) solid var(--color-line);
-  border-radius: var(--radius-sm);
-  padding: 7px 11px;
-  color: var(--text-primary);
+  background: var(--color-paper, #121614);
+  border: 1px solid var(--tactical-sage-border, rgba(97, 115, 37, 0.30));
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 12px;
+  color: var(--text-primary, #e9ece9);
   font-size: 0.84rem;
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
-  transition: border-color 0.15s ease;
+  transition: border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              color 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .input-neu:focus,
-.form-input:focus {
+.form-input:focus,
+.tactical-input-field:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: #617325 !important;
+  box-shadow: 0 0 0 3px rgba(97, 115, 37, 0.20) !important;
+  background: #181d1a;
 }
 
 .input-neu::placeholder,
-.form-input::placeholder {
-  color: var(--text-secondary);
+.form-input::placeholder,
+.tactical-input-field::placeholder {
+  color: var(--text-secondary, #94a192);
+  transition: color 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 select.input-neu,
@@ -353,17 +398,18 @@ select.form-input {
   user-select: none;
 }
 
-/* Sidebar Nav Item — borderless, micro-divider on hover */
+/* Sidebar Nav Item — Technical Military Command Navigation */
 .sidebar-nav-item {
   display: flex;
   align-items: center;
   min-height: 44px;
   border-radius: var(--radius-sm);
-  border: none;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background 0.25s ease-out, border-color 0.25s ease-out, box-shadow 0.25s ease-out, color 0.25s ease-out;
   width: 100%;
   text-align: left;
   position: relative;
@@ -374,14 +420,31 @@ select.form-input {
 }
 
 .sidebar-nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: #181d1a;
+  border-top: 1px solid rgba(97, 115, 37, 0.25);
+  border-bottom: 1px solid rgba(97, 115, 37, 0.25);
+  border-right: 1px solid rgba(97, 115, 37, 0.25);
+  border-left: 3px solid rgba(97, 115, 37, 0.50);
+  box-shadow: 0 0 10px rgba(97, 115, 37, 0.20);
 }
 
 .sidebar-nav-item.active {
-  border-left: 3px solid var(--accent);
-  background: rgba(0, 230, 118, 0.06);
-  color: var(--text-primary);
+  border-left: 3px solid #617325 !important;
+  border-top: 1px solid rgba(97, 115, 37, 0.25);
+  border-bottom: 1px solid rgba(97, 115, 37, 0.25);
+  border-right: 1px solid rgba(97, 115, 37, 0.25);
+  background: rgba(97, 115, 37, 0.12) !important;
+  color: #ffffff;
   font-weight: 700;
+  box-shadow: 0 0 10px rgba(97, 115, 37, 0.20), inset 0 0 8px rgba(97, 115, 37, 0.10);
+}
+
+.sidebar-nav-item.active:hover {
+  background: #1f2622 !important;
+  border-color: #617325 !important;
+  border-left: 3px solid #617325 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(97, 115, 37, 0.45), inset 0 0 12px rgba(97, 115, 37, 0.18) !important;
 }
 
 .sidebar-icon-col {
@@ -793,8 +856,14 @@ html, body, #root, .app-shell {
   display: inline-flex !important;
 }
 
-/* Responsive Dock for Screens < 768px */
-@media (max-width: 767px) {
+/* Responsive Command Header Adaptations */
+@media (max-width: 960px) {
+  .header-subtitle {
+    display: none !important;
+  }
+}
+
+@media (max-width: 820px) {
   .header-actions-desktop {
     display: none !important;
   }
@@ -802,6 +871,25 @@ html, body, #root, .app-shell {
   .header-overflow-trigger {
     display: inline-flex !important;
   }
+}
+
+@media (max-width: 600px) {
+  .command-header {
+    padding: 0 10px !important;
+    gap: 6px !important;
+  }
+
+  .clock-value {
+    display: none !important;
+  }
+
+  .link-status-text {
+    display: none !important;
+  }
+}
+
+/* Responsive Dock for Screens < 768px */
+@media (max-width: 767px) {
 
   .app-shell {
     display: flex;
@@ -1353,9 +1441,10 @@ html, body, #root, .app-shell {
   }
 }
 
+/* Bento Grid Cards — Tactical Military Theme (#617325) */
 .bento-card {
   background: var(--bg-card, #181d1a);
-  border: 1px solid var(--border-tactical, rgba(115, 138, 101, 0.20));
+  border: 1px solid var(--tactical-sage-border, rgba(97, 115, 37, 0.30));
   border-radius: 14px;
   padding: 18px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.50);
@@ -1364,19 +1453,114 @@ html, body, #root, .app-shell {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  transition: background 0.25s ease-out, border-color 0.25s ease-out, box-shadow 0.25s ease-out, transform 0.25s ease-out;
 }
 
+/* Corner Accents: Technical Crop Markers / Brackets on Command Cards */
+.bento-card::before,
+.bento-card::after,
+.tactical-modal-card::before,
+.tactical-modal-card::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  z-index: 5;
+  transition: border-color 0.25s ease-out, box-shadow 0.25s ease-out;
+}
+
+/* Top-Left Corner Crop Bracket */
+.bento-card::before,
+.tactical-modal-card::before {
+  top: 5px;
+  left: 5px;
+  border-top: 2px solid rgba(97, 115, 37, 0.35);
+  border-left: 2px solid rgba(97, 115, 37, 0.35);
+}
+
+/* Bottom-Right Corner Crop Bracket */
+.bento-card::after,
+.tactical-modal-card::after {
+  bottom: 5px;
+  right: 5px;
+  border-bottom: 2px solid rgba(97, 115, 37, 0.35);
+  border-right: 2px solid rgba(97, 115, 37, 0.35);
+}
+
+/* Optional 4-Corner Accent Brackets */
+.corner-accent-tr {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  z-index: 5;
+  border-top: 2px solid rgba(97, 115, 37, 0.35);
+  border-right: 2px solid rgba(97, 115, 37, 0.35);
+  transition: border-color 0.25s ease-out, box-shadow 0.25s ease-out;
+}
+
+.corner-accent-bl {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  z-index: 5;
+  border-bottom: 2px solid rgba(97, 115, 37, 0.35);
+  border-left: 2px solid rgba(97, 115, 37, 0.35);
+  transition: border-color 0.25s ease-out, box-shadow 0.25s ease-out;
+}
+
+/* Bento Card Hover: Surface Shift (#181d1a -> #1f2622), Border Glow (#617325), Outer Drop-Shadow & Inner Glow */
 .bento-card:hover {
-  border-color: rgba(115, 138, 101, 0.45);
+  background: #1f2622;
+  border-color: #617325;
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), 0 0 12px rgba(115, 138, 101, 0.15);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65), 0 0 16px rgba(97, 115, 37, 0.40), inset 0 0 12px rgba(97, 115, 37, 0.14);
+}
+
+/* Illuminate Corner Crop Markers on Hover */
+.bento-card:hover::before,
+.tactical-modal-card:hover::before {
+  border-top-color: #617325;
+  border-left-color: #617325;
+  box-shadow: -2px -2px 8px rgba(97, 115, 37, 0.70);
+}
+
+.bento-card:hover::after,
+.tactical-modal-card:hover::after {
+  border-bottom-color: #617325;
+  border-right-color: #617325;
+  box-shadow: 2px 2px 8px rgba(97, 115, 37, 0.70);
+}
+
+.bento-card:hover .corner-accent-tr {
+  border-top-color: #617325;
+  border-right-color: #617325;
+  box-shadow: 2px -2px 8px rgba(97, 115, 37, 0.70);
+}
+
+.bento-card:hover .corner-accent-bl {
+  border-bottom-color: #617325;
+  border-left-color: #617325;
+  box-shadow: -2px 2px 8px rgba(97, 115, 37, 0.70);
 }
 
 .bento-card-olive {
   background: linear-gradient(135deg, #44543b 0%, #2b3626 100%);
-  border: 1px solid rgba(115, 138, 101, 0.40);
+  border: 1px solid rgba(97, 115, 37, 0.35);
   color: #e9ece9;
+}
+
+.bento-card-olive:hover {
+  background: linear-gradient(135deg, #4c5e42 0%, #303d2b 100%);
+  border-color: #617325;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.75), 0 0 20px rgba(97, 115, 37, 0.48), inset 0 0 14px rgba(97, 115, 37, 0.18);
+  transform: translateY(-2px);
 }
 
 /* Bento Column Spans */
@@ -1483,7 +1667,7 @@ html, body, #root, .app-shell {
   }
 }
 
-/* Tactical Interactive Buttons */
+/* Tactical Interactive Buttons — Olive-Green Highlight (#617325) & Fluid Physics */
 .btn-tactical {
   display: inline-flex;
   align-items: center;
@@ -1496,52 +1680,109 @@ html, body, #root, .app-shell {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   border-radius: 6px;
-  border: 1px solid rgba(115, 138, 101, 0.25);
-  background: #161c18;
+  border: 1px solid var(--tactical-sage-border, rgba(97, 115, 37, 0.30));
+  background: #181d1a;
   color: #e9ece9;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 220ms ease-out;
   user-select: none;
+  position: relative;
+  overflow: hidden; /* Contains circular wavefront ripple */
+  will-change: transform, box-shadow;
 }
 
-.btn-tactical:hover {
-  background: #222b25;
-  border-color: #738a65;
+.btn-tactical:hover:not(:disabled) {
+  background: #1f2622;
+  border-color: #617325;
   color: #ffffff;
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 0 14px rgba(97, 115, 37, 0.40), inset 0 0 8px rgba(97, 115, 37, 0.16);
 }
 
-.btn-tactical:active {
-  transform: translateY(0);
+.btn-tactical:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
 }
 
 .btn-tactical-primary,
 .btn-tactical-olive {
   background: #5b7050;
-  border: 1px solid #738a65;
-  color: #e9ece9;
-  box-shadow: 0 2px 8px rgba(91, 112, 80, 0.25);
+  border: 1px solid rgba(97, 115, 37, 0.40);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.40);
+  transition: all 220ms ease-out;
+  position: relative;
+  overflow: hidden;
 }
 
-.btn-tactical-primary:hover,
-.btn-tactical-olive:hover {
-  background: #738a65;
-  border-color: #94a192;
-  color: #ffffff;
-  box-shadow: 0 4px 14px rgba(91, 112, 80, 0.40);
-  transform: translateY(-1px);
+.btn-tactical-primary:hover:not(:disabled),
+.btn-tactical-olive:hover:not(:disabled) {
+  background: #617325 !important;
+  border-color: #617325 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(97, 115, 37, 0.45), 0 4px 14px rgba(0, 0, 0, 0.60), inset 0 0 8px rgba(97, 115, 37, 0.22) !important;
+  transform: translateY(-2px) scale(1.01);
+}
+
+.btn-tactical-primary:active:not(:disabled),
+.btn-tactical-olive:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
 }
 
 .btn-tactical-ghost {
   background: transparent;
-  border: 1px solid rgba(115, 138, 101, 0.20);
+  border: 1px solid rgba(97, 115, 37, 0.25);
   color: #94a192;
+  transition: all 220ms ease-out;
+  position: relative;
+  overflow: hidden;
 }
 
-.btn-tactical-ghost:hover {
-  background: rgba(115, 138, 101, 0.10);
-  color: #e9ece9;
-  border-color: rgba(115, 138, 101, 0.40);
+.btn-tactical-ghost:hover:not(:disabled) {
+  background: rgba(97, 115, 37, 0.12);
+  color: #ffffff;
+  border-color: #617325;
+  box-shadow: 0 0 12px rgba(97, 115, 37, 0.35);
+  transform: translateY(-2px) scale(1.01);
+}
+
+.btn-tactical-ghost:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* Arrow Indicators (→): Slide horizontally by +4px on hover with spring dampening */
+.tactical-arrow {
+  display: inline-block;
+  transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+.btn-tactical:hover:not(:disabled) .tactical-arrow,
+.btn-primary:hover:not(:disabled) .tactical-arrow,
+.btn-neu-primary:hover:not(:disabled) .tactical-arrow,
+.interactive-action:hover .tactical-arrow {
+  transform: translateX(4px);
+}
+
+/* Expanding Wavefront Circular Ripple Sweep */
+.tactical-wavefront-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: scale(0);
+  animation: wavefrontSweep 550ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  background: radial-gradient(circle, rgba(148, 178, 65, 0.55) 0%, rgba(97, 115, 37, 0.35) 45%, rgba(97, 115, 37, 0) 72%);
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes wavefrontSweep {
+  0% {
+    transform: scale(0);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
 }
 
 /* Tactical Segmented Switch */
@@ -1550,7 +1791,7 @@ html, body, #root, .app-shell {
   align-items: center;
   padding: 2px;
   background: #121614;
-  border: 1px solid rgba(115, 138, 101, 0.25);
+  border: 1px solid rgba(97, 115, 37, 0.30);
   border-radius: 7px;
   gap: 2px;
 }
@@ -1563,10 +1804,10 @@ html, body, #root, .app-shell {
   letter-spacing: 0.04em;
   color: #94a192;
   border-radius: 5px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.25s ease-out, border-color 0.25s ease-out, box-shadow 0.25s ease-out, color 0.25s ease-out;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1574,14 +1815,22 @@ html, body, #root, .app-shell {
 
 .segmented-switch-btn.active {
   background: #5b7050;
-  color: #e9ece9;
-  border: 1px solid #738a65;
+  color: #ffffff;
+  border: 1px solid rgba(97, 115, 37, 0.40);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.40);
 }
 
+.segmented-switch-btn.active:hover {
+  background: #617325;
+  border-color: #617325;
+  box-shadow: 0 0 12px rgba(97, 115, 37, 0.40);
+}
+
 .segmented-switch-btn:hover:not(.active) {
-  color: #e9ece9;
-  background: rgba(115, 138, 101, 0.10);
+  color: #ffffff;
+  background: rgba(97, 115, 37, 0.12);
+  border-color: rgba(97, 115, 37, 0.35);
+  box-shadow: 0 0 8px rgba(97, 115, 37, 0.25);
 }
 
 /* Technical Status & Coordinates Metadata */
@@ -1639,13 +1888,273 @@ html, body, #root, .app-shell {
 
 .tactical-modal-card {
   background: #181d1a;
-  border: 1px solid rgba(115, 138, 101, 0.35);
+  border: 1px solid var(--tactical-sage-border, rgba(97, 115, 37, 0.30));
   border-radius: 14px;
   max-width: 480px;
   width: 100%;
   padding: 24px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 20px rgba(115, 138, 101, 0.15);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 20px rgba(97, 115, 37, 0.20);
   position: relative;
+  transition: background 0.25s ease-out, border-color 0.25s ease-out, box-shadow 0.25s ease-out;
+}
+
+.tactical-modal-card:hover {
+  background: #1f2622;
+  border-color: #617325;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), 0 0 24px rgba(97, 115, 37, 0.40), inset 0 0 12px rgba(97, 115, 37, 0.15);
+}
+
+/* ==========================================================================
+   PHASE 1: MOTION CHOREOGRAPHY & MICRO-INTERACTIONS
+   ========================================================================== */
+
+/* Keypress Telemetry Flash on Counters */
+@keyframes keypressCounterFlash {
+  0% {
+    color: #ffffff;
+    text-shadow: 0 0 8px #617325, 0 0 12px rgba(97, 115, 37, 0.6);
+    transform: scale(1.08);
+  }
+  100% {
+    color: var(--text-secondary, #94a192);
+    text-shadow: none;
+    transform: scale(1);
+  }
+}
+
+.keypress-telemetry-flash {
+  animation: keypressCounterFlash 220ms ease-out;
+}
+
+/* Card & Bento Transitions (View Switching & Staggered Entrance) */
+@keyframes viewEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tactical-view-enter {
+  animation: viewEntrance 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.bento-card-stagger {
+  opacity: 0;
+  animation: viewEntrance 300ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: calc(var(--index, 0) * 45ms);
+}
+
+/* Tactical Uplink & Comms Phone Pill Field */
+.tactical-uplink-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  background: rgba(24, 29, 26, 0.85);
+  border: 1px solid rgba(115, 138, 101, 0.20);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+}
+
+.tactical-uplink-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: #8a9685;
+  letter-spacing: 0.05em;
+}
+
+.tactical-phone-pill-field {
+  display: flex;
+  align-items: center;
+  background: #121614;
+  border: 1px solid rgba(97, 115, 37, 0.30);
+  border-radius: 9999px;
+  padding: 4px 6px 4px 12px;
+  gap: 10px;
+  transition: border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+              background 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 480px;
+  width: 100%;
+}
+
+.tactical-phone-pill-field:focus-within {
+  border-color: #617325;
+  box-shadow: 0 0 0 3px rgba(97, 115, 37, 0.20);
+  background: #161b17;
+}
+
+.tactical-country-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(97, 115, 37, 0.15);
+  border: 1px solid rgba(97, 115, 37, 0.30);
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: #e9ece9;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.tactical-lock-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tactical-phone-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e9ece9;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  min-width: 120px;
+}
+
+.tactical-phone-input::placeholder {
+  color: #8a9685;
+  font-size: 0.70rem;
+}
+
+.tactical-helper-counter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: #94a192;
+  user-select: none;
+  flex-shrink: 0;
+  transition: all 220ms ease-out;
+}
+
+.counter-tag {
+  color: #738a65;
+  font-weight: 700;
+  font-size: 0.62rem;
+  background: rgba(115, 138, 101, 0.15);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.tactical-auth-btn {
+  padding: 4px 12px !important;
+  font-size: 0.68rem !important;
+  border-radius: 9999px !important;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   PHASE 2: TACTICAL SKELETON WIREFRAME FALLBACK SYSTEM
+   ========================================================================== */
+
+/* Shimmer Scanline Radar Sweep Animation */
+@keyframes tacticalScan {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.tactical-skeleton {
+  background: linear-gradient(90deg, #161b17 25%, #222a22 50%, #161b17 75%);
+  background-size: 200% 100%;
+  animation: tacticalScan 1.6s infinite ease-in-out;
+  border: 1px solid rgba(97, 115, 37, 0.15);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.tactical-skeleton-card {
+  background: #181d1a;
+  border: 1px solid rgba(97, 115, 37, 0.20);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.40);
+}
+
+.tactical-skeleton-pill {
+  border-radius: 9999px !important;
+}
+
+.tactical-skeleton-circle {
+  border-radius: 50% !important;
+}
+
+.tactical-skeleton-ring {
+  border: 2px solid rgba(97, 115, 37, 0.25);
+  border-radius: 50%;
+  animation: ringPulse 2s infinite ease-in-out;
+}
+
+@keyframes ringPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.02);
+  }
+}
+
+/* Amber Blinking Cursor */
+@keyframes amberCursorBlink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.cursor-blink-amber {
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  background: #d4a373;
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: amberCursorBlink 0.9s infinite;
+  box-shadow: 0 0 8px rgba(212, 163, 115, 0.7);
+}
+
+/* Seamless Reveal Handshake Cross-Fade (240ms duration, CLS = 0) */
+.wireframe-crossfade-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.wireframe-fade-out {
+  opacity: 0;
+  transition: opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.wireframe-fade-in {
+  opacity: 1;
+  transition: opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 

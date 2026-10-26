@@ -14,8 +14,11 @@ import {
   AlertCircle,
   Cpu,
   Layers,
+  Download,
+  Lock,
 } from 'lucide-react';
 import { DashboardSummary } from '@shared/types';
+import { createWavefrontRipple } from '../utils/motion';
 
 interface TacticalBentoGridProps {
   summary: DashboardSummary;
@@ -43,12 +46,29 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
   // Interactive Modal State
   const [modalNotice, setModalNotice] = useState<string | null>(null);
 
+  // Tactical Mobile Comms / Comms Phone State
+  const [commsPhone, setCommsPhone] = useState<string>('+1 (555) 019-2834');
+  const [isTypingFlash, setIsTypingFlash] = useState<boolean>(false);
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCommsPhone(e.target.value);
+    setIsTypingFlash(true);
+    setTimeout(() => setIsTypingFlash(false), 220);
+  };
+
+  const handlePhoneAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalNotice(
+      `TACTICAL COMMS LINK INITIALIZED: Terminal frequency [${commsPhone}] authenticated over secure satellite uplink with zero packet leakage.`
+    );
+  };
+
   // Interactive Directives State
   const [tasks, setTasks] = useState<DirectiveTask[]>([
-    { id: 't1', title: 'Establish Orbital Uplink', completed: true, code: 'LINK-01', sector: 'ORBITAL-7' },
-    { id: 't2', title: 'Calibrate Gravimetric Array', completed: false, code: 'GRAV-4B', sector: 'OMEGA-Z' },
-    { id: 't3', title: 'Sync Unit Biometrics', completed: false, code: 'BIO-99', sector: 'FIELD-HQ' },
-    { id: 't4', title: 'Deploy Perimeter Beacon', completed: false, code: 'BCON-12', sector: 'GRID-A3' },
+    { id: 't1', title: 'INITIALIZE PROFILE & CRYPTO-KEY', completed: true, code: 'AUTH-01', sector: 'FIELD-HQ' },
+    { id: 't2', title: 'Establish Orbital Uplink', completed: false, code: 'LINK-01', sector: 'ORBITAL-7' },
+    { id: 't3', title: 'Calibrate Gravimetric Array', completed: false, code: 'GRAV-4B', sector: 'OMEGA-Z' },
+    { id: 't4', title: 'Sync Unit Biometrics', completed: false, code: 'BIO-99', sector: 'FIELD-HQ' },
   ]);
 
   // Hover state for Bar Chart
@@ -204,20 +224,109 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
 
           <button
             type="button"
+            className="btn-tactical btn-tactical-primary"
+            onClick={(e) => {
+              createWavefrontRipple(e);
+              setModalNotice(
+                'TACTICAL AUTHENTICATION VERIFIED: Biometric cryptographic token valid. Clearance level: TOP SECRET // COMMAND OMEGA-ZETA authority granted.'
+              );
+            }}
+            style={{ padding: '6px 14px' }}
+            title="Authenticate tactical command credentials"
+          >
+            <Shield size={13} />
+            <span>AUTHENTICATE</span>
+            <span className="tactical-arrow">→</span>
+          </button>
+
+          <button
+            type="button"
             className="btn-tactical btn-tactical-olive"
-            onClick={handleRunDiagnostics}
+            onClick={(e) => {
+              createWavefrontRipple(e);
+              handleRunDiagnostics();
+            }}
             style={{ padding: '6px 14px' }}
           >
             <Terminal size={13} />
             <span>DIAGNOSTICS</span>
           </button>
+
+          <button
+            type="button"
+            className="btn-tactical"
+            onClick={(e) => {
+              createWavefrontRipple(e);
+              setModalNotice(
+                'TACTICAL CLIENT INSTALLED: Offline mission package cached locally in IndexedDB and Service Worker cache storage.'
+              );
+            }}
+            style={{ padding: '6px 12px' }}
+            title="Install offline tactical client"
+          >
+            <Download size={13} />
+            <span>Install</span>
+          </button>
         </div>
       </div>
 
-      {/* 2. Bento Grid Layout */}
+      {/* 2. Tactical Uplink Status & Authenticated Comms Phone Pill Field (Exact 1:1 footprint) */}
+      <div className="tactical-uplink-bar">
+        {/* Left: Uplink Status Readout */}
+        <div className="tactical-uplink-status">
+          <span className="dot-glowing-green" />
+          <span style={{ color: '#8a9685', fontFamily: 'var(--font-mono)' }}>
+            [ORBITAL_STREAM_ACTIVE // ENCRYPTED_CHANNEL // AES-256-GCM]
+          </span>
+        </div>
+
+        {/* Right: Tactical Mobile / Comms Phone Pill Input Field */}
+        <form className="tactical-phone-pill-field" onSubmit={handlePhoneAuthSubmit}>
+          {/* Country Flag Box Placeholder */}
+          <div className="tactical-country-box">
+            <span style={{ fontSize: '0.82rem' }}>🌐</span>
+            <span>+01</span>
+          </div>
+
+          {/* Lock Icon */}
+          <div className="tactical-lock-icon">
+            <Lock size={13} color="#738a65" />
+          </div>
+
+          {/* Input field with floating focus and keypress telemetry */}
+          <input
+            type="tel"
+            className="tactical-phone-input"
+            value={commsPhone}
+            onChange={handlePhoneChange}
+            placeholder="COMMS // PHONE PROTOCOL (+1-555-...)"
+            aria-label="Tactical Comms Phone Input"
+          />
+
+          {/* Keypress Telemetry Helper Counter */}
+          <div className={`tactical-helper-counter ${isTypingFlash ? 'keypress-telemetry-flash' : ''}`}>
+            <span>{commsPhone.length}/14</span>
+            <span className="counter-tag">FREQ_OK</span>
+          </div>
+
+          {/* Authenticate / Link Button with Arrow & Wavefront Ripple */}
+          <button
+            type="submit"
+            className="btn-tactical btn-tactical-olive tactical-auth-btn"
+            onClick={createWavefrontRipple}
+          >
+            <span>LINK</span>
+            <span className="tactical-arrow">→</span>
+          </button>
+        </form>
+      </div>
+
+      {/* 3. Bento Grid Layout */}
       <div className="bento-grid">
         {/* CARD 1: Total Telemetry / Yield (Span 4) */}
-        <div className="bento-card bento-col-4">
+        <div className="bento-card bento-col-4 bento-card-stagger" style={{ '--index': 1 } as React.CSSProperties}>
+          <span className="corner-accent-tr" />
+          <span className="corner-accent-bl" />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -365,7 +474,9 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
         </div>
 
         {/* CARD 2: Resource Allocation & Circular Telemetry Dials (Span 4) */}
-        <div className="bento-card bento-col-4">
+        <div className="bento-card bento-col-4 bento-card-stagger" style={{ '--index': 2 } as React.CSSProperties}>
+          <span className="corner-accent-tr" />
+          <span className="corner-accent-bl" />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -545,7 +656,9 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
         </div>
 
         {/* CARD 3: Tactical Setup Protocol & Directive Tasks (Span 4) */}
-        <div className="bento-card bento-card-olive bento-col-4">
+        <div className="bento-card bento-card-olive bento-col-4 bento-card-stagger" style={{ '--index': 3 } as React.CSSProperties}>
+          <span className="corner-accent-tr" />
+          <span className="corner-accent-bl" />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -666,10 +779,27 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               </div>
             ))}
           </div>
+
+          <button
+            type="button"
+            className="btn-tactical btn-tactical-primary"
+            onClick={(e) => {
+              createWavefrontRipple(e);
+              setModalNotice(
+                'TACTICAL PROFILE INITIALIZED: Operator profile cryptographically verified for Sector OMEGA-ZETA. All directives synchronized with Defense HQ.'
+              );
+            }}
+            style={{ width: '100%', marginTop: '14px', padding: '7px 12px' }}
+          >
+            <span>INITIALIZE PROFILE</span>
+            <span className="tactical-arrow">→</span>
+          </button>
         </div>
 
         {/* CARD 4: Signal Anomaly & Cancellations Bar Chart (Span 8) */}
-        <div className="bento-card bento-col-8">
+        <div className="bento-card bento-col-8 bento-card-stagger" style={{ '--index': 4 } as React.CSSProperties}>
+          <span className="corner-accent-tr" />
+          <span className="corner-accent-bl" />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -831,16 +961,22 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             <button
               type="button"
               className="btn-tactical btn-tactical-ghost"
-              onClick={() => setModalNotice('Anomaly audit telemetry export completed: log hash #ANOM-8849-ZETA generated.')}
+              onClick={(e) => {
+                createWavefrontRipple(e);
+                setModalNotice('Anomaly audit telemetry export completed: log hash #ANOM-8849-ZETA generated.');
+              }}
               style={{ padding: '3px 8px', fontSize: '0.65rem' }}
             >
-              Export Anomaly Audit →
+              <span>Export Anomaly Audit</span>
+              <span className="tactical-arrow">→</span>
             </button>
           </div>
         </div>
 
         {/* CARD 5: Autonomous Antigravity Pod Module (Span 4) */}
-        <div className="bento-card bento-col-4">
+        <div className="bento-card bento-col-4 bento-card-stagger" style={{ '--index': 5 } as React.CSSProperties}>
+          <span className="corner-accent-tr" />
+          <span className="corner-accent-bl" />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -977,9 +1113,11 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
         </div>
 
         {/* CARD 6: Rating & Positions Filled (Span 4) */}
-        <div className="bento-col-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+        <div className="bento-col-4 bento-card-stagger" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', '--index': 6 } as React.CSSProperties}>
           {/* Subcard A: Tactical Precision Rating */}
           <div className="bento-card" style={{ padding: '14px' }}>
+            <span className="corner-accent-tr" />
+            <span className="corner-accent-bl" />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
                 AVG RATING
@@ -1027,6 +1165,8 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
 
           {/* Subcard B: Active Positions Filled */}
           <div className="bento-card" style={{ padding: '14px' }}>
+            <span className="corner-accent-tr" />
+            <span className="corner-accent-bl" />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
                 POSITIONS FILLED
@@ -1074,7 +1214,9 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
         </div>
 
         {/* CARD 7: Quick Jump Tactical Defense Modules (Span 8) */}
-        <div className="bento-card bento-col-8" style={{ padding: '14px 18px' }}>
+        <div className="bento-card bento-col-8 bento-card-stagger" style={{ padding: '14px 18px', '--index': 7 } as React.CSSProperties}>
+          <span className="corner-accent-tr" />
+          <span className="corner-accent-bl" />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
             <span
               style={{
