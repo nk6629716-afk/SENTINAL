@@ -18,6 +18,7 @@ import {
   selectRankedThreatQueue,
 } from '../../selectors';
 import { formatIST } from '../../utils/time';
+import { formatRuleLabel } from '../../utils/rules';
 
 interface SkyWatchModuleProps {
   tracks: TelemetryTrack[];
@@ -411,8 +412,11 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                         >
                           {alert.severity}
                         </span>
-                        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {alert.ruleName}
+                        <span
+                          title={alert.ruleName}
+                          style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)' }}
+                        >
+                          {formatRuleLabel(alert.ruleName)}
                         </span>
                       </div>
 
@@ -526,7 +530,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
               fontWeight: 600,
             }}
           >
-            Alert: {openAlerts[0].trackCallsign} breached {openAlerts[0].ruleName} ({formatIST(openAlerts[0].timestamp, { seconds: false })})
+            Alert: {openAlerts[0].trackCallsign} breached {formatRuleLabel(openAlerts[0].ruleName)} ({formatIST(openAlerts[0].timestamp, { seconds: false })})
           </div>
         )}
       </footer>

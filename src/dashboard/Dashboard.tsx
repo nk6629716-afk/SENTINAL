@@ -25,6 +25,7 @@ import {
   selectRankedThreatQueue,
 } from '../selectors';
 import { formatIST } from '../utils/time';
+import { formatRuleLabel } from '../utils/rules';
 
 export interface FieldReportItem {
   id: string;
@@ -209,7 +210,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       time: '14:29 UTC',
       category: 'ALERT',
       categoryColor: '#DC2626',
-      message: `${alt.ruleName}: ${alt.observedValue} (${alt.trackCallsign || alt.trackId})`,
+      message: `${formatRuleLabel(alt.ruleName)}: ${alt.observedValue} (${alt.trackCallsign || alt.trackId})`,
     }));
 
     return [...dynamicAlertEvents, ...baseEvents];
@@ -323,7 +324,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const latestActivity = (() => {
     if (alerts.length > 0 && (!incidents.length || new Date(alerts[0].timestamp) >= new Date(incidents[0].createdAt))) {
       const a = alerts[0];
-      return `Airspace Alert: ${a.ruleName} - ${a.trackCallsign} (${formatIST(a.timestamp, { seconds: false })})`;
+      return `Airspace Alert: ${formatRuleLabel(a.ruleName)} - ${a.trackCallsign} (${formatIST(a.timestamp, { seconds: false })})`;
     }
     if (incidents.length > 0) {
       const inc = incidents[0];
