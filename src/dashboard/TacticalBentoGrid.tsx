@@ -113,7 +113,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
 
   const handleDeployPod = () => {
     setModalNotice(
-      'ANTIGRAVITY POD MODULE v2.4 INITIALIZED: Autonomous supply pod allocated to Operational Sector OMEGA-ZETA. Uplink telemetry verified at 100% signal strength.'
+      'AUTONOMOUS POD MODULE v2.4 INITIALIZED: Autonomous supply pod allocated to Operational Sector OMEGA-ZETA. Uplink telemetry verified at 100% signal strength.'
     );
   };
 
@@ -176,7 +176,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   color: 'var(--text-primary, #e9ece9)',
                 }}
               >
-                ANTIGRAVITY // OP-DASH_04
+                SENTINEL // OP-DASH_04
               </span>
               <span className="tactical-badge tactical-badge-online">
                 <span className="dot-glowing-green" />
@@ -188,7 +188,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               className="meta-coord"
               style={{ fontSize: '0.66rem', marginTop: '3px', color: 'var(--text-secondary, #94a192)' }}
             >
-              SECTOR: OMEGA-ZETA // COORDINATES: 28.6139° N, 77.2090° E // ALT: 216M MSL
+              SECTOR: OMEGA-ZETA // 28.6139° N, 77.2090° E
             </div>
           </div>
         </div>
@@ -250,22 +250,6 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
           >
             <Terminal size={13} />
             <span>DIAGNOSTICS</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn-tactical"
-            onClick={(e) => {
-              createWavefrontRipple(e);
-              setModalNotice(
-                'TACTICAL CLIENT INSTALLED: Offline mission package cached locally in IndexedDB and Service Worker cache storage.'
-              );
-            }}
-            style={{ padding: '6px 12px' }}
-            title="Install offline tactical client"
-          >
-            <Download size={13} />
-            <span>Install</span>
           </button>
         </div>
       </div>
@@ -354,7 +338,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--text-secondary, #94a192)',
                   }}
                 >
-                  Total Telemetry / Yield
+                  Telemetry Throughput
                 </span>
               </div>
               <span className="tactical-badge tactical-badge-online">ACTIVE</span>
@@ -371,7 +355,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   lineHeight: 1,
                 }}
               >
-                15,984.12
+                15,984
               </span>
               <span
                 style={{
@@ -381,7 +365,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   fontWeight: 600,
                 }}
               >
-                USD
+                PKTS/S
               </span>
             </div>
 
@@ -422,7 +406,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
                 <p style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                  GROSS YIELD
+                  UPTIME
                 </p>
                 <p
                   style={{
@@ -432,12 +416,12 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--text-primary)',
                   }}
                 >
-                  246 <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>USD</span>
+                  99.98%
                 </p>
               </div>
               <div>
                 <p style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                  VOL UNITS
+                  SENSORS
                 </p>
                 <p
                   style={{
@@ -447,7 +431,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--text-primary)',
                   }}
                 >
-                  8
+                  8 ONLINE
                 </p>
               </div>
             </div>
@@ -634,7 +618,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#738a65' }} />
                 <span style={{ color: 'var(--text-secondary)' }}>Primary Deployment</span>
               </div>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>$4,549.05</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>62% · Sector Alpha</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -642,7 +626,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(115, 138, 101, 0.50)' }} />
                 <span style={{ color: 'var(--text-secondary)' }}>Secondary Staging</span>
               </div>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>$3,438.94</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>24% · Sector Bravo</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -650,7 +634,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#44543b' }} />
                 <span style={{ color: 'var(--text-secondary)' }}>Auxiliary Recon</span>
               </div>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>$2,327.83</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>14% · Sector Charlie</span>
             </div>
           </div>
         </div>
@@ -829,10 +813,10 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                       color: 'var(--text-primary, #e9ece9)',
                     }}
                   >
-                    Signal Anomaly / Cancellations Telemetry
+                    Signal Integrity / Anomalies
                   </span>
                   <p style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                    MONITORING INTERVAL: JUL 06 - JUL 24 // SECTOR SAMPLING: 10 READINGS
+                    SECTOR SAMPLING // 10 CHANNELS
                   </p>
                 </div>
               </div>
@@ -861,7 +845,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--highlight-amber, #d4a373)',
                   }}
                 >
-                  Loss: -$1,912.50
+                  Packet Loss: &lt;0.1%
                 </div>
               </div>
             </div>
@@ -973,7 +957,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
           </div>
         </div>
 
-        {/* CARD 5: Autonomous Antigravity Pod Module (Span 4) */}
+        {/* CARD 5: Autonomous Supply Pod Module (Span 4) */}
         <div className="bento-card bento-col-4 bento-card-stagger" style={{ '--index': 5 } as React.CSSProperties}>
           <span className="corner-accent-tr" />
           <span className="corner-accent-bl" />
@@ -1004,7 +988,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--text-secondary, #94a192)',
                   }}
                 >
-                  Antigravity Pod Module
+                  Autonomous Supply Pod
                 </span>
               </div>
               <span className="tactical-badge tactical-badge-online">v2.4</span>
@@ -1020,7 +1004,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 marginBottom: '4px',
               }}
             >
-              Enhance Field Range with Autonomous Pods
+              Autonomous Supply Pod
             </h3>
             <p
               style={{
@@ -1030,7 +1014,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 marginBottom: '14px',
               }}
             >
-              Deploy next-generation tactical supply units to remote operational sectors automatically.
+              Tactical field resupply unit with encrypted telemetry relay.
             </p>
 
             {/* Tactical Pod Graphical Representation Container */}
@@ -1102,7 +1086,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               className="btn-tactical btn-tactical-ghost"
               onClick={() =>
                 setModalNotice(
-                  'SPEC SHEET: Antigravity Pod v2.4 // Max Payload: 120kg // Range: 45km radius // Signal Uplink: 915MHz LoRa + SatCom // Redundancy: Dual gyro stabilization.'
+                  'SPEC SHEET: Autonomous Supply Pod v2.4 // Max Payload: 120kg // Range: 45km radius // Signal Uplink: 915MHz LoRa + SatCom // Redundancy: Dual gyro stabilization.'
                 )
               }
               style={{ padding: '7px 12px' }}
@@ -1112,15 +1096,15 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
           </div>
         </div>
 
-        {/* CARD 6: Rating & Positions Filled (Span 4) */}
+        {/* CARD 6: Readiness & Grid Coverage (Span 4) */}
         <div className="bento-col-4 bento-card-stagger" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', '--index': 6 } as React.CSSProperties}>
-          {/* Subcard A: Tactical Precision Rating */}
+          {/* Subcard A: Combat Readiness */}
           <div className="bento-card" style={{ padding: '14px' }}>
             <span className="corner-accent-tr" />
             <span className="corner-accent-bl" />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                AVG RATING
+                READINESS
               </span>
               <span
                 style={{
@@ -1132,7 +1116,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   borderRadius: '3px',
                 }}
               >
-                -2% 7D
+                +0.4%
               </span>
             </div>
             <div style={{ margin: '8px 0' }}>
@@ -1145,7 +1129,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   lineHeight: 1,
                 }}
               >
-                4.9
+                98.4%
               </span>
             </div>
             <div
@@ -1159,17 +1143,17 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               }}
             >
               <Star size={12} color="#d4a373" fill="#d4a373" />
-              <span>Tactical Precision</span>
+              <span>Combat Ready</span>
             </div>
           </div>
 
-          {/* Subcard B: Active Positions Filled */}
+          {/* Subcard B: Active Grid Coverage */}
           <div className="bento-card" style={{ padding: '14px' }}>
             <span className="corner-accent-tr" />
             <span className="corner-accent-bl" />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                POSITIONS FILLED
+                GRID COVERAGE
               </span>
               <span
                 style={{
@@ -1181,7 +1165,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   borderRadius: '3px',
                 }}
               >
-                Optimal
+                Nominal
               </span>
             </div>
             <div style={{ margin: '8px 0' }}>
@@ -1208,7 +1192,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               }}
             >
               <Shield size={12} color="#738a65" />
-              <span>Active Grids</span>
+              <span>Active Sectors</span>
             </div>
           </div>
         </div>

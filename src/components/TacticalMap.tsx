@@ -113,13 +113,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     terrain: false,
   });
 
-  // Collapsible Layers panel (collapsed by default below 1100px width or 700px height)
-  const [isLayersCollapsed, setIsLayersCollapsed] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 1100 || window.innerHeight < 700;
-    }
-    return false;
-  });
+  // Collapsible Layers panel (collapsed by default for clean, low-clutter operational picture)
+  const [isLayersCollapsed, setIsLayersCollapsed] = useState<boolean>(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
 

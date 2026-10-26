@@ -90,10 +90,6 @@ export const TacticalSkeletonWireframe: React.FC<TacticalSkeletonWireframeProps>
             className="tactical-skeleton"
             style={{ width: '105px', height: '28px', borderRadius: '6px' }}
           />
-          <div
-            className="tactical-skeleton"
-            style={{ width: '75px', height: '28px', borderRadius: '6px' }}
-          />
         </div>
       </div>
 

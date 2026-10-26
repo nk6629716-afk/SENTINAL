@@ -91,7 +91,7 @@ export const SimulationReplayFooter = React.memo<SimulationReplayFooterProps>(
           </div>
 
           <div className="meta-coord" style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
-            ANTIGRAVITY TACTICAL SUITE // PROTOCOLS SECURED
+            SENTINEL TACTICAL SUITE // PROTOCOLS SECURED
           </div>
         </div>
 
@@ -111,7 +111,7 @@ export const SimulationReplayFooter = React.memo<SimulationReplayFooterProps>(
           </div>
         ) : (
           <div className="meta-coord" style={{ fontSize: '0.62rem' }}>
-            COORD: 28.6139° N, 77.2090° E // ALL SYSTEMS NOMINAL
+            SECTOR OMEGA-ZETA // ALL SYSTEMS NOMINAL
           </div>
         )}
       </footer>
