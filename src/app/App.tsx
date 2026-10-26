@@ -60,7 +60,7 @@ export function parseModuleFromHash(hash: string): { module: ModuleId; subTab?: 
   const base = parts[0];
   const sub = parts[1] as MediRouteSubTab | undefined;
 
-  const validSubTabs: MediRouteSubTab[] = ['overview', 'monitoring', 'triage', 'routing', 'facilities', 'dispatch'];
+  const validSubTabs: MediRouteSubTab[] = ['overview', 'triage', 'routing', 'facilities', 'dispatch'];
 
   if ((VALID_MODULES as readonly string[]).includes(base)) {
     return {

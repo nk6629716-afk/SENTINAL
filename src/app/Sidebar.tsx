@@ -97,7 +97,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const medirouteSubNav = [
     { id: 'overview' as MediRouteSubTab, label: 'Operations Overview', icon: Activity },
-    { id: 'monitoring' as MediRouteSubTab, label: 'Patient Monitoring', icon: HeartPulse },
     { id: 'triage' as MediRouteSubTab, label: 'Triage Board', icon: ClipboardList },
     { id: 'routing' as MediRouteSubTab, label: 'Evacuation Routing', icon: RouteIcon },
     { id: 'facilities' as MediRouteSubTab, label: 'Resources & Facilities', icon: Building2 },

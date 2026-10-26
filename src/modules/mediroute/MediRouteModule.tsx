@@ -30,7 +30,6 @@ import {
   INITIAL_MEDICAL_ACTIVITIES,
 } from './medirouteData';
 import { MedicalOverviewTab } from './components/MedicalOverviewTab';
-import { PatientMonitoringTab } from './components/PatientMonitoringTab';
 import { TriageBoardTab } from './components/TriageBoardTab';
 import { EvacuationRoutingTab } from './components/EvacuationRoutingTab';
 import { FacilityCapacityTab } from './components/FacilityCapacityTab';
@@ -658,15 +657,15 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
 
   // Tab navigation helper
   const navigateTab = (tab: MediRouteSubTab, targetId?: string) => {
-    handleSubTabChange(tab);
-    if (tab === 'monitoring' && targetId) {
+    const destination = (tab as string) === 'monitoring' ? 'triage' : tab;
+    handleSubTabChange(destination);
+    if (targetId) {
       setSelectedCasualtyId(targetId);
     }
   };
 
   const navTabs = [
     { id: 'overview' as MediRouteSubTab, label: 'Operations Overview', icon: Activity },
-    { id: 'monitoring' as MediRouteSubTab, label: 'Patient Monitoring', icon: HeartPulse },
     { id: 'triage' as MediRouteSubTab, label: 'Triage Board', icon: ClipboardList },
     { id: 'routing' as MediRouteSubTab, label: 'Evacuation Routing', icon: RouteIcon },
     { id: 'facilities' as MediRouteSubTab, label: 'Resources & Facilities', icon: Building2 },
@@ -776,18 +775,6 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
           />
         )}
 
-        {activeSubTab === 'monitoring' && (
-          <PatientMonitoringTab
-            casualties={casualties}
-            selectedCasualtyId={selectedCasualtyId}
-            onSelectCasualty={(id) => setSelectedCasualtyId(id)}
-            isSimPaused={localSimPaused}
-            onToggleSimPause={toggleSimPause}
-            onResetSimulation={handleResetSimulation}
-            onStepSimulation={stepSimulation}
-            onInjectAnomaly={handleInjectAnomaly}
-          />
-        )}
 
         {activeSubTab === 'triage' && (
           <TriageBoardTab

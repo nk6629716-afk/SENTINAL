@@ -92,7 +92,7 @@ export const MedicalOverviewTab: React.FC<MedicalOverviewTabProps> = ({
       >
         {/* Monitored Casualties */}
         <div
-          onClick={() => onNavigateTab('monitoring')}
+          onClick={() => onNavigateTab('triage')}
           style={{
             background: 'var(--bg-card, #181d1a)',
             border: '1px solid var(--border-card, rgba(115, 138, 101, 0.20))',
@@ -119,14 +119,14 @@ export const MedicalOverviewTab: React.FC<MedicalOverviewTabProps> = ({
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', fontSize: '0.68rem', color: 'var(--accent-sage, #738a65)', fontFamily: 'var(--font-mono)' }}>
-            <span>Open patient feed</span>
+            <span>Open triage board</span>
             <ArrowRight size={11} />
           </div>
         </div>
 
         {/* Active Vital Anomalies */}
         <div
-          onClick={() => onNavigateTab('monitoring')}
+          onClick={() => onNavigateTab('triage')}
           style={{
             background: 'var(--bg-card, #181d1a)',
             border: activeAnomaliesCount > 0 ? '1px solid rgba(200, 90, 83, 0.4)' : '1px solid var(--border-card, rgba(115, 138, 101, 0.20))',
@@ -153,7 +153,7 @@ export const MedicalOverviewTab: React.FC<MedicalOverviewTabProps> = ({
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', fontSize: '0.68rem', color: 'var(--status-critical, #c85a53)', fontFamily: 'var(--font-mono)' }}>
-            <span>Review telemetry alerts</span>
+            <span>Review triage alerts</span>
             <ArrowRight size={11} />
           </div>
         </div>
