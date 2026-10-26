@@ -1,5 +1,5 @@
 # SENTINEL Project Report & System Architecture Ledger
-*Automated Operational & Technical Dossier — Generated 2026-10-26T10:15:50.483Z*
+*Automated Operational & Technical Dossier — Generated 2026-10-26T10:16:17.489Z*
 
 ---
 
@@ -18,15 +18,12 @@ The platform provides resilient disaster-zone situational awareness for military
 | Metric | Active Repository Value |
 | :--- | :--- |
 | **Active Branch** | `main` |
-| **Commit SHA** | `73a62da8f359da66ad7557b240f0b612fc0f29bd` (`73a62da`) |
-| **Last Commit Date** | `2026-10-26 15:20:04 +0530` |
+| **Commit SHA** | `bf4f6b8b1d0bfcdd28506b0a6e02e37b63f25f04` (`bf4f6b8`) |
+| **Last Commit Date** | `2026-10-26 15:46:10 +0530` |
 | **Author** | `Vineet <vineet00955@gmail.com>` |
 | **Remote URL** | `https://github.com/nk6629716-afk/fallingsun` |
-| **Working Tree Status** | `M src/app/App.tsx
- M src/dashboard/AlertsPanel.tsx
- M src/dashboard/Dashboard.tsx
- M src/dashboard/TacticalBentoGrid.tsx` |
-| **Latest Message** | `docs: auto-update REPORT.md before push` |
+| **Working Tree Status** | `Clean working directory (all files committed)` |
+| **Latest Message** | `feat(dashboard): streamline Overview and COP to exclusively display MediRoute operations` |
 
 ---
 
