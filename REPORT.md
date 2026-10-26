@@ -1,5 +1,5 @@
 # SENTINEL Project Report & System Architecture Ledger
-*Automated Operational & Technical Dossier — Generated 2026-10-26T09:57:38.482Z*
+*Automated Operational & Technical Dossier — Generated 2026-10-26T10:28:14.986Z*
 
 ---
 
@@ -18,12 +18,12 @@ The platform provides resilient disaster-zone situational awareness for military
 | Metric | Active Repository Value |
 | :--- | :--- |
 | **Active Branch** | `fix/logic` |
-| **Commit SHA** | `2e26b02220b179f1f6db67b8420c4fa8aa441d16` (`2e26b02`) |
-| **Last Commit Date** | `2026-10-26 15:27:23 +0530` |
+| **Commit SHA** | `1d9aa3ddc0f23d10366e4dda6ff0ad3f7873d180` (`1d9aa3d`) |
+| **Last Commit Date** | `2026-10-26 15:58:00 +0530` |
 | **Author** | `nk6629716-afk <nk6629716@gmail.com>` |
 | **Remote URL** | `https://github.com/nk6629716-afk/fallingsun` |
 | **Working Tree Status** | `Clean working directory (all files committed)` |
-| **Latest Message** | `fix(design-cleanup): complete 20-item design audit cleanup, plain copy, and visual simplifications` |
+| **Latest Message** | `merge: resolve merge conflicts between main and fix/logic preserving auth and clean UI` |
 
 ---
 
