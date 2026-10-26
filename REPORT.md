@@ -1,5 +1,5 @@
 # SENTINEL Project Report & System Architecture Ledger
-*Automated Operational & Technical Dossier — Generated 2026-10-26T08:10:25.965Z*
+*Automated Operational & Technical Dossier — Generated 2026-10-26T08:21:44.340Z*
 
 ---
 
@@ -18,12 +18,21 @@ The platform provides resilient disaster-zone situational awareness for military
 | Metric | Active Repository Value |
 | :--- | :--- |
 | **Active Branch** | `main` |
-| **Commit SHA** | `033f1a559b12cf0cef20e0f2358b1d1a3e7b8144` (`033f1a5`) |
+| **Commit SHA** | `bc88fb6` |
 | **Last Commit Date** | `2026-10-26 13:34:37 +0530` |
 | **Author** | `Falcon-20199 <rizwan1612010@gmai.com>` |
 | **Remote URL** | `https://github.com/nk6629716-afk/fallingsun` |
-| **Working Tree Status** | `Clean working directory (all files committed)` |
-| **Latest Message** | `docs: auto-update REPORT.md before push` |
+| **Working Tree Status** | `M index.html
+ M src/app/CommandHeader.tsx
+ M src/app/Sidebar.tsx
+ M src/components/TacticalMap.tsx
+ M src/dashboard/AlertsPanel.tsx
+ M src/dashboard/Dashboard.tsx
+ M src/dashboard/SimulationReplayFooter.tsx
+ M src/styles/index.css
+ M src/styles/tokens.css
+?? src/dashboard/TacticalBentoGrid.tsx` |
+| **Latest Message** | `Merge branch 'origin/main' into main (preserving refined HUD alerts panel & clean tactical design)` |
 
 ---
 

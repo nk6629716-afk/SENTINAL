@@ -103,13 +103,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       data-overlay="sidebar"
       aria-label="Tactical Navigation Sidebar"
       style={{
-        width: isCollapsedEffective ? 'var(--sidebar-collapsed-width, 76px)' : 'var(--sidebar-width, 240px)',
+        width: isCollapsedEffective ? 'var(--sidebar-collapsed-width, 72px)' : 'var(--sidebar-width, 240px)',
       }}
     >
       {/* 1. Brand Masthead */}
       <div
         style={{
-          padding: isCollapsedEffective ? '12px 8px 10px 8px' : '14px 14px 12px 14px',
+          padding: isCollapsedEffective ? '12px 8px 10px 8px' : '12px 12px 10px 12px',
           borderBottom: 'var(--border-width, 1.2px) solid var(--color-line)',
           display: 'flex',
           flexDirection: 'column',
@@ -136,23 +136,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               justifyContent: isCollapsedEffective ? 'center' : 'flex-start',
             }}
           >
-            {/* Custom Technical Emblem Tile */}
+            {/* Refined Emblem Tile with Tactical Accent Glow */}
             <div
               style={{
-                width: '36px',
-                height: '36px',
-                minWidth: '36px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--color-paper)',
-                border: 'var(--border-width, 1.2px) solid var(--color-edge)',
-                boxShadow: 'var(--shadow-flat-sm)',
+                width: '34px',
+                height: '34px',
+                minWidth: '34px',
+                borderRadius: '6px',
+                background: 'rgba(91, 112, 80, 0.20)',
+                border: '1px solid rgba(115, 138, 101, 0.40)',
+                boxShadow: '0 0 10px rgba(115, 138, 101, 0.20)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--accent)',
+                color: 'var(--accent-sage, #738a65)',
                 flexShrink: 0,
               }}
-              title="Sentinel Operations Platform 2.6"
+              title="SENTINEL C2 Tactical System v2.7"
             >
               <svg
                 width="20"
@@ -173,41 +173,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {!isCollapsedEffective && (
               <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px', whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', whiteSpace: 'nowrap' }}>
                   <span
                     style={{
-                      fontSize: '1.2rem',
-                      fontFamily: 'var(--font-heading)',
+                      fontSize: '1.02rem',
+                      fontFamily: 'var(--font-mono)',
                       fontWeight: 700,
-                      color: 'var(--text-primary)',
+                      color: 'var(--text-primary, #e9ece9)',
                       lineHeight: 1.1,
-                      letterSpacing: '-0.01em',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
                     }}
                   >
                     Sentinel
                   </span>
                   <span
                     style={{
-                      fontSize: '0.78rem',
-                      fontFamily: 'var(--font-heading)',
+                      fontSize: '0.68rem',
+                      fontFamily: 'var(--font-mono)',
                       fontWeight: 700,
-                      color: 'var(--accent)',
-                      letterSpacing: '0.02em',
+                      color: 'var(--accent-sage, #738a65)',
+                      letterSpacing: '0.04em',
                     }}
                   >
-                    2.6
+                    OP-C2
                   </span>
                 </div>
                 <div
                   style={{
-                    fontSize: '0.68rem',
-                    color: 'var(--text-secondary)',
+                    fontSize: '0.62rem',
+                    color: 'var(--text-secondary, #94a192)',
+                    fontFamily: 'var(--font-mono)',
                     fontWeight: 500,
                     lineHeight: 1.1,
-                    marginTop: '1px',
+                    marginTop: '3px',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
                   }}
                 >
-                  Operations platform
+                  28.6139° N, 77.2090° E
                 </div>
               </div>
             )}
@@ -217,23 +221,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isWindowSmall && !isCollapsedEffective && onToggleCollapse && (
             <button
               type="button"
-              className="btn btn-sm"
+              className="icon-btn"
               onClick={onToggleCollapse}
               aria-label="Minimize sidebar (Ctrl+B)"
               aria-expanded={true}
               title="Minimize sidebar (Ctrl+B)"
-              style={{
-                width: '26px',
-                height: '26px',
-                minWidth: '26px',
-                minHeight: '26px',
-                padding: 0,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={14} />
             </button>
           )}
 
@@ -241,19 +235,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {onCloseMobile && (
             <button
               type="button"
-              className="btn btn-sm"
+              className="icon-btn"
               onClick={onCloseMobile}
               style={{
-                width: '26px',
-                height: '26px',
-                minWidth: '26px',
-                minHeight: '26px',
-                padding: 0,
                 display: isOpenMobile ? 'inline-flex' : 'none',
               }}
               aria-label="Close navigation drawer"
             >
-              <X size={15} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -262,55 +251,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isWindowSmall && isCollapsedEffective && onToggleCollapse && (
           <button
             type="button"
-            className="btn btn-sm"
+            className="icon-btn"
             onClick={onToggleCollapse}
             aria-label="Expand sidebar (Ctrl+B)"
             aria-expanded={false}
             title="Expand sidebar (Ctrl+B)"
-            style={{
-              width: '28px',
-              height: '28px',
-              minWidth: '28px',
-              minHeight: '28px',
-              padding: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: '4px',
-            }}
+            style={{ marginTop: '2px' }}
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={14} />
           </button>
         )}
 
-        {/* Tactical Situational Engine Chip (Expanded only) */}
+        {/* Tactical Operational Status Badges (expanded only) */}
         {!isCollapsedEffective && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '3px 7px',
-              border: 'var(--border-width, 1.2px) solid var(--color-line)',
-              borderRadius: 'var(--radius-sm)',
-              background: 'transparent',
-              fontSize: '0.68rem',
-              color: 'var(--text-secondary)',
-              marginTop: '2px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-            }}
-          >
-            <span
-              style={{
-                width: '5px',
-                height: '5px',
-                background: 'var(--accent)',
-                display: 'inline-block',
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Tactical situational engine</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            <div
+              className={`tactical-badge ${isOfflineMode ? 'tactical-badge-active' : 'tactical-badge-online'}`}
+              style={{ padding: '2px 7px' }}
+            >
+              <span className={isOfflineMode ? 'dot-glowing-amber' : 'dot-glowing-green'} />
+              <span>{isOfflineMode ? 'OFFLINE_MODE' : 'SYS_ONLINE'}</span>
+            </div>
+            <div
+              className="tactical-badge tactical-badge-secure"
+              style={{ padding: '2px 7px', fontSize: '0.62rem' }}
+            >
+              SECURE
+            </div>
           </div>
         )}
       </div>
@@ -318,28 +285,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* 2. Navigation Items */}
       <nav
         style={{
-          padding: isCollapsedEffective ? '10px 4px' : '12px 8px',
+          padding: isCollapsedEffective ? '8px 4px' : '10px 8px',
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          gap: '4px',
+          gap: '2px',
           overflowY: 'auto',
           overflowX: 'hidden',
         }}
         aria-label="Operational modules"
       >
         {!isCollapsedEffective && (
-          <div
-            style={{
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              color: 'var(--text-secondary)',
-              paddingLeft: '6px',
-              marginBottom: '4px',
-              letterSpacing: '0.01em',
-            }}
-          >
-            Operational modules
+          <div className="sidebar-section-label" style={{ marginBottom: '4px' }}>
+            Modules
           </div>
         )}
 
@@ -359,24 +317,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               aria-label={`${item.label}: ${item.description}`}
               aria-current={isActive ? 'page' : undefined}
               style={{
-                borderLeft: isActive ? '4px solid var(--accent)' : '4px solid transparent',
-                background: isActive ? 'var(--color-paper)' : 'transparent',
+                borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
+                background: isActive ? 'rgba(0, 230, 118, 0.06)' : 'transparent',
                 justifyContent: isCollapsedEffective ? 'center' : 'flex-start',
-                padding: isCollapsedEffective ? '8px 0' : '6px 8px',
+                padding: isCollapsedEffective ? '7px 0' : '5px 8px',
               }}
             >
               {/* Icon column */}
               <div
                 className="sidebar-icon-col"
                 style={{
-                  width: isCollapsedEffective ? '44px' : '36px',
-                  minWidth: isCollapsedEffective ? '44px' : '36px',
+                  width: isCollapsedEffective ? '40px' : '32px',
+                  minWidth: isCollapsedEffective ? '40px' : '32px',
                 }}
               >
                 <Icon
-                  size={19}
+                  size={17}
                   color={isActive ? 'var(--accent)' : 'var(--text-secondary)'}
-                  strokeWidth={isActive ? 2.3 : 1.9}
+                  strokeWidth={isActive ? 2.2 : 1.8}
                   aria-hidden="true"
                 />
 
@@ -385,12 +343,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span
                     style={{
                       position: 'absolute',
-                      top: '6px',
-                      right: '8px',
+                      top: '5px',
+                      right: '6px',
                       width: '7px',
                       height: '7px',
                       borderRadius: '50%',
-                      backgroundColor: item.badgeType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)',
+                      backgroundColor: item.badgeType === 'crit'
+                        ? 'var(--status-critical)'
+                        : 'var(--status-warning)',
+                      boxShadow: item.badgeType === 'crit'
+                        ? '0 0 5px rgba(255, 59, 92, 0.5)'
+                        : '0 0 5px rgba(255, 179, 0, 0.5)',
                     }}
                     aria-label={`${item.badge} notifications`}
                   />
@@ -402,22 +365,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div style={{ flex: 1, minWidth: 0, paddingRight: '4px', overflow: 'hidden' }}>
                   <div
                     style={{
-                      fontSize: '0.85rem',
+                      fontSize: '0.82rem',
                       fontFamily: 'var(--font-heading)',
-                      fontWeight: isActive ? 700 : 600,
-                      color: 'var(--text-primary)',
+                      fontWeight: isActive ? 700 : 500,
+                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      lineHeight: 1.2,
+                      lineHeight: 1.25,
                     }}
                   >
                     {item.label}
                   </div>
                   <div
                     style={{
-                      fontSize: '0.69rem',
-                      color: 'var(--text-secondary)',
+                      fontSize: '0.65rem',
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--text-muted)',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -433,21 +397,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* Expanded badge count pill */}
               {!isCollapsedEffective && item.badge !== undefined && (
                 <span
-                  style={{
-                    backgroundColor: item.badgeType === 'crit' ? 'var(--color-crit)' : 'var(--color-warn)',
-                    color: '#FFFFFF',
-                    borderRadius: '50%',
-                    width: '18px',
-                    height: '18px',
-                    minWidth: '18px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    marginRight: '4px',
-                    flexShrink: 0,
-                  }}
+                  className={`count-pill ${item.badgeType === 'crit' ? 'count-pill-crit' : 'count-pill-warn'}`}
                 >
                   {item.badge}
                 </span>
@@ -459,7 +409,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#FFFFFF' }}>
                     {item.label}
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: '#C3CCC1', marginTop: '2px' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                     {item.description}
                   </div>
                 </div>

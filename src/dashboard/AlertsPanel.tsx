@@ -688,10 +688,10 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
           minWidth: isCollapsed ? 0 : undefined,
           maxWidth: isCollapsed ? 0 : undefined,
           display: isCollapsed ? 'none' : 'flex',
-          background: 'rgba(13, 20, 18, 0.88)',
+          background: 'rgba(24, 29, 26, 0.94)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+          borderLeft: '1px solid rgba(115, 138, 101, 0.20)',
           boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.45)',
           overflow: 'hidden',
           flexDirection: 'column',
@@ -703,10 +703,10 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
         <div
           className="intel-header"
           style={{
-            background: 'rgba(13, 20, 18, 0.94)',
+            background: 'rgba(24, 29, 26, 0.96)',
             backdropFilter: 'blur(12px)',
             WebkitBackdropFilter: 'blur(12px)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            borderBottom: '1px solid rgba(115, 138, 101, 0.20)',
             padding: '8px 12px 6px 12px',
           }}
         >
@@ -722,13 +722,13 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
                   flex: 1,
                   background: 'transparent',
                   border: 'none',
-                  borderBottom: activeTab === 'alerts' ? '2px solid var(--accent-primary, #00E676)' : '2px solid transparent',
+                  borderBottom: activeTab === 'alerts' ? '2px solid var(--accent-sage, #738a65)' : '2px solid transparent',
                   padding: '6px 4px',
                   fontSize: '0.74rem',
-                  fontFamily: 'var(--font-heading)',
+                  fontFamily: 'var(--font-mono)',
                   fontWeight: 700,
                   letterSpacing: '0.04em',
-                  color: activeTab === 'alerts' ? 'var(--text-primary, #F0FDF4)' : 'var(--text-secondary, #869E96)',
+                  color: activeTab === 'alerts' ? 'var(--text-primary, #e9ece9)' : 'var(--text-secondary, #94a192)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -901,118 +901,99 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
                 onNavigateToFieldLink={handleNavigateFieldLink}
               />
 
-              {/* Threat Queue Section */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <div
-                    className="text-xs uppercase tracking-wider text-zinc-400 font-mono"
-                    style={{
-                      fontSize: '0.68rem',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      letterSpacing: '0.08em',
-                      color: 'var(--text-secondary, #869E96)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Threat Queue ({rankedThreats.length})
+                {/* Threat Queue Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <div
+                      className="text-xs uppercase tracking-wider text-zinc-400 font-mono"
+                      style={{
+                        fontSize: '0.65rem',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 700,
+                        letterSpacing: '0.08em',
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Threat Queue ({rankedThreats.length})
+                    </div>
+                    <span
+                      className="text-zinc-500 font-mono"
+                      style={{ fontSize: '10px', color: 'var(--text-muted, #546E66)', fontFamily: 'var(--font-mono)' }}
+                    >
+                      By score
+                    </span>
                   </div>
-                  <span
-                    className="text-zinc-500 font-mono"
-                    style={{ fontSize: '10px', color: 'var(--text-muted, #546E66)' }}
-                  >
-                    Ranked by score
-                  </span>
-                </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {rankedThreats.map((threat) => (
-                    <ThreatItem
-                      key={threat.id}
-                      threat={threat}
-                      isSelected={selectedEntityId === threat.id}
-                      onSelect={handleSelectTrack}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Mission Sequence Section */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '2px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div
-                    className="text-xs uppercase tracking-wider text-zinc-400 font-mono"
-                    style={{
-                      fontSize: '0.68rem',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 700,
-                      letterSpacing: '0.08em',
-                      color: 'var(--text-secondary, #869E96)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Mission Sequence (Step {crossModuleStep} of 5)
+                  <div className="glass-section">
+                    {rankedThreats.map((threat) => (
+                      <ThreatItem
+                        key={threat.id}
+                        threat={threat}
+                        isSelected={selectedEntityId === threat.id}
+                        onSelect={handleSelectTrack}
+                      />
+                    ))}
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-sm"
-                    onClick={onNextStep}
-                    style={{
-                      padding: '2px 8px',
-                      fontSize: '0.68rem',
-                      height: '22px',
-                      minHeight: '22px',
-                    }}
-                  >
-                    <span>Next step</span>
-                    <ArrowRight size={10} />
-                  </button>
                 </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    background: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {missionSteps.map((s) => (
-                    <MissionStepItem
-                      key={s.step}
-                      step={s}
-                      isActive={crossModuleStep === s.step}
-                      isCompleted={crossModuleStep > s.step}
-                      onClick={onStepClick}
-                    />
-                  ))}
+                {/* Mission Sequence Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div
+                      className="text-xs uppercase tracking-wider text-zinc-400 font-mono"
+                      style={{
+                        fontSize: '0.65rem',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 700,
+                        letterSpacing: '0.08em',
+                        color: 'var(--text-muted)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Mission Sequence ({crossModuleStep}/5)
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      onClick={onNextStep}
+                      style={{
+                        padding: '2px 8px',
+                        fontSize: '0.65rem',
+                        height: '20px',
+                        minHeight: '20px',
+                      }}
+                    >
+                      <span>Next step</span>
+                      <ArrowRight size={9} />
+                    </button>
+                  </div>
+
+                  <div className="glass-section">
+                    {missionSteps.map((s) => (
+                      <MissionStepItem
+                        key={s.step}
+                        step={s}
+                        isActive={crossModuleStep === s.step}
+                        isCompleted={crossModuleStep > s.step}
+                        onClick={onStepClick}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
             </>
           )}
 
           {activeTab === 'reports' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <div
-                  className="text-xs uppercase tracking-wider text-zinc-400 font-mono"
                   style={{
-                    fontSize: '0.68rem',
+                    fontSize: '0.65rem',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
                     letterSpacing: '0.08em',
-                    color: 'var(--text-secondary, #869E96)',
+                    color: 'var(--text-muted)',
                     textTransform: 'uppercase',
                   }}
                 >
@@ -1031,6 +1012,7 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
                     alignItems: 'center',
                     gap: '3px',
                     fontWeight: 700,
+                    fontFamily: 'var(--font-mono)',
                   }}
                 >
                   <span>Intake form</span>
@@ -1038,16 +1020,7 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
                 </button>
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  overflow: 'hidden',
-                }}
-              >
+              <div className="glass-section">
                 {incidents.map((inc) => (
                   <ReportItem
                     key={inc.id}
@@ -1060,31 +1033,21 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
           )}
 
           {activeTab === 'activity' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div
-                className="text-xs uppercase tracking-wider text-zinc-400 font-mono"
                 style={{
-                  fontSize: '0.68rem',
+                  fontSize: '0.65rem',
                   fontFamily: 'var(--font-mono)',
                   fontWeight: 700,
                   letterSpacing: '0.08em',
-                  color: 'var(--text-secondary, #869E96)',
+                  color: 'var(--text-muted)',
                   textTransform: 'uppercase',
                 }}
               >
                 Operational Activity Log
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  borderRadius: '4px',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  overflow: 'hidden',
-                }}
-              >
+              <div className="glass-section">
                 {activities.map((act) => (
                   <ActivityItem
                     key={act.id}

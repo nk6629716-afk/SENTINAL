@@ -1,37 +1,66 @@
 /* ==========================================================================
-   SENTINEL v2.6 — Deep Pine Grey & Cyber Emerald Tactical Color System
-   Standard C4ISR Operational Palette
+   SENTINEL v2.7 — Refined Tactical Dark Mode Palette
+   Glassmorphic depth, controlled accents, zero visual clutter
    ========================================================================== */
 
 :root,
 :root[data-theme="dark"] {
-  /* 1. Surface Hierarchy & Backgrounds */
-  --bg-canvas: #060A09;
-  --bg-shell: #0D1412;
-  --bg-card: #131E1B;
-  --bg-elevated: #1A2925;
-  --bg-control: #172622;
-  --bg-hover: #223832;
+  /* 1. Tactical Surface Hierarchy & Base Backgrounds */
+  --bg-canvas: #121614;       /* Base Background: Deep charcoal / slate dark mode */
+  --bg-shell: #181d1a;        /* Slate dark mode surface */
+  --bg-card: #181d1a;         /* Structured Bento Grid card surface */
+  --bg-elevated: #1f2622;     /* Elevated tactical container */
+  --bg-control: #161c18;      /* Tactical input/button base */
+  --bg-hover: #222b25;        /* Interactive hover surface */
 
-  /* 2. Typography & Text Colors */
-  --text-primary: #F0FDF4;
-  --text-secondary: #869E96;
-  --text-muted: #546E66;
+  /* Glass surfaces with tactical depth */
+  --bg-glass-sidebar: rgba(24, 29, 26, 0.95);
+  --bg-glass-header: rgba(18, 22, 20, 0.94);
+  --bg-glass-panel: rgba(24, 29, 26, 0.90);
 
-  /* 3. Borders & Grid Lines */
-  --border-grid: #14221E;
-  --border-card: #263D37;
-  --border-strong: #35544C;
+  /* 2. Tactical Typography & Text Colors */
+  --text-primary: #e9ece9;     /* High-contrast off-white for headers & values */
+  --text-secondary: #94a192;   /* Muted silver/sage for secondary labels & metadata */
+  --text-muted: #667564;       /* Deeper muted sage for timestamps and captions */
+  --text-accent: #738a65;      /* Tactical sage highlight text */
 
-  /* 4. Brand & Tactical Accents */
-  --accent-primary: #00E676;
-  --accent-secondary: #2DD4BF;
+  /* 3. Tactical Borders & Bento Grid Lines */
+  --border-tactical: rgba(115, 138, 101, 0.20); /* Bento Grid card border */
+  --border-card: rgba(115, 138, 101, 0.20);     /* Structured Bento borders */
+  --border-grid: rgba(115, 138, 101, 0.12);     /* Technical grid lines */
+  --border-strong: rgba(115, 138, 101, 0.38);   /* Active state / focused borders */
+  --border-subtle-white: rgba(233, 236, 233, 0.06);
+  --border-subtle-white-sm: rgba(233, 236, 233, 0.04);
+  --border-glass: rgba(115, 138, 101, 0.18);
 
-  /* 5. Semantic Status Colors (Strictly Reserved for Meaning) */
-  --status-safe: #00E676;
-  --status-info: #38BDF8;
-  --status-warning: #FFB300;
-  --status-critical: #FF3B5C;
+  /* 4. Primary Accents: Muted Olive-Green & Sage Tones */
+  --accent-olive: #5b7050;     /* Muted olive-green */
+  --accent-sage: #738a65;      /* Sage tone */
+  --accent-dark-olive: #44543b;/* Deep olive-green */
+  --accent-primary: #738a65;   /* Primary accent */
+  --accent-secondary: #588157; /* Subtle telemetry green */
+  --accent-primary-dim: rgba(115, 138, 101, 0.15);
+  --accent-primary-glow: rgba(115, 138, 101, 0.25);
+
+  /* 5. Highlights & Readouts */
+  --highlight-amber: #d4a373;  /* Crisp amber / soft yellow highlights */
+  --telemetry-green: #588157;  /* Subtle telemetry green */
+
+  /* 6. Semantic Status Colors (Tactical Defense Grade) */
+  --status-safe: #588157;      /* Subtle telemetry green ("SYS_ONLINE", "SECURE") */
+  --status-info: #738a65;      /* Sage informative tone */
+  --status-warning: #d4a373;   /* Crisp amber ("ACTIVE", "ALERT") */
+  --status-critical: #c85a53;  /* High threat / warning indicator */
+
+  /* Status Transparency Variants */
+  --status-safe-dim: rgba(88, 129, 87, 0.12);
+  --status-info-dim: rgba(115, 138, 101, 0.12);
+  --status-warning-dim: rgba(212, 163, 115, 0.12);
+  --status-critical-dim: rgba(200, 90, 83, 0.12);
+  --status-safe-border: rgba(88, 129, 87, 0.35);
+  --status-info-border: rgba(115, 138, 101, 0.35);
+  --status-warning-border: rgba(212, 163, 115, 0.35);
+  --status-critical-border: rgba(200, 90, 83, 0.35);
 
   /* Backward Compatibility & Component Aliases */
   --color-paper: var(--bg-canvas);
@@ -43,8 +72,8 @@
   --color-accent: var(--accent-primary);
   --color-accent-secondary: var(--accent-secondary);
   --color-map: var(--bg-canvas);
-  --color-water: #0D1E19;
-  --color-forest: #0D261F;
+  --color-water: #151d18;
+  --color-forest: #1b241e;
   --color-contour: var(--border-grid);
   --color-grid: var(--border-grid);
   --color-strip: var(--bg-shell);
@@ -52,7 +81,7 @@
   --surface: var(--bg-canvas);
   --surface-raised: var(--bg-card);
   --surface-elevated: var(--bg-elevated);
-  --surface-inset: var(--bg-shell);
+  --surface-inset: #131715;
   --surface-card: var(--bg-card);
   --surface-strip: var(--bg-shell);
   --surface-control: var(--bg-control);
@@ -63,49 +92,53 @@
   --border-edge: var(--border-card);
 
   --accent: var(--accent-primary);
-  --accent-light: rgba(0, 230, 118, 0.15);
+  --accent-light: rgba(115, 138, 101, 0.15);
   --color-ok: var(--status-safe);
   --color-warn: var(--status-warning);
   --color-crit: var(--status-critical);
   --color-info: var(--status-info);
 
   --healthy: var(--status-safe);
-  --healthy-bg: rgba(0, 230, 118, 0.12);
+  --healthy-bg: rgba(88, 129, 87, 0.12);
   --warning: var(--status-warning);
-  --warning-bg: rgba(255, 179, 0, 0.12);
+  --warning-bg: rgba(212, 163, 115, 0.12);
   --critical: var(--status-critical);
-  --critical-bg: rgba(255, 59, 92, 0.15);
+  --critical-bg: rgba(200, 90, 83, 0.12);
   --informational: var(--status-info);
-  --informational-bg: rgba(56, 189, 248, 0.12);
+  --informational-bg: rgba(115, 138, 101, 0.12);
 
   /* Entity Symbols */
-  --entity-friendly-fill: rgba(0, 230, 118, 0.2);
-  --entity-friendly-stroke: #00E676;
-  --entity-hostile-fill: rgba(255, 59, 92, 0.25);
-  --entity-hostile-stroke: #FF3B5C;
-  --entity-neutral-fill: rgba(56, 189, 248, 0.2);
-  --entity-neutral-stroke: #38BDF8;
-  --entity-unknown-fill: rgba(255, 179, 0, 0.2);
-  --entity-unknown-stroke: #FFB300;
-  --entity-incident: #FF3B5C;
-  --entity-hospital: #00E676;
+  --entity-friendly-fill: rgba(88, 129, 87, 0.22);
+  --entity-friendly-stroke: #588157;
+  --entity-hostile-fill: rgba(200, 90, 83, 0.25);
+  --entity-hostile-stroke: #c85a53;
+  --entity-neutral-fill: rgba(115, 138, 101, 0.22);
+  --entity-neutral-stroke: #738a65;
+  --entity-unknown-fill: rgba(212, 163, 115, 0.22);
+  --entity-unknown-stroke: #d4a373;
+  --entity-incident: #c85a53;
+  --entity-hospital: #588157;
 
-  /* Modern Tactical Shadows */
-  --shadow-flat: 0 1px 3px rgba(0, 0, 0, 0.45);
-  --shadow-flat-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-raised: 0 4px 12px rgba(0, 0, 0, 0.55);
-  --shadow-raised-sm: 0 2px 6px rgba(0, 0, 0, 0.4);
-  --shadow-raised-hover: 0 8px 24px rgba(0, 0, 0, 0.65);
-  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-inset-sm: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+  /* Tactical Shadows & Depth */
+  --shadow-flat: 0 1px 4px rgba(0, 0, 0, 0.50);
+  --shadow-flat-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-raised: 0 4px 18px rgba(0, 0, 0, 0.60);
+  --shadow-raised-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-raised-hover: 0 8px 26px rgba(0, 0, 0, 0.70);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-inset-sm: inset 0 1px 1px rgba(0, 0, 0, 0.36);
   --shadow-sidebar: 1px 0 0 var(--border-card);
+  --shadow-glow-accent: 0 0 12px rgba(115, 138, 101, 0.22);
+  --shadow-glow-crit: 0 0 12px rgba(200, 90, 83, 0.22);
+  --shadow-glow-warn: 0 0 10px rgba(212, 163, 115, 0.20);
+  --shadow-glow-safe: 0 0 10px rgba(88, 129, 87, 0.25);
 
-  /* Radar Scope */
-  --radar-beam: #00E676;
-  --radar-glow: rgba(0, 230, 118, 0.35);
-  --radar-sweep: rgba(0, 230, 118, 0.12);
-  --radar-grid: var(--border-grid);
-  --radar-ring: var(--border-card);
+  /* Radar Scope styled in Olive-Green & Charcoal Gradients */
+  --radar-beam: #738a65;
+  --radar-glow: rgba(115, 138, 101, 0.35);
+  --radar-sweep: rgba(88, 129, 87, 0.12);
+  --radar-grid: rgba(115, 138, 101, 0.14);
+  --radar-ring: rgba(115, 138, 101, 0.24);
 }
 
 :root[data-theme="light"] {
@@ -116,6 +149,26 @@
   --bg-elevated: #FFFFFF;
   --bg-control: #E6EFEA;
   --bg-hover: #D5E5DE;
+
+  /* Glass surfaces - light mode */
+  --bg-glass-sidebar: rgba(226, 236, 231, 0.96);
+  --bg-glass-header: rgba(6, 10, 9, 0.94);
+  --bg-glass-panel: rgba(255, 255, 255, 0.93);
+
+  --border-subtle-white: rgba(0, 0, 0, 0.06);
+  --border-subtle-white-sm: rgba(0, 0, 0, 0.04);
+  --border-glass: rgba(0, 0, 0, 0.08);
+  --accent-primary-dim: rgba(0, 179, 89, 0.12);
+  --accent-primary-glow: rgba(0, 179, 89, 0.16);
+
+  --status-safe-dim: rgba(0, 179, 89, 0.10);
+  --status-info-dim: rgba(2, 132, 199, 0.10);
+  --status-warning-dim: rgba(217, 119, 6, 0.10);
+  --status-critical-dim: rgba(220, 38, 38, 0.10);
+  --status-safe-border: rgba(0, 179, 89, 0.30);
+  --status-info-border: rgba(2, 132, 199, 0.30);
+  --status-warning-border: rgba(217, 119, 6, 0.30);
+  --status-critical-border: rgba(220, 38, 38, 0.30);
 
   --text-primary: #060A09;
   --text-secondary: #35544C;
@@ -188,18 +241,21 @@
   --entity-incident: #DC2626;
   --entity-hospital: #00B359;
 
-  --shadow-flat: 0 1px 3px rgba(6, 10, 9, 0.08);
-  --shadow-flat-sm: 0 1px 2px rgba(6, 10, 9, 0.05);
-  --shadow-raised: 0 4px 6px -1px rgba(6, 10, 9, 0.08);
-  --shadow-raised-sm: 0 1px 3px rgba(6, 10, 9, 0.06);
-  --shadow-raised-hover: 0 10px 15px -3px rgba(6, 10, 9, 0.12);
-  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-flat: 0 1px 3px rgba(6, 10, 9, 0.10);
+  --shadow-flat-sm: 0 1px 2px rgba(6, 10, 9, 0.06);
+  --shadow-raised: 0 4px 8px -1px rgba(6, 10, 9, 0.12);
+  --shadow-raised-sm: 0 1px 4px rgba(6, 10, 9, 0.08);
+  --shadow-raised-hover: 0 10px 16px -3px rgba(6, 10, 9, 0.16);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-inset-sm: inset 0 1px 1px rgba(0, 0, 0, 0.04);
   --shadow-sidebar: 1px 0 0 var(--border-card);
+  --shadow-glow-accent: 0 0 10px rgba(0, 179, 89, 0.14);
+  --shadow-glow-crit: 0 0 8px rgba(220, 38, 38, 0.14);
+  --shadow-glow-warn: 0 0 8px rgba(217, 119, 6, 0.14);
 
   --radar-beam: #00B359;
-  --radar-glow: rgba(0, 179, 89, 0.25);
-  --radar-sweep: rgba(0, 179, 89, 0.1);
+  --radar-glow: rgba(0, 179, 89, 0.22);
+  --radar-sweep: rgba(0, 179, 89, 0.09);
   --radar-grid: var(--border-grid);
   --radar-ring: var(--border-card);
 }
@@ -207,8 +263,8 @@
 /* Common System Dimensions & Typography */
 :root {
   --radius-none: 0px;
-  --radius-xs: 4px;
-  --radius-sm: 6px;
+  --radius-xs: 3px;
+  --radius-sm: 5px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
@@ -226,5 +282,10 @@
   /* App Dimensions */
   --header-height: 48px;
   --sidebar-width: 240px;
-  --sidebar-collapsed-width: 76px;
+  --sidebar-collapsed-width: 72px;
+
+  /* Animation Timing */
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 350ms ease;
 }

@@ -119,13 +119,14 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', minWidth: 0, whiteSpace: 'nowrap' }}>
           <h1
             style={{
-              fontSize: '1.05rem',
-              fontFamily: 'var(--font-heading)',
+              fontSize: '0.95rem',
+              fontFamily: 'var(--font-mono)',
               fontWeight: 700,
-              color: 'var(--text-primary, #F0FDF4)',
-              letterSpacing: '-0.01em',
+              color: 'var(--text-primary, #e9ece9)',
+              letterSpacing: '0.04em',
               margin: 0,
               lineHeight: 1,
+              textTransform: 'uppercase',
             }}
           >
             {moduleInfo.title}
@@ -133,31 +134,58 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           <span
             className="header-subtitle"
             style={{
-              fontSize: '0.74rem',
-              color: 'var(--text-secondary, #869E96)',
-              fontWeight: 400,
+              fontSize: '0.68rem',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--text-secondary, #94a192)',
+              fontWeight: 500,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              letterSpacing: '0.03em',
             }}
           >
-            {moduleInfo.subtitle}
+            // {moduleInfo.subtitle}
           </span>
         </div>
       </div>
 
+      {/* Center: Tactical Status Indicators & Coordinates Readout */}
+      <div className="header-notice-badge" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+        <div className="tactical-badge tactical-badge-online">
+          <span className="dot-glowing-green" />
+          <span>SYS_ONLINE</span>
+        </div>
+        <div className="tactical-badge tactical-badge-secure" style={{ display: 'none' }} id="hdr-secure-pill">
+          SECURE
+        </div>
+        <div
+          className="meta-coord"
+          style={{
+            fontSize: '0.65rem',
+            background: 'rgba(18, 22, 20, 0.60)',
+            border: '1px solid rgba(115, 138, 101, 0.20)',
+            borderRadius: '4px',
+            padding: '2px 8px',
+          }}
+        >
+          28.6139° N, 77.2090° E // OMEGA-ZETA
+        </div>
+      </div>
       {/* Right: Controls Strip */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-        {/* Live IST Clock */}
+        {/* Live Clock with Telemetry Monospace */}
         <div
           className="clock-value"
           style={{
-            fontSize: '0.82rem',
-            fontFamily: 'var(--font-numerals)',
+            fontSize: '0.80rem',
+            fontFamily: 'var(--font-mono)',
             fontWeight: 700,
-            color: 'var(--text-primary, #F0FDF4)',
+            color: 'var(--text-primary, #e9ece9)',
             fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '0.02em',
-            marginRight: '2px',
+            letterSpacing: '0.04em',
+            background: 'rgba(18, 22, 20, 0.60)',
+            border: '1px solid rgba(115, 138, 101, 0.20)',
+            padding: '2px 8px',
+            borderRadius: '4px',
           }}
         >
           {istTime}
@@ -168,47 +196,35 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           {/* Go Offline / Offline Mode Button */}
           <button
             type="button"
+            className="btn-tactical"
             onClick={onToggleOffline}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '3px 9px',
-              borderRadius: 'var(--radius-sm)',
-              border: isOfflineMode ? '1.2px solid rgba(255, 59, 92, 0.5)' : '1px solid rgba(255, 255, 255, 0.2)',
-              background: isOfflineMode ? 'rgba(255, 59, 92, 0.15)' : 'transparent',
-              color: isOfflineMode ? '#FF3B5C' : '#F0FDF4',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
+              padding: '4px 10px',
+              fontSize: '0.68rem',
+              borderColor: isOfflineMode ? 'rgba(212, 163, 115, 0.45)' : 'rgba(115, 138, 101, 0.25)',
+              background: isOfflineMode ? 'rgba(212, 163, 115, 0.12)' : 'rgba(24, 29, 26, 0.60)',
+              color: isOfflineMode ? 'var(--highlight-amber, #d4a373)' : 'var(--text-secondary, #94a192)',
             }}
             title={isOfflineMode ? 'Air-gap mode active (Click to restore online simulation)' : 'Simulate tactical radio blackout'}
           >
-            {isOfflineMode ? <WifiOff size={13} color="#FF3B5C" /> : <Wifi size={13} color="#869E96" />}
-            <span>{isOfflineMode ? 'Offline Mode' : 'Go offline'}</span>
+            {isOfflineMode ? <WifiOff size={13} color="var(--highlight-amber, #d4a373)" /> : <Wifi size={13} color="var(--text-secondary, #94a192)" />}
+            <span>{isOfflineMode ? 'BLACKOUT_ACTIVE' : 'GO_OFFLINE'}</span>
           </button>
 
           {/* Reset Scenario Button */}
           <button
             type="button"
+            className="btn-tactical"
             onClick={onResetDemo}
             style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '3px 9px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              background: 'transparent',
-              color: '#F0FDF4',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              cursor: 'pointer',
+              padding: '4px 10px',
+              fontSize: '0.68rem',
+              color: 'var(--text-secondary, #94a192)',
             }}
             title="Reset scenario to deterministic baseline fixtures"
           >
-            <RotateCcw size={13} />
-            <span>Reset scenario</span>
+            <RotateCcw size={12} />
+            <span>RESET_SCENARIO</span>
           </button>
         </div>
 
@@ -217,36 +233,30 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           type="button"
           onClick={onTriggerSync}
           disabled={isSyncing || isOfflineMode || pendingSyncCount === 0}
+          className={pendingSyncCount > 0 ? 'btn-tactical btn-tactical-olive' : 'btn-tactical'}
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '3px 10px',
-            borderRadius: 'var(--radius-sm)',
-            border: pendingSyncCount > 0 ? '1.2px solid #00E676' : '1px solid rgba(255, 255, 255, 0.25)',
-            background: pendingSyncCount > 0 ? '#00E676' : 'transparent',
-            color: pendingSyncCount > 0 ? '#060A09' : '#F0FDF4',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            cursor: pendingSyncCount > 0 ? 'pointer' : 'default',
+            padding: '4px 12px',
+            fontSize: '0.70rem',
             opacity: isOfflineMode ? 0.45 : 1,
+            cursor: pendingSyncCount > 0 ? 'pointer' : 'default',
           }}
           title="Synchronize local outbox queue"
         >
-          <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
+          <span>{isSyncing ? 'SYNCING...' : 'SYNC_OUTBOX'}</span>
           {pendingSyncCount > 0 && (
             <span
               style={{
                 width: '16px',
                 height: '16px',
                 borderRadius: '50%',
-                background: '#060A09',
-                color: '#00E676',
+                background: '#121614',
+                color: 'var(--highlight-amber, #d4a373)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '0.65rem',
                 fontWeight: 800,
+                border: '1px solid #d4a373',
               }}
             >
               {pendingSyncCount}
@@ -259,15 +269,18 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             padding: '2px 8px',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            fontSize: '0.68rem',
-            fontFamily: 'var(--font-heading)',
+            borderRadius: 'var(--radius-pill)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'rgba(255, 255, 255, 0.03)',
+            fontSize: '0.65rem',
+            fontFamily: 'var(--font-mono)',
             fontWeight: 700,
-            color: isOfflineMode ? '#FF3B5C' : '#00E676',
-            height: '24px',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: isOfflineMode ? 'var(--status-critical, #FF3B5C)' : 'var(--status-safe, #00E676)',
+            height: '22px',
             whiteSpace: 'nowrap',
             flexShrink: 0,
           }}
@@ -278,12 +291,7 @@ export const CommandHeader: React.FC<CommandHeaderProps> = ({
           }
         >
           <span
-            style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: isOfflineMode ? '#FF3B5C' : '#00E676',
-            }}
+            className={isOfflineMode ? 'status-dot status-dot-crit' : 'status-dot status-dot-live'}
           />
           <span>
             {isOfflineMode ? 'OFFLINE' : 'LINK ACTIVE'}

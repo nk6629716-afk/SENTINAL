@@ -25,95 +25,93 @@ export const SimulationReplayFooter = React.memo<SimulationReplayFooterProps>(
       <footer
         className="bottom-replay-bar"
         style={{
-          height: '36px',
-          minHeight: '36px',
-          borderTop: 'var(--border-width, 1.2px) solid var(--color-edge, #172622)',
-          background: 'var(--color-sheet, #0D1412)',
+          height: '32px',
+          minHeight: '32px',
+          borderTop: '1px solid rgba(115, 138, 101, 0.20)',
+          background: 'rgba(18, 22, 20, 0.95)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 16px',
-          fontSize: '0.74rem',
+          fontSize: '0.68rem',
+          fontFamily: 'var(--font-mono)',
           zIndex: 30,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* Simulation Pause / Resume Button */}
           {onToggleSimulationPause && (
             <button
               type="button"
-              className="btn btn-sm"
+              className="btn-tactical"
               onClick={onToggleSimulationPause}
               style={{
-                width: '24px',
-                height: '24px',
-                minWidth: '24px',
+                width: '22px',
+                height: '22px',
+                minWidth: '22px',
                 padding: 0,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: 'var(--bg-control, #172622)',
-                border: '1px solid var(--border-subtle, #1F332D)',
-                color: 'var(--text-primary, #F0FDF4)',
-                borderRadius: '4px',
-                cursor: 'pointer',
               }}
               title={isSimPaused ? 'Resume simulation' : 'Pause simulation'}
             >
-              {isSimPaused ? <Play size={12} /> : <Pause size={12} />}
+              {isSimPaused ? <Play size={11} /> : <Pause size={11} />}
             </button>
           )}
 
           {/* Live Indicator & Elapsed Time */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span className={isSimPaused ? 'dot-glowing-amber' : 'dot-glowing-green'} />
               <span
                 style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: isSimPaused ? 'var(--color-warn, #FFB300)' : 'var(--color-ok, #00E676)',
-                }}
-              />
-              <span
-                style={{
-                  fontSize: '0.68rem',
-                  fontFamily: 'var(--font-heading, sans-serif)',
+                  fontSize: '0.65rem',
                   fontWeight: 700,
-                  color: isSimPaused ? 'var(--color-warn, #FFB300)' : 'var(--color-ok, #00E676)',
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  color: isSimPaused ? 'var(--highlight-amber, #d4a373)' : 'var(--telemetry-green, #588157)',
                 }}
               >
-                {isSimPaused ? 'PAUSED' : 'LIVE'}
+                {isSimPaused ? 'PAUSED' : 'LIVE_FEED'}
               </span>
             </div>
 
             <span
-              className="mono"
               style={{
-                fontSize: '0.72rem',
-                color: 'var(--text-secondary, #869E96)',
-                fontFamily: 'var(--font-mono, monospace)',
+                color: 'var(--text-secondary, #94a192)',
                 fontVariantNumeric: 'tabular-nums',
+                letterSpacing: '0.04em',
               }}
             >
-              Elapsed: {elapsedSeconds}s
+              T+{elapsedSeconds}s
             </span>
+          </div>
+
+          <div className="meta-coord" style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>
+            ANTIGRAVITY TACTICAL SUITE // PROTOCOLS SECURED
           </div>
         </div>
 
         {/* Real Activity Ticker */}
-        {latestActivity && (
+        {latestActivity ? (
           <div
             style={{
-              color: 'var(--text-secondary, #869E96)',
-              fontSize: '0.72rem',
+              color: 'var(--text-secondary, #94a192)',
+              fontSize: '0.68rem',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
-              maxWidth: '60%',
+              maxWidth: '50%',
             }}
           >
             {latestActivity}
+          </div>
+        ) : (
+          <div className="meta-coord" style={{ fontSize: '0.62rem' }}>
+            COORD: 28.6139° N, 77.2090° E // ALL SYSTEMS NOMINAL
           </div>
         )}
       </footer>

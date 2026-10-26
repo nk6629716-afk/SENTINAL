@@ -13,8 +13,11 @@ import {
 import {
   ChevronLeft,
   GripVertical,
+  LayoutGrid,
+  Map,
 } from 'lucide-react';
 import { TacticalMap } from '../components/TacticalMap';
+import { TacticalBentoGrid } from './TacticalBentoGrid';
 import {
   selectOpenAlerts,
   selectPendingOutbox,
@@ -74,6 +77,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onToggleSimulationPause,
   isSimPaused = false,
 }) => {
+  const [dashboardView, setDashboardView] = useState<'bento' | 'map'>('bento');
   const [crossModuleStep, setCrossModuleStep] = useState<number>(3);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'alerts' | 'reports' | 'activity'>('alerts');
@@ -182,13 +186,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const metricsPanel = (
     <div
       style={{
-        background: 'var(--color-sheet)',
-        border: '1px solid var(--color-edge)',
+        background: 'rgba(24, 29, 26, 0.90)',
+        border: '1px solid rgba(115, 138, 101, 0.25)',
         boxShadow: 'var(--shadow-flat)',
-        borderRadius: 'var(--radius-sm)',
+        borderRadius: '6px',
         display: 'flex',
-        padding: '6px 14px',
-        gap: '16px',
+        padding: '5px 12px',
+        gap: '14px',
         alignItems: 'center',
         flexShrink: 0,
       }}
@@ -197,70 +201,70 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div
           className="metric-value"
           style={{
-            fontSize: '1.25rem',
-            fontFamily: 'var(--font-numerals)',
+            fontSize: '1.15rem',
+            fontFamily: 'var(--font-mono)',
             fontWeight: 800,
-            color: 'var(--text-primary)',
+            color: 'var(--text-primary, #e9ece9)',
             lineHeight: 1,
           }}
         >
           {tracks.length}
         </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+        <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
           Tracks
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
+      <div style={{ borderLeft: '1px solid rgba(115, 138, 101, 0.20)', paddingLeft: '12px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.25rem',
-            fontFamily: 'var(--font-numerals)',
+            fontSize: '1.15rem',
+            fontFamily: 'var(--font-mono)',
             fontWeight: 800,
-            color: openAlerts.length > 0 ? 'var(--status-critical, #FF3B5C)' : 'var(--text-primary)',
+            color: openAlerts.length > 0 ? 'var(--highlight-amber, #d4a373)' : 'var(--text-primary, #e9ece9)',
             lineHeight: 1,
           }}
         >
           {openAlerts.length}
         </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+        <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
           Alerts
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
+      <div style={{ borderLeft: '1px solid rgba(115, 138, 101, 0.20)', paddingLeft: '12px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.25rem',
-            fontFamily: 'var(--font-numerals)',
+            fontSize: '1.15rem',
+            fontFamily: 'var(--font-mono)',
             fontWeight: 800,
-            color: 'var(--text-primary)',
+            color: 'var(--text-primary, #e9ece9)',
             lineHeight: 1,
           }}
         >
           {syncedIncidents.length}
         </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+        <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
           Synced
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
+      <div style={{ borderLeft: '1px solid rgba(115, 138, 101, 0.20)', paddingLeft: '12px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.25rem',
-            fontFamily: 'var(--font-numerals)',
+            fontSize: '1.15rem',
+            fontFamily: 'var(--font-mono)',
             fontWeight: 800,
-            color: pendingIncidents.length > 0 ? 'var(--status-warning, #FFB300)' : 'var(--text-primary)',
+            color: pendingIncidents.length > 0 ? 'var(--highlight-amber, #d4a373)' : 'var(--text-primary, #e9ece9)',
             lineHeight: 1,
           }}
         >
           {pendingIncidents.length}
         </div>
-        <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+        <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
           Outbox
         </div>
       </div>
@@ -303,8 +307,63 @@ export const Dashboard: React.FC<DashboardProps> = ({
         overflow: 'hidden',
       }}
     >
-      {/* Upper Area: Full Area Tactical Map + Right Intel Pane */}
-      <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
+      {/* Tactical View Mode Switcher Sub-Bar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 16px',
+          background: 'rgba(18, 22, 20, 0.95)',
+          borderBottom: '1px solid rgba(115, 138, 101, 0.20)',
+          flexShrink: 0,
+          gap: '12px',
+          zIndex: 10,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="segmented-switch">
+            <button
+              type="button"
+              className={`segmented-switch-btn ${dashboardView === 'bento' ? 'active' : ''}`}
+              onClick={() => setDashboardView('bento')}
+            >
+              <LayoutGrid size={13} />
+              <span>BENTO COMMAND</span>
+            </button>
+            <button
+              type="button"
+              className={`segmented-switch-btn ${dashboardView === 'map' ? 'active' : ''}`}
+              onClick={() => setDashboardView('map')}
+            >
+              <Map size={13} />
+              <span>GEOSPATIAL C2 MAP</span>
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className="tactical-badge tactical-badge-online">
+            <span className="dot-glowing-green" />
+            SYS_ONLINE
+          </span>
+          <span className="meta-coord" style={{ fontSize: '0.65rem' }}>
+            COORD: 28.6139° N, 77.2090° E
+          </span>
+        </div>
+      </div>
+
+      {dashboardView === 'bento' ? (
+        <TacticalBentoGrid
+          summary={summary}
+          tracksCount={tracks.length}
+          alertsCount={openAlerts.length}
+          incidentsCount={incidents.length}
+          onNavigateModule={onNavigate}
+        />
+      ) : (
+        /* Upper Area: Full Area Tactical Map + Right Intel Pane */
+        <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
         {/* Map Container */}
         <div style={{ flex: 1, position: 'relative', minWidth: 0, height: '100%' }}>
           <TacticalMap
@@ -450,6 +509,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           onNavigate={onNavigate}
         />
       </div>
+      )}
 
       {/* Bottom Simulation Bar */}
       <SimulationReplayFooter

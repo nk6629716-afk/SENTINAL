@@ -410,54 +410,54 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               type="button"
               onClick={() => handleSetMode('topo')}
               style={{
-                background: radarMode === 'topo' ? 'var(--color-strip)' : 'transparent',
-                color: radarMode === 'topo' ? '#FFFFFF' : 'var(--text-primary)',
+                background: radarMode === 'topo' ? '#5b7050' : 'transparent',
+                color: radarMode === 'topo' ? '#e9ece9' : 'var(--text-secondary, #94a192)',
                 border: 'none',
-                padding: '6px 14px',
-                fontSize: '0.78rem',
-                fontFamily: 'var(--font-heading)',
+                padding: '5px 12px',
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono)',
                 fontWeight: 700,
                 cursor: 'pointer',
               }}
               title="Cartographic Terrain Chart"
             >
-              Chart
+              CHART
             </button>
             <button
               type="button"
               onClick={() => handleSetMode('ppi')}
               style={{
-                background: radarMode === 'ppi' ? 'var(--color-strip)' : 'transparent',
-                color: radarMode === 'ppi' ? '#FFFFFF' : 'var(--text-primary)',
+                background: radarMode === 'ppi' ? '#5b7050' : 'transparent',
+                color: radarMode === 'ppi' ? '#e9ece9' : 'var(--text-secondary, #94a192)',
                 border: 'none',
-                padding: '6px 14px',
-                fontSize: '0.78rem',
-                fontFamily: 'var(--font-heading)',
+                padding: '5px 12px',
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono)',
                 fontWeight: 700,
                 cursor: 'pointer',
-                borderLeft: '1px solid var(--color-edge)',
-                borderRight: '1px solid var(--color-edge)',
+                borderLeft: '1px solid rgba(115, 138, 101, 0.25)',
+                borderRight: '1px solid rgba(115, 138, 101, 0.25)',
               }}
               title="Plan Position Indicator (PPI) Radar Scope"
             >
-              Radar
+              RADAR
             </button>
             <button
               type="button"
               onClick={() => handleSetMode('flir')}
               style={{
-                background: radarMode === 'flir' ? 'var(--color-strip)' : 'transparent',
-                color: radarMode === 'flir' ? '#FFFFFF' : 'var(--text-primary)',
+                background: radarMode === 'flir' ? '#5b7050' : 'transparent',
+                color: radarMode === 'flir' ? '#e9ece9' : 'var(--text-secondary, #94a192)',
                 border: 'none',
-                padding: '6px 14px',
-                fontSize: '0.78rem',
-                fontFamily: 'var(--font-heading)',
+                padding: '5px 12px',
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono)',
                 fontWeight: 700,
                 cursor: 'pointer',
               }}
               title="Forward Looking Infrared (FLIR) Thermal Sensor"
             >
-              Thermal
+              THERMAL
             </button>
           </div>
         </div>
@@ -1010,14 +1010,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
               />
               <path
                 d={createSweepWedgePath(centerPt.x, centerPt.y, scopeRadius, 25)}
-                fill="rgba(0, 230, 118, 0.12)"
+                fill="rgba(115, 138, 101, 0.16)"
               />
               <line
                 x1={centerPt.x}
                 y1={centerPt.y}
                 x2={centerPt.x}
                 y2={centerPt.y - scopeRadius}
-                stroke="#00E676"
+                stroke="#738a65"
                 strokeWidth="1.5"
                 strokeOpacity="0.85"
               />
