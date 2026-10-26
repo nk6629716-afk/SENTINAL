@@ -10,4 +10,5 @@
 | FIX-06 | fixed | `src/utils/numericSafety.ts`, `src/selectors/trackSelectors.ts`, `src/simulation/simulationEngine.ts` | `tests/fixes/fix06_numeric_safety.test.ts` | `docs/evidence/FIX-06.txt` |
 | FIX-07 | already correct | `src/selectors/trackSelectors.ts` | `tests/fixes/fix07_queue_stability.test.ts` | `docs/evidence/FIX-07.txt` |
 | FIX-08 | fixed | `src/simulation/simulationEngine.ts`, `src/algorithms/skywatch/anomalyDetector.ts`, `src/selectors/alertSelectors.ts` | `tests/fixes/fix08_stale_tracks.test.ts` | `docs/evidence/FIX-08.txt` |
+| FIX-09 | fixed | `src/simulation/simulationEngine.ts` | `tests/fixes/fix09_time_stepping.test.ts` | `docs/evidence/FIX-09.txt` |
 

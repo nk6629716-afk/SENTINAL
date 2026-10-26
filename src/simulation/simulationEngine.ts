@@ -132,6 +132,9 @@ export class SimulationEngine {
   private speed: 1 | 2 | 5 = 1;
   private isPaused: boolean = false;
   private timer: any = null;
+  private accumulatorSec: number = 0;
+  private lastPerformanceNow: number = 0;
+  private readonly STEP_SEC: number = 1.0;
   private listeners: Set<SimulationListener> = new Set();
 
   // Internal state
@@ -1048,14 +1051,17 @@ export class SimulationEngine {
   /**
    * Speed Control (1x / 2x / 5x)
    */
-  public setSpeed(speed: 1 | 2 | 5): void {
-    this.speed = speed;
+  /**
+   * Speed Control (scales dt only, never thresholds - FIX-09)
+   */
+  public setSpeed(speed: 1 | 2 | 5 | number): void {
+    this.speed = (speed as any) || 1;
     if (!this.isPaused && this.timer) {
-      this.start(); // Restart timer with new interval
+      this.start();
     }
   }
 
-  public getSpeed(): 1 | 2 | 5 {
+  public getSpeed(): 1 | 2 | 5 | number {
     return this.speed;
   }
 
@@ -1067,9 +1073,10 @@ export class SimulationEngine {
     }
   }
 
-  public resume(): void {
+  public resume(now?: number): void {
     this.isPaused = false;
-    this.start();
+    this.lastPerformanceNow = now !== undefined ? now : (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    this.start(this.lastPerformanceNow);
   }
 
   public isPausedState(): boolean {
@@ -1093,13 +1100,52 @@ export class SimulationEngine {
     return !this.isPaused && this.timer !== null;
   }
 
-  public start(): void {
+  /**
+   * Fixed-step accumulator tick:
+   * Real elapsed time (performance.now) capped at 5 steps catch-up, remainder dropped on capping.
+   */
+  public onTimerTick(now?: number): number {
+    const currentNow = now !== undefined ? now : (typeof performance !== 'undefined' ? performance.now() : Date.now());
+
+    if (this.isPaused) {
+      this.lastPerformanceNow = currentNow;
+      return 0;
+    }
+
+    const dtRealSec = Math.max(0, (currentNow - (this.lastPerformanceNow || currentNow)) / 1000);
+    this.lastPerformanceNow = currentNow;
+
+    // Scale dt only by speed, never thresholds
+    this.accumulatorSec += dtRealSec * (this.speed || 1);
+
+    let stepsToRun = Math.floor(this.accumulatorSec / this.STEP_SEC);
+    if (stepsToRun > 5) {
+      // Capped at 5 steps (catch-up) and drop the remainder to prevent hidden-tab jumps
+      stepsToRun = 5;
+      this.accumulatorSec = 0;
+    } else {
+      this.accumulatorSec -= stepsToRun * this.STEP_SEC;
+    }
+
+    for (let i = 0; i < stepsToRun; i++) {
+      this.step();
+    }
+
+    return stepsToRun;
+  }
+
+  public start(now?: number): void {
     if (this.timer) {
       clearInterval(this.timer);
     }
-    const intervalMs = Math.round(1000 / this.speed);
+    if (now !== undefined) {
+      this.lastPerformanceNow = now;
+    } else if (!this.lastPerformanceNow) {
+      this.lastPerformanceNow = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    }
+    const intervalMs = Math.min(250, Math.max(50, Math.round(1000 / (this.speed || 1))));
     this.timer = setInterval(() => {
-      this.step();
+      this.onTimerTick();
     }, intervalMs);
   }
 
@@ -1112,6 +1158,8 @@ export class SimulationEngine {
 
   public reset(seed?: number): void {
     this.stop();
+    this.accumulatorSec = 0;
+    this.lastPerformanceNow = typeof performance !== 'undefined' ? performance.now() : Date.now();
     if (seed !== undefined) {
       this.seed = seed;
     }
