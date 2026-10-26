@@ -13,4 +13,5 @@
 | FIX-09 | fixed | `src/simulation/simulationEngine.ts` | `tests/fixes/fix09_time_stepping.test.ts` | `docs/evidence/FIX-09.txt` |
 | FIX-10 | fixed | `src/services/coordination/meshBus.ts`, `src/services/coordination/leaderElection.ts`, `src/simulation/simulationEngine.ts` | `tests/fixes/fix10_leader_election.test.ts` | `docs/evidence/FIX-10.txt` |
 | FIX-11 | fixed | `src/services/storage/indexedDb.ts` | `tests/fixes/fix11_fixture_seeding_race.test.ts` | `docs/evidence/FIX-11.txt` |
+| FIX-12 | fixed | `src/services/coordination/meshBus.ts`, `src/services/sync/syncManager.ts`, `src/services/mesh/meshService.ts` | `tests/fixes/fix12_mesh_bus.test.ts` | `docs/evidence/FIX-12.txt` |
 

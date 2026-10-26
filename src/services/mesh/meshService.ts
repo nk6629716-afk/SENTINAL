@@ -74,19 +74,25 @@ export class MeshService {
       ? ('BroadcastChannel' in window)
       : (typeof BroadcastChannel !== 'undefined');
 
-    if (hasChannel && !this.broadcastChannel) {
-      try {
-        const ChannelCtor = typeof window !== 'undefined' && (window as any).BroadcastChannel
-          ? (window as any).BroadcastChannel
-          : BroadcastChannel;
-        const ch = new ChannelCtor('sentinel_mesh_bus');
-        this.messageEventHandler = (event: MessageEvent) => {
-          this.handleIncomingBroadcast(event.data);
-        };
-        ch.addEventListener('message', this.messageEventHandler as EventListener);
-        this.broadcastChannel = ch;
-      } catch (err) {
-        console.warn('BroadcastChannel not available, using local loopback', err);
+    if (hasChannel) {
+      const ChannelCtor =
+        (typeof window !== 'undefined' && (window as any).BroadcastChannel) ||
+        (typeof BroadcastChannel !== 'undefined' ? BroadcastChannel : null);
+
+      if (!ChannelCtor) return;
+
+      this.messageEventHandler = (event: MessageEvent) => {
+        this.handleIncomingBroadcast(event.data);
+      };
+
+      if (!this.broadcastChannel) {
+        try {
+          const ch = new ChannelCtor('sentinel_mesh_bus');
+          ch.addEventListener('message', this.messageEventHandler as EventListener);
+          this.broadcastChannel = ch;
+        } catch (err) {
+          console.warn('BroadcastChannel sentinel_mesh_bus not available', err);
+        }
       }
     }
   }
@@ -96,14 +102,14 @@ export class MeshService {
       try {
         if (this.messageEventHandler) {
           this.broadcastChannel.removeEventListener('message', this.messageEventHandler as EventListener);
-          this.messageEventHandler = null;
         }
         this.broadcastChannel.close();
       } catch (err) {
-        console.warn('Error closing BroadcastChannel:', err);
+        console.warn('Error closing broadcastChannel:', err);
       }
       this.broadcastChannel = null;
     }
+    this.messageEventHandler = null;
   }
 
   private initBaselineData(): void {
@@ -519,7 +525,7 @@ export class MeshService {
       try {
         this.broadcastChannel.postMessage(payload);
       } catch (err) {
-        console.warn('Broadcast error:', err);
+        console.warn('Broadcast error on broadcastChannel:', err);
       }
     }
   }
