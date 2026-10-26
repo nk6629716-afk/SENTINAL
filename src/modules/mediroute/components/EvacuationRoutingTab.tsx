@@ -47,7 +47,7 @@ export const EvacuationRoutingTab: React.FC<EvacuationRoutingTabProps> = ({
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>(
     facilities[0]?.id || ''
   );
-  const [avoidBlockedEdges, setAvoidBlockedEdges] = useState<boolean>(true);
+  const avoidBlockedEdges = true;
 
   // Initialize router instance
   const router = useMemo(() => {
@@ -107,39 +107,6 @@ export const EvacuationRoutingTab: React.FC<EvacuationRoutingTabProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Route Mode & Option Toolbar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          padding: '10px 16px',
-          background: 'var(--bg-card, #181d1a)',
-          border: '1px solid var(--border-card, rgba(115, 138, 101, 0.20))',
-          borderRadius: 'var(--radius-sm, 6px)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <RouteIcon size={17} color="var(--accent-sage, #738a65)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary, #e9ece9)', fontFamily: 'var(--font-heading)' }}>
-            Hazard-Aware Evacuation Routing Engine (Dijkstra)
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: 'var(--text-secondary, #94a192)', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}>
-            <input
-              type="checkbox"
-              checked={avoidBlockedEdges}
-              onChange={(e) => setAvoidBlockedEdges(e.target.checked)}
-            />
-            <span>Avoid Blocked Hazards</span>
-          </label>
-        </div>
-      </div>
-
       {/* Main Grid: Left Route Setup & Recalculation / Right Network Edges & Hazards */}
       <div
         style={{

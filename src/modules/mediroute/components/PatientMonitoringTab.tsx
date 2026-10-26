@@ -7,10 +7,6 @@ import {
   HeartPulse,
   AlertTriangle,
   Activity,
-  Play,
-  Pause,
-  RotateCcw,
-  Sliders,
   CheckCircle2,
   Clock,
   Thermometer,
@@ -23,10 +19,10 @@ interface PatientMonitoringTabProps {
   casualties: ExtendedCasualtyRecord[];
   selectedCasualtyId: string | null;
   onSelectCasualty: (id: string) => void;
-  isSimPaused: boolean;
-  onToggleSimPause: () => void;
-  onResetSimulation: () => void;
-  onStepSimulation: () => void;
+  isSimPaused?: boolean;
+  onToggleSimPause?: () => void;
+  onResetSimulation?: () => void;
+  onStepSimulation?: () => void;
   onInjectAnomaly?: (patientId: string, metric: 'hr' | 'spo2' | 'rr' | 'temp') => void;
 }
 
@@ -34,14 +30,9 @@ export const PatientMonitoringTab: React.FC<PatientMonitoringTabProps> = ({
   casualties,
   selectedCasualtyId,
   onSelectCasualty,
-  isSimPaused,
-  onToggleSimPause,
-  onResetSimulation,
-  onStepSimulation,
   onInjectAnomaly,
 }) => {
   const [filterSeverity, setFilterSeverity] = useState<'all' | 'anomalies_only'>('all');
-  const [showThresholdConfig, setShowThresholdConfig] = useState(false);
 
   // Configurable thresholds for anomaly detection
   const [thresholds, setThresholds] = useState({
@@ -75,199 +66,6 @@ export const PatientMonitoringTab: React.FC<PatientMonitoringTabProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Tactical Telemetry Control Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          padding: '10px 16px',
-          background: 'var(--bg-card, #181d1a)',
-          border: '1px solid var(--border-card, rgba(115, 138, 101, 0.20))',
-          borderRadius: 'var(--radius-sm, 6px)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <HeartPulse size={17} color="var(--accent-sage, #738a65)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary, #e9ece9)', fontFamily: 'var(--font-heading)' }}>
-            Patient Telemetry & Anomaly Detection
-          </span>
-        </div>
-
-        {/* Play / Pause / Step / Reset Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={onToggleSimPause}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              background: isSimPaused ? 'rgba(88, 129, 87, 0.2)' : 'rgba(200, 90, 83, 0.2)',
-              color: isSimPaused ? 'var(--status-safe, #588157)' : 'var(--status-critical, #c85a53)',
-              border: `1px solid ${isSimPaused ? 'rgba(88, 129, 87, 0.4)' : 'rgba(200, 90, 83, 0.4)'}`,
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            {isSimPaused ? <Play size={13} /> : <Pause size={13} />}
-            <span>{isSimPaused ? 'Resume Telemetry' : 'Pause Telemetry'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={onStepSimulation}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.72rem',
-              fontWeight: 600,
-              background: 'rgba(115, 138, 101, 0.15)',
-              color: 'var(--accent-sage, #738a65)',
-              border: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.25))',
-              fontFamily: 'var(--font-mono)',
-            }}
-            title="Advance vitals by 1 step"
-          >
-            <Zap size={13} />
-            <span>Step +1</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={onResetSimulation}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.72rem',
-              background: 'var(--bg-control, #161c18)',
-              color: 'var(--text-secondary, #94a192)',
-              border: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.20))',
-              fontFamily: 'var(--font-mono)',
-            }}
-            title="Reset telemetry to baseline"
-          >
-            <RotateCcw size={13} />
-            <span>Reset</span>
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={() => setShowThresholdConfig(!showThresholdConfig)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.72rem',
-              background: showThresholdConfig ? 'rgba(115, 138, 101, 0.25)' : 'var(--bg-control, #161c18)',
-              color: showThresholdConfig ? 'var(--text-primary, #e9ece9)' : 'var(--text-secondary, #94a192)',
-              border: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.25))',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            <Sliders size={13} />
-            <span>Thresholds</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Threshold Configuration Drawer */}
-      {showThresholdConfig && (
-        <div
-          style={{
-            background: 'var(--bg-card, #181d1a)',
-            border: '1px solid var(--accent-sage, #738a65)',
-            borderRadius: 'var(--radius-sm, 6px)',
-            padding: '14px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary, #e9ece9)', fontFamily: 'var(--font-heading)' }}>
-              Configurable Telemetry Alert Thresholds
-            </span>
-            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted, #667564)', fontFamily: 'var(--font-mono)' }}>
-              Parameter Control
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '12px',
-              fontSize: '0.72rem',
-              fontFamily: 'var(--font-mono)',
-            }}
-          >
-            <div>
-              <label style={{ color: 'var(--text-secondary, #94a192)', display: 'block', marginBottom: '4px' }}>
-                Max HR Alert: {thresholds.maxHr} bpm
-              </label>
-              <input
-                type="range"
-                min="90"
-                max="160"
-                value={thresholds.maxHr}
-                onChange={(e) => setThresholds({ ...thresholds, maxHr: Number(e.target.value) })}
-                style={{ width: '100%' }}
-              />
-            </div>
-            <div>
-              <label style={{ color: 'var(--text-secondary, #94a192)', display: 'block', marginBottom: '4px' }}>
-                Min SpO₂ Alert: {thresholds.minSpo2}%
-              </label>
-              <input
-                type="range"
-                min="80"
-                max="95"
-                value={thresholds.minSpo2}
-                onChange={(e) => setThresholds({ ...thresholds, minSpo2: Number(e.target.value) })}
-                style={{ width: '100%' }}
-              />
-            </div>
-            <div>
-              <label style={{ color: 'var(--text-secondary, #94a192)', display: 'block', marginBottom: '4px' }}>
-                Max RR Alert: {thresholds.maxRr} /min
-              </label>
-              <input
-                type="range"
-                min="24"
-                max="40"
-                value={thresholds.maxRr}
-                onChange={(e) => setThresholds({ ...thresholds, maxRr: Number(e.target.value) })}
-                style={{ width: '100%' }}
-              />
-            </div>
-            <div>
-              <label style={{ color: 'var(--text-secondary, #94a192)', display: 'block', marginBottom: '4px' }}>
-                Min Temp Alert: {thresholds.minTemp} °C
-              </label>
-              <input
-                type="range"
-                min="34.0"
-                max="36.5"
-                step="0.1"
-                value={thresholds.minTemp}
-                onChange={(e) => setThresholds({ ...thresholds, minTemp: Number(e.target.value) })}
-                style={{ width: '100%' }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Patient Split View: Left List / Right Details & Trend */}
       <div
         style={{

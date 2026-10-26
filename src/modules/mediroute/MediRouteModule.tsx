@@ -12,10 +12,6 @@ import {
   Route as RouteIcon,
   Building2,
   Ambulance,
-  Play,
-  Pause,
-  RotateCcw,
-  Zap,
 } from 'lucide-react';
 import {
   MediRouteSubTab,
@@ -679,13 +675,13 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
 
   return (
     <div
-      className="mediroute-module-wrapper"
+      className="mediroute-module-wrapper tactical-grid-bg tactical-scanlines"
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         minHeight: '100%',
-        background: 'var(--bg-canvas, #121614)',
+        backgroundColor: 'var(--bg-canvas, #121614)',
         color: 'var(--text-primary, #e9ece9)',
         overflowY: 'auto',
         padding: '16px 20px',
@@ -713,70 +709,6 @@ export const MediRouteModule: React.FC<MediRouteModuleProps> = ({
             <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #94a192)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
               Automated Triage, Patient Telemetry, Hazard-Aware Evacuation Routing & Dispatch
             </div>
-          </div>
-
-          {/* Global Sim Control Quick Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={toggleSimPause}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontSize: '0.72rem',
-                padding: '4px 10px',
-                background: localSimPaused ? 'rgba(88, 129, 87, 0.2)' : 'rgba(200, 90, 83, 0.2)',
-                color: localSimPaused ? 'var(--status-safe, #588157)' : 'var(--status-critical, #c85a53)',
-                border: `1px solid ${localSimPaused ? 'rgba(88, 129, 87, 0.4)' : 'rgba(200, 90, 83, 0.4)'}`,
-                fontFamily: 'var(--font-mono)',
-              }}
-            >
-              {localSimPaused ? <Play size={12} /> : <Pause size={12} />}
-              <span>{localSimPaused ? 'Resume Sim' : 'Pause Sim'}</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={stepSimulation}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontSize: '0.72rem',
-                padding: '4px 10px',
-                background: 'rgba(115, 138, 101, 0.15)',
-                color: 'var(--accent-sage, #738a65)',
-                border: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.25))',
-                fontFamily: 'var(--font-mono)',
-              }}
-              title="Step simulation forward +1 tick"
-            >
-              <Zap size={12} />
-              <span>Step</span>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-sm"
-              onClick={handleResetSimulation}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontSize: '0.72rem',
-                padding: '4px 10px',
-                background: 'var(--bg-control, #161c18)',
-                color: 'var(--text-secondary, #94a192)',
-                border: '1px solid var(--border-tactical, rgba(115, 138, 101, 0.20))',
-                fontFamily: 'var(--font-mono)',
-              }}
-            >
-              <RotateCcw size={12} />
-              <span>Reset</span>
-            </button>
           </div>
         </div>
 
