@@ -145,6 +145,8 @@ export class SimulationEngine {
 
   // Past predicted positions for tracking prediction error in meters: trackId -> Map<futureTick, {lat, lng}>
   private pastPredictions: Map<string, Map<number, { lat: number; lng: number }>> = new Map();
+  private trackLastUpdatedTick: Map<string, number> = new Map();
+  private stoppedTracks: Set<string> = new Set();
   private predictionErrors: number[] = [];
   private alertLatencies: number[] = [142, 185, 210, 165]; // ms
   private routeRecalcCount: number = 2;
@@ -329,6 +331,12 @@ export class SimulationEngine {
         isSimulated: true,
       },
     ];
+
+    this.trackLastUpdatedTick.clear();
+    this.stoppedTracks.clear();
+    for (const track of this.tracks) {
+      this.trackLastUpdatedTick.set(track.id, this.tick);
+    }
 
     // Compute initial predictions & threat scores for all tracks
     this.updateTrackPredictionsAndThreats();
@@ -672,6 +680,34 @@ export class SimulationEngine {
     const MAX_LAT = 34.085;
     const MIN_LNG = -118.280;
     const MAX_LNG = -118.210;
+
+    // Update last updated tick for active tracks that are not stopped
+    for (const track of this.tracks) {
+      if (!this.stoppedTracks.has(track.id)) {
+        this.trackLastUpdatedTick.set(track.id, this.tick);
+      }
+    }
+
+    // Prune stale tracks that have not received an update for >= 10 simulated seconds
+    const staleTrackIds: string[] = [];
+    this.tracks = this.tracks.filter((track) => {
+      const lastTick = this.trackLastUpdatedTick.get(track.id) ?? this.tick;
+      if (this.tick - lastTick >= 10) {
+        staleTrackIds.push(track.id);
+        return false;
+      }
+      return true;
+    });
+
+    if (staleTrackIds.length > 0) {
+      // Close open alert keys for stale tracks through FIX-02 rule
+      for (const alert of this.alerts) {
+        if (alert.trackId && staleTrackIds.includes(alert.trackId)) {
+          (alert as any).closed = true;
+          (alert as any).status = 'closed';
+        }
+      }
+    }
 
     // Find swarm leader
     const swarmLeader = this.tracks.find((t) => t.id === 'TRK-SWARM-S1');
@@ -1135,6 +1171,28 @@ export class SimulationEngine {
     });
     this.routeRecalcCount += 1;
     return this.hazards;
+  }
+
+  /**
+   * Adds a telemetry track directly to the simulation engine state
+   */
+  public addTrack(track: TelemetryTrack): void {
+    this.tracks.push(track);
+    this.trackLastUpdatedTick.set(track.id, this.tick);
+  }
+
+  /**
+   * Adds an airspace alert directly to the simulation engine state
+   */
+  public addAlert(alert: AirspaceAlert): void {
+    this.alerts.push(alert);
+  }
+
+  /**
+   * Stops simulated or external updates for a track (to test or trigger staleness)
+   */
+  public stopUpdatingTrack(trackId: string): void {
+    this.stoppedTracks.add(trackId);
   }
 
   /**

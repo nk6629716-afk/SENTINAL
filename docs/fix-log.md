@@ -9,4 +9,5 @@
 | FIX-05 | fixed | `src/utils/units.ts`, `src/selectors/trackSelectors.ts`, `src/modules/skywatch/SkyWatchModule.tsx`, `src/components/TacticalMap.tsx`, `src/selectors/routeSelectors.ts`, `src/modules/mediroute/MediRouteModule.tsx`, `src/services/data/fixtures.ts` | `tests/fixes/fix05_units.test.ts` | `docs/evidence/FIX-05.txt` |
 | FIX-06 | fixed | `src/utils/numericSafety.ts`, `src/selectors/trackSelectors.ts`, `src/simulation/simulationEngine.ts` | `tests/fixes/fix06_numeric_safety.test.ts` | `docs/evidence/FIX-06.txt` |
 | FIX-07 | already correct | `src/selectors/trackSelectors.ts` | `tests/fixes/fix07_queue_stability.test.ts` | `docs/evidence/FIX-07.txt` |
+| FIX-08 | fixed | `src/simulation/simulationEngine.ts`, `src/algorithms/skywatch/anomalyDetector.ts`, `src/selectors/alertSelectors.ts` | `tests/fixes/fix08_stale_tracks.test.ts` | `docs/evidence/FIX-08.txt` |
 

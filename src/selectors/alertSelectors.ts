@@ -5,8 +5,10 @@ import { AirspaceAlert } from '@shared/types';
  */
 export function selectOpenAlerts(alerts: AirspaceAlert[] = []): AirspaceAlert[] {
   const seen = new Set<string>();
-  // Informational activity entries (e.g. Friendly / authorized civilian logs) do not count as open alerts
-  const unack = alerts.filter((a) => !a.acknowledged && (a.severity as string) !== 'info');
+  // Informational activity entries and closed stale alerts do not count as open alerts
+  const unack = alerts.filter(
+    (a) => !a.acknowledged && (a.severity as string) !== 'info' && !(a as any).closed && (a as any).status !== 'closed'
+  );
   const deduplicated: AirspaceAlert[] = [];
   for (const a of unack) {
     const key = `${a.trackId || 'unknown'}:${a.ruleName || a.id}`;

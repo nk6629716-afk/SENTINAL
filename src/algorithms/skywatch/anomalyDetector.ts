@@ -119,6 +119,56 @@ export class SkyWatchAnomalyDetector {
   }
 
   /**
+   * Returns whether an alert key is currently open
+   */
+  public isAlertKeyOpen(trackId: string, ruleName: string): boolean {
+    const key = `${trackId}:${ruleName}`;
+    const state = this.activeAlertKeys.get(key);
+    return Boolean(state?.isOpen);
+  }
+
+  /**
+   * Prunes tracks that have not received an update within 10 simulated seconds.
+   * Closes open alert keys through the FIX-02 rule (5s false condition buffer).
+   */
+  public pruneStaleTracks(currentSimTimeMs: number, staleThresholdMs: number = 10000): string[] {
+    const prunedTrackIds: string[] = [];
+
+    for (const [trackId, pt] of this.previousTrackPoints.entries()) {
+      const ptMs = new Date(pt.timestamp).getTime();
+      const elapsedMs = currentSimTimeMs - ptMs;
+
+      if (elapsedMs >= staleThresholdMs) {
+        prunedTrackIds.push(trackId);
+
+        // Close all active alert keys for this track via FIX-02 5s rule
+        for (const [key, state] of this.activeAlertKeys.entries()) {
+          if (key.startsWith(`${trackId}:`)) {
+            if (state.isOpen) {
+              // Condition has been false since last sample (elapsedMs >= 10000 >= 5000)
+              state.isOpen = false;
+              state.alertId = '';
+              state.falseSinceSimTimeMs = null;
+            }
+          }
+        }
+
+        // Close associated alerts
+        for (const alert of this.alerts) {
+          if (alert.trackId === trackId) {
+            (alert as any).closed = true;
+          }
+        }
+
+        this.previousTrackPoints.delete(trackId);
+        this.firstSampleFlags.delete(trackId);
+      }
+    }
+
+    return prunedTrackIds;
+  }
+
+  /**
    * Evaluate a newly received telemetry track point against all anomaly rules.
    * Returns newly triggered alerts, if any.
    */
