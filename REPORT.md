@@ -1,5 +1,5 @@
 # SENTINEL Project Report & System Architecture Ledger
-*Automated Operational & Technical Dossier — Generated 2026-10-26T00:17:10.018Z*
+*Automated Operational & Technical Dossier — Generated 2026-10-26T00:18:26.762Z*
 
 ---
 
@@ -18,19 +18,12 @@ The platform provides resilient disaster-zone situational awareness for military
 | Metric | Active Repository Value |
 | :--- | :--- |
 | **Active Branch** | `main` |
-| **Commit SHA** | `9a1479d41a1ff9fb36b4d87ce10bf90a0a113d71` (`9a1479d`) |
-| **Last Commit Date** | `2026-10-26 05:30:24 +0530` |
+| **Commit SHA** | `1f0e78e758208fc1f05223d9c40d335c5deb3d10` (`1f0e78e`) |
+| **Last Commit Date** | `2026-10-26 05:48:17 +0530` |
 | **Author** | `nk6629716-afk <nk6629716@gmail.com>` |
 | **Remote URL** | `https://github.com/nk6629716-afk/fallingsun` |
-| **Working Tree Status** | `M  REPORT.md
-M  package.json
-M  server/package-lock.json
-M  server/src/db/database.ts
-M  server/src/routes/demoRoutes.ts
-M  server/tests/persistence.test.ts
-M  src/services/api/apiClient.ts
-M  src/services/storage/indexedDb.ts` |
-| **Latest Message** | `fix(hardening): make demonstration test self-contained, portable ui runner, and release audit reports` |
+| **Working Tree Status** | `Clean working directory (all files committed)` |
+| **Latest Message** | `feat(sync): integrate Phase 1 data integrity, non-destructive reset, and detour metrics` |
 
 ---
 
