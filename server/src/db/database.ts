@@ -15,6 +15,8 @@ import {
   VitalSignRecord,
   VitalWatchSummary,
   PersonnelLocationPoint,
+  SoldierProfile,
+  SoldierVitalsRecord,
 } from '../../../shared/types';
 import {
   INITIAL_INCIDENTS,
@@ -28,8 +30,12 @@ import {
   INITIAL_USERS,
   INITIAL_PERSONNEL,
   INITIAL_VITALS,
+  INITIAL_SOLDIERS,
+  INITIAL_SOLDIER_VITALS,
 } from '../../../shared/fixtures';
 import { config } from '../config';
+import { supabaseRepo } from './supabaseRepository';
+import { isSupabaseConfigured } from './supabaseClient';
 
 export interface DatabaseState {
   incidents: Record<string, Incident>;
@@ -39,6 +45,8 @@ export interface DatabaseState {
   observations: Record<string, GeoIntelObservation>;
   patients: Record<string, Patient>;
   hazards: Record<string, HazardEdge>;
+  soldiers: Record<string, SoldierProfile>;
+  soldierVitals: Record<string, SoldierVitalsRecord>;
   graphNodes: RoadGraphNode[];
   graphEdges: RoadGraphEdge[];
   users: Record<string, UserProfile>;
@@ -127,6 +135,20 @@ export class Database {
       vitals[v.id] = { ...v };
     });
 
+    const soldiers: Record<string, SoldierProfile> = {};
+    if (typeof INITIAL_SOLDIERS !== 'undefined') {
+      INITIAL_SOLDIERS.forEach((sol) => {
+        soldiers[sol.id] = { ...sol };
+      });
+    }
+
+    const soldierVitals: Record<string, SoldierVitalsRecord> = {};
+    if (typeof INITIAL_SOLDIER_VITALS !== 'undefined') {
+      INITIAL_SOLDIER_VITALS.forEach((vit) => {
+        soldierVitals[vit.id] = { ...vit };
+      });
+    }
+
     return {
       incidents,
       syncRegistry,
@@ -135,6 +157,8 @@ export class Database {
       observations,
       patients,
       hazards,
+      soldiers,
+      soldierVitals,
       graphNodes: [...ROAD_GRAPH_NODES],
       graphEdges: [...ROAD_GRAPH_EDGES],
       users,
@@ -179,7 +203,7 @@ export class Database {
           }
         }
 
-        // Ensure users, personnel, vitals structures exist
+        // Ensure users, personnel, vitals, soldiers, and soldierVitals structures exist
         let needsSave = false;
         if (!parsed.users || Object.keys(parsed.users).length === 0) {
           parsed.users = {};
@@ -194,6 +218,14 @@ export class Database {
         if (!parsed.vitals || Object.keys(parsed.vitals).length === 0) {
           parsed.vitals = {};
           INITIAL_VITALS.forEach((v) => { parsed.vitals[v.id] = { ...v }; });
+          needsSave = true;
+        }
+        if (!parsed.soldiers || Object.keys(parsed.soldiers).length === 0) {
+          const defaultState = this.getDefaultState();
+          parsed.soldiers = defaultState.soldiers;
+          if (!parsed.soldierVitals) {
+            parsed.soldierVitals = defaultState.soldierVitals;
+          }
           needsSave = true;
         }
 
@@ -258,8 +290,10 @@ export class Database {
     this.persist();
   }
 
-  public getStorageMode(): 'file' | 'memory' {
-    return this.isMemoryMode ? 'memory' : 'file';
+  public getStorageMode(): 'supabase' | 'file' | 'memory' {
+    if (this.isMemoryMode) return 'memory';
+    if (config.storageMode === 'supabase' && isSupabaseConfigured()) return 'supabase';
+    return 'file';
   }
 
   public getRawState(): Readonly<DatabaseState> {
@@ -324,8 +358,19 @@ export class Database {
         status: 'accepted',
         syncedAt: incident.syncedAt || new Date().toISOString(),
       };
+      if (isSupabaseConfigured() && !this.isMemoryMode) {
+        supabaseRepo.upsertSyncRegistryItem(this.state.syncRegistry[incident.clientId]).catch(() => {});
+      }
     }
     this.persist();
+
+    // Async write-through to genuine Supabase database
+    if (isSupabaseConfigured() && !this.isMemoryMode) {
+      supabaseRepo.upsertIncident(incident).catch((err) => {
+        console.warn('[DB] Supabase async saveIncident failed:', err.message);
+      });
+    }
+
     return this.state.incidents[incident.id];
   }
 
@@ -339,6 +384,10 @@ export class Database {
   public recordSyncOutcome(item: SyncItemResult): void {
     this.state.syncRegistry[item.clientId] = { ...item };
     this.persist();
+
+    if (isSupabaseConfigured() && !this.isMemoryMode) {
+      supabaseRepo.upsertSyncRegistryItem(item).catch(() => {});
+    }
   }
 
   // ------------------------------------------------------------------------
@@ -394,6 +443,11 @@ export class Database {
 
     this.state.alerts[alert.id] = { ...alert };
     this.persist();
+
+    if (isSupabaseConfigured() && !this.isMemoryMode) {
+      supabaseRepo.upsertAlert(alert).catch(() => {});
+    }
+
     return this.state.alerts[alert.id];
   }
 
@@ -420,6 +474,11 @@ export class Database {
   public saveObservation(observation: GeoIntelObservation): GeoIntelObservation {
     this.state.observations[observation.id] = { ...observation };
     this.persist();
+
+    if (isSupabaseConfigured() && !this.isMemoryMode) {
+      supabaseRepo.upsertObservation(observation).catch(() => {});
+    }
+
     return this.state.observations[observation.id];
   }
 
@@ -446,6 +505,11 @@ export class Database {
   public savePatient(patient: Patient): Patient {
     this.state.patients[patient.id] = { ...patient };
     this.persist();
+
+    if (isSupabaseConfigured() && !this.isMemoryMode) {
+      supabaseRepo.upsertPatient(patient).catch(() => {});
+    }
+
     return this.state.patients[patient.id];
   }
 
@@ -468,7 +532,51 @@ export class Database {
   public saveHazard(hazard: HazardEdge): HazardEdge {
     this.state.hazards[hazard.id] = { ...hazard };
     this.persist();
+
+    if (isSupabaseConfigured() && !this.isMemoryMode) {
+      supabaseRepo.upsertHazard(hazard).catch(() => {});
+    }
+
     return this.state.hazards[hazard.id];
+  }
+
+  // ------------------------------------------------------------------------
+  // Soldier Vitals
+  // ------------------------------------------------------------------------
+  public getSoldiers(): SoldierProfile[] {
+    return Object.values(this.state.soldiers || {});
+  }
+
+  public getSoldierById(id: string): SoldierProfile | null {
+    return this.state.soldiers?.[id] || null;
+  }
+
+  public getSoldierVitals(soldierId?: string): SoldierVitalsRecord[] {
+    let list = Object.values(this.state.soldierVitals || {});
+    if (soldierId) {
+      list = list.filter((v) => v.soldierId === soldierId);
+    }
+    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
+  public getSoldierVitalById(id: string): SoldierVitalsRecord | null {
+    return this.state.soldierVitals?.[id] || null;
+  }
+
+  public saveSoldierVitals(record: SoldierVitalsRecord): SoldierVitalsRecord {
+    if (!this.state.soldierVitals) {
+      this.state.soldierVitals = {};
+    }
+    this.state.soldierVitals[record.id] = { ...record };
+    this.persist();
+
+    if (isSupabaseConfigured() && !this.isMemoryMode) {
+      supabaseRepo.insertSoldierVitals(record).catch((err) => {
+        console.warn('[DB] Supabase async insertSoldierVitals failed:', err.message);
+      });
+    }
+
+    return this.state.soldierVitals[record.id];
   }
 
   public getRoadGraph(): { nodes: RoadGraphNode[]; edges: RoadGraphEdge[] } {

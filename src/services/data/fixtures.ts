@@ -155,7 +155,7 @@ export const INITIAL_ALERTS: AirspaceAlert[] = [
     ruleName: 'NO_FLY_ZONE_INCURSION',
     observedValue: 'Incursion distance: 0.4km inside perimeter',
     threshold: '0.0km (Strict Zero-Tolerance)',
-    explanation: 'Track breached the Sector HQ Protected Airspace perimeter while moving at 42 m/s without authorized squawk identifier.',
+    explanation: 'Track breached the Sector HQ Protected Airspace perimeter while moving at 151 km/h without authorized squawk identifier.',
     timestamp: new Date(Date.now() - 5 * 60000).toISOString(),
     acknowledged: false,
     isSimulated: true,

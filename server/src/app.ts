@@ -13,6 +13,8 @@ import { geoIntelRouter } from './routes/geoIntelRoutes';
 import { mediRouteRouter } from './routes/mediRouteRoutes';
 import { demoRouter } from './routes/demoRoutes';
 import { authRouter, vitalWatchRouter } from './routes/vitalWatchRoutes';
+import { soldierVitalsRouter } from './routes/soldierVitalsRoutes';
+import { authenticateToken, requireRole } from './middleware/auth';
 import { sseManager } from './realtime/sseHandler';
 import { ValidationError } from './validation/validators';
 import { ERROR_CODES } from '../../shared/contracts';
@@ -34,7 +36,11 @@ export function createApp(): express.Application {
     sseManager.handleConnection(req, res);
   });
 
+  // Global Authentication Token Parser for all API endpoints
+  app.use('/api', authenticateToken);
+
   // Mount API Routers
+  app.use('/api/auth', authRouter);
   app.use('/api/health', healthRouter);
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/incidents', incidentRouter);
@@ -43,9 +49,9 @@ export function createApp(): express.Application {
   app.use('/api/alerts', alertRouter);
   app.use('/api/geointel', geoIntelRouter);
   app.use('/api', mediRouteRouter);
-  app.use('/api/demo', demoRouter);
-  app.use('/api/auth', authRouter);
+  app.use('/api/demo', requireRole(['administrator', 'admin']), demoRouter);
   app.use('/api/vitalwatch', vitalWatchRouter);
+  app.use('/api/vitals', soldierVitalsRouter);
 
   // 404 Handler for undefined API routes
   app.use('/api/*', (req: Request, res: Response) => {

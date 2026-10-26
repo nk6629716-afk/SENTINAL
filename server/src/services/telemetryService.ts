@@ -123,7 +123,7 @@ export class TelemetryService {
       const speedDelta = speedKts - prevSpeed;
       this.previousSpeeds.set(track.id, speedKts);
 
-      // Current active anomaly flags set for this track
+      // Current active anomaly flags set for this track (runtime-validated via type guard)
       const validFlags = (track.anomalyFlags || []).filter(isAnomalyRuleName);
       const currentFlags = new Set<AnomalyRuleName>(validFlags);
 

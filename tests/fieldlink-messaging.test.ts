@@ -90,7 +90,7 @@ export async function runMeshMultiTabRegressionTest(): Promise<void> {
 }
 
 // Auto-run if executed directly via npx tsx
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('tests/fieldlink-messaging.test.ts')) {
   runMeshMultiTabRegressionTest()
     .then(() => process.exit(0))
     .catch((err) => {
@@ -98,3 +98,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       process.exit(1);
     });
 }
+

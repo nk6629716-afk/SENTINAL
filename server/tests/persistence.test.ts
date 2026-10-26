@@ -107,7 +107,7 @@ test('POST /api/demo/reset preserves pending offline incident reports and custom
     sourceModule: 'fieldlink',
     type: 'infrastructure',
     priority: 'high',
-    status: 'active',
+    status: 'pending_sync',
     syncStatus: 'failed',
     title: 'Failed Offline Report From Field',
     notes: 'Failed sync must survive demo reset for retry.',

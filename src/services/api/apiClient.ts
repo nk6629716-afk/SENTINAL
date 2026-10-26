@@ -16,6 +16,9 @@ import {
   OfflineSyncPayload,
   DashboardSummary,
   CalculatedRoute,
+  SoldierProfile,
+  SoldierVitalsRecord,
+  CreateSoldierVitalsInput,
 } from '@shared/types';
 import { dbService } from '../storage/indexedDb';
 import {
@@ -27,8 +30,10 @@ import {
   INITIAL_ALERTS,
   INITIAL_GEO_OBSERVATIONS,
 } from '../data/fixtures';
+import { INITIAL_SOLDIERS, INITIAL_SOLDIER_VITALS } from '../../../shared/fixtures';
 import { simulationEngine, SimulationTickState } from '../../simulation/simulationEngine';
 import { meshBus } from '../coordination/meshBus';
+import { authService } from '../auth/authService';
 
 
 // Configuration: cleanly normalizes VITE_API_URL without duplicate /api, defaulting to relative /api
@@ -61,6 +66,15 @@ export class SentinelApiClient {
 
   public getOfflineSimulation(): boolean {
     return this.isSimulatedOffline;
+  }
+
+  public getAuthHeaders(extraHeaders: Record<string, string> = {}): Record<string, string> {
+    const headers: Record<string, string> = { ...extraHeaders };
+    const token = authService.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
   }
 
   public async checkBackendAvailability(): Promise<boolean> {
@@ -857,12 +871,125 @@ export class SentinelApiClient {
     }
   }
 
-  // 7. Deterministic Demo Scenario Reset
+  // 7. Soldier Vitals Module
+  public async getSoldiers(): Promise<SoldierProfile[]> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/vitals/soldiers`, {
+          headers: this.getAuthHeaders(),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          return body.data || body;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Failed to fetch remote soldiers roster:', err);
+      }
+    }
+    return INITIAL_SOLDIERS;
+  }
+
+  public async getSoldierVitals(soldierId?: string): Promise<SoldierVitalsRecord[]> {
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const url = soldierId
+          ? `${API_BASE_URL}/vitals?soldierId=${encodeURIComponent(soldierId)}`
+          : `${API_BASE_URL}/vitals`;
+        const res = await fetch(url, {
+          headers: this.getAuthHeaders(),
+        });
+        if (res.ok) {
+          const body = await res.json();
+          return body.data || body;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Failed to fetch remote soldier vitals:', err);
+      }
+    }
+    return soldierId
+      ? INITIAL_SOLDIER_VITALS.filter((v) => v.soldierId === soldierId)
+      : INITIAL_SOLDIER_VITALS;
+  }
+
+  public async recordSoldierVitals(input: CreateSoldierVitalsInput): Promise<SoldierVitalsRecord> {
+    // 1. Sync immediately with simulation engine and MediRoute casualties
+    simulationEngine.updateCasualtyVitals(input.soldierId, {
+      heartRate: input.heartRateBpm,
+      spo2: input.oxygenSaturationPct,
+      respiratoryRate: input.respiratoryRateBpm,
+      bpSystolic: input.bloodPressureSystolic,
+      bpDiastolic: input.bloodPressureDiastolic,
+      temperature: input.temperatureCelsius,
+      notes: input.clinicalNotes,
+    });
+
+    const isOnline = await this.checkBackendAvailability();
+    if (isOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/vitals`, {
+          method: 'POST',
+          headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(input),
+        });
+
+        const json = await res.json();
+        if (res.ok && json.success) {
+          return json.data;
+        }
+      } catch (err) {
+        console.warn('[ApiClient] Failed to persist remote vitals, falling back to local store:', err);
+      }
+    }
+
+    // Local resilient store & merge
+    const newRecord: SoldierVitalsRecord = {
+      id: `VTL-${Date.now()}`,
+      soldierId: input.soldierId,
+      callsign: input.soldierId,
+      unit: 'Operational Detachment',
+      timestamp: new Date().toISOString(),
+      heartRateBpm: input.heartRateBpm,
+      bloodPressureSystolic: input.bloodPressureSystolic,
+      bloodPressureDiastolic: input.bloodPressureDiastolic,
+      temperatureCelsius: input.temperatureCelsius,
+      oxygenSaturationPct: input.oxygenSaturationPct,
+      respiratoryRateBpm: input.respiratoryRateBpm,
+      clinicalNotes: input.clinicalNotes,
+      recordedBy: authService.getUser()?.email || 'med_officer_1@sentinel.mil',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isSimulated: true,
+    };
+    INITIAL_SOLDIER_VITALS.unshift(newRecord);
+    return newRecord;
+  }
+
+  public updateCasualtyVitals(
+    id: string,
+    vitals: {
+      heartRate?: number;
+      spo2?: number;
+      respiratoryRate?: number;
+      bpSystolic?: number;
+      bpDiastolic?: number;
+      temperature?: number;
+      notes?: string;
+    }
+  ): void {
+    simulationEngine.updateCasualtyVitals(id, vitals);
+  }
+
+  // 8. Deterministic Demo Scenario Reset
   public async resetDemoBaseline(): Promise<void> {
     const isOnline = await this.checkBackendAvailability();
     if (isOnline) {
       try {
-        await fetch(`${API_BASE_URL}/demo/reset`, { method: 'POST' });
+        await fetch(`${API_BASE_URL}/demo/reset`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+        });
       } catch (err) {
         console.warn('[ApiClient] Remote demo reset failed:', err);
       }
