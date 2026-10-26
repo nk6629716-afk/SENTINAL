@@ -620,13 +620,16 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
               />
               <span
                 style={{
-                  fontSize: '0.68rem',
+                  fontSize: '0.72rem',
                   fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
+                  fontWeight: 600,
                   color: isSimPaused ? 'var(--color-warn)' : 'var(--color-ok)',
                 }}
               >
-                {isSimPaused ? 'PAUSED' : 'LIVE RADAR'}
+                {isSimPaused ? 'Paused' : 'Simulation running'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                (Simulated data)
               </span>
             </div>
 

@@ -608,7 +608,7 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                     Pending Outbox Queue
                   </span>
                   <span style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)' }}>
-                    IndexedDB Local Store
+                    Saved on this device
                   </span>
                 </div>
 
@@ -710,10 +710,10 @@ export const FieldLinkModule: React.FC<FieldLinkModuleProps> = ({
                   <span>{isSyncing ? 'Synchronizing...' : 'Sync outbox now'}</span>
                 </button>
 
-                <div style={{ fontSize: '0.7rem', color: 'var(--color-ink-2)', textAlign: 'center', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--color-ink-2)', textAlign: 'center', marginTop: '4px' }}>
                   {isOfflineMode
-                    ? 'Offline mode active: Records persisted locally in IndexedDB.'
-                    : 'Command link active: Client ID reconciliation enabled.'}
+                    ? 'Offline mode: Records saved on this device.'
+                    : 'Connected. Reports synced.'}
                 </div>
               </div>
             ) : activeTab === 'incidents' ? (

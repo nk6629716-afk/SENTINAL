@@ -77,13 +77,22 @@ export const SimulationReplayFooter = React.memo<SimulationReplayFooterProps>(
               />
               <span
                 style={{
-                  fontSize: '0.68rem',
+                  fontSize: '0.72rem',
                   fontFamily: 'var(--font-heading, sans-serif)',
-                  fontWeight: 700,
+                  fontWeight: 600,
                   color: isSimPaused ? 'var(--color-warn, #FFB300)' : 'var(--color-ok, #00E676)',
                 }}
               >
-                {isSimPaused ? 'PAUSED' : 'LIVE'}
+                {isSimPaused ? 'Paused' : 'Simulation running'}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  color: 'var(--text-muted, #546E66)',
+                  marginLeft: '4px',
+                }}
+              >
+                (Simulated data)
               </span>
             </div>
 
