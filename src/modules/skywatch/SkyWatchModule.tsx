@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   TelemetryTrack,
   AirspaceAlert,
@@ -9,6 +9,9 @@ import {
   Pause,
   AlertTriangle,
   ShieldAlert,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
 } from 'lucide-react';
 import { TacticalMap } from '../../components/TacticalMap';
 import { api } from '../../services/api/apiClient';
@@ -19,7 +22,8 @@ import {
 } from '../../selectors';
 import { formatIST } from '../../utils/time';
 import { formatRuleLabel } from '../../utils/rules';
-import { formatAltitude, formatSpeed } from '../../utils/units';
+import { formatSpeed, formatAltitude } from '../../utils/units';
+import { classifyTrack, TRACK_CLASSIFICATION_LABELS } from '../../utils/trackClassification';
 
 interface SkyWatchModuleProps {
   tracks: TelemetryTrack[];
@@ -43,6 +47,37 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [sessionStartTime] = useState<number>(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+
+  // Resizable Right Information Tab State
+  const [rightPaneWidth, setRightPaneWidth] = useState<number>(340);
+  const [isRightPaneCollapsed, setIsRightPaneCollapsed] = useState<boolean>(false);
+  const isDraggingSplitter = useRef(false);
+  const startDragX = useRef(0);
+  const startWidth = useRef(340);
+
+  const handleSplitterMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingSplitter.current = true;
+    startDragX.current = e.clientX;
+    startWidth.current = rightPaneWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingSplitter.current) return;
+      const deltaX = startDragX.current - moveEvent.clientX;
+      const newWidth = Math.max(240, Math.min(650, startWidth.current + deltaX));
+      setRightPaneWidth(newWidth);
+      setIsRightPaneCollapsed(false);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingSplitter.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  }, [rightPaneWidth]);
 
   // Single source of truth selectors
   const openAlerts = selectOpenAlerts(alerts);
@@ -83,12 +118,12 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
     <div
       style={{
         background: 'var(--color-sheet)',
-        border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+        border: '1px solid var(--color-edge)',
         boxShadow: 'var(--shadow-flat)',
         borderRadius: 'var(--radius-sm)',
         display: 'flex',
         padding: '6px 14px',
-        gap: '20px',
+        gap: '16px',
         alignItems: 'center',
         flexShrink: 0,
       }}
@@ -97,7 +132,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
             color: 'var(--text-primary)',
@@ -107,36 +142,36 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
           {tracks.length}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Tracks monitored
+          Tracks
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
-            color: alertStats.openCount > 0 ? 'var(--color-crit)' : 'var(--text-primary)',
+            color: alertStats.openCount > 0 ? 'var(--status-critical, #FF3B5C)' : 'var(--text-primary)',
             lineHeight: 1,
           }}
         >
           {alertStats.openCount}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Open alerts
+          Alerts
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
-            color: alertStats.criticalCount > 0 ? 'var(--color-crit)' : 'var(--text-primary)',
+            color: alertStats.criticalCount > 0 ? 'var(--status-critical, #FF3B5C)' : 'var(--text-primary)',
             lineHeight: 1,
           }}
         >
@@ -147,11 +182,11 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
         </div>
       </div>
 
-      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '16px' }}>
+      <div style={{ borderLeft: '1px solid var(--color-line)', paddingLeft: '14px' }}>
         <div
           className="metric-value"
           style={{
-            fontSize: '1.35rem',
+            fontSize: '1.25rem',
             fontFamily: 'var(--font-numerals)',
             fontWeight: 800,
             color: 'var(--text-primary)',
@@ -161,7 +196,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
           {zones.length}
         </div>
         <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-          Zones active
+          Zones
         </div>
       </div>
     </div>
@@ -195,21 +230,101 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
             initialMode="radar"
             topLeftContent={metricsPanel}
           />
+
+          {/* Floating expand tab button when information panel is collapsed */}
+          {isRightPaneCollapsed && (
+            <button
+              type="button"
+              onClick={() => setIsRightPaneCollapsed(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                zIndex: 30,
+                background: 'var(--color-sheet)',
+                border: '1px solid var(--color-edge)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: 'var(--shadow-flat)',
+                padding: '6px 12px',
+                fontSize: '0.78rem',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+              title="Expand information tab"
+            >
+              <ChevronLeft size={14} />
+              <span>Threat Queue</span>
+            </button>
+          )}
         </div>
 
-        {/* Right Intel Pane: Airspace Threat Ledger & Real Alerts */}
-        <aside className="intel-pane" aria-label="Airspace threat ledger">
+        {/* Draggable Vertical Splitter Slider Handle */}
+        <div
+          onMouseDown={handleSplitterMouseDown}
+          title="Drag to resize information tab (Double-click to reset)"
+          onDoubleClick={() => {
+            setRightPaneWidth(340);
+            setIsRightPaneCollapsed(false);
+          }}
+          style={{
+            width: '8px',
+            cursor: 'col-resize',
+            background: 'var(--color-paper)',
+            borderLeft: '1px solid var(--color-edge)',
+            borderRight: '1px solid var(--color-edge)',
+            display: isRightPaneCollapsed ? 'none' : 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            zIndex: 25,
+            userSelect: 'none',
+          }}
+        >
+          <GripVertical size={12} color="var(--text-secondary)" style={{ opacity: 0.6 }} />
+        </div>
+
+        {/* Right Intel Pane: Resizable width slider, sticky header, internal scroll */}
+        <aside
+          className="intel-pane"
+          style={{
+            width: isRightPaneCollapsed ? 0 : `${rightPaneWidth}px`,
+            minWidth: isRightPaneCollapsed ? 0 : undefined,
+            maxWidth: isRightPaneCollapsed ? 0 : undefined,
+            display: isRightPaneCollapsed ? 'none' : 'flex',
+          }}
+          aria-label="Airspace threat ledger"
+        >
           <div className="intel-header">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span style={{ fontSize: '0.95rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
-                Threat queue
-              </span>
-              <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
-                {rankedThreats.length} contacts
-              </span>
-            </div>
-            <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)', marginTop: '2px', fontStyle: 'italic' }}>
-              Heuristic scoring · Simulated telemetry
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <span style={{ fontSize: '0.95rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                  Threat queue
+                </span>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>
+                  {rankedThreats.length} contacts
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRightPaneCollapsed(true)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  color: 'var(--text-secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Collapse information tab"
+              >
+                <ChevronRight size={16} />
+              </button>
             </div>
           </div>
 
@@ -218,11 +333,11 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
             {activeThreat && (
               <div
                 style={{
-                  border: `var(--border-width, 1.2px) solid ${
+                  border: `1px solid ${
                     activeThreat.severity === 'critical' ? 'var(--color-crit)' : 'var(--color-warn)'
                   }`,
                   borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-paper)',
+                  background: 'var(--color-sheet)',
                   padding: '10px 12px',
                   display: 'flex',
                   flexDirection: 'column',
@@ -234,17 +349,17 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                     <span
                       style={{
                         color: activeThreat.severity === 'critical' ? 'var(--color-crit)' : 'var(--color-warn)',
-                        fontSize: '1.2rem',
+                        fontSize: '1.1rem',
                       }}
                     >
                       ◆
                     </span>
                     <div>
-                      <div style={{ fontSize: '1rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
+                      <div style={{ fontSize: '0.95rem', fontFamily: 'var(--font-heading)', fontWeight: 700 }}>
                         {activeThreat.callsign}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                        {activeThreat.classificationLabel ? `${activeThreat.classificationLabel} • ` : ''}{activeThreat.reason}
+                        {activeThreat.reason}
                       </div>
                     </div>
                   </div>
@@ -253,16 +368,21 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                     <span
                       className="numeral"
                       style={{
-                        fontSize: '1.6rem',
+                        fontSize: '1.4rem',
                         fontFamily: 'var(--font-numerals)',
                         fontWeight: 800,
-                        color: activeThreat.score > 80 ? 'var(--color-crit)' : 'var(--color-warn)',
+                        color:
+                          activeThreat.score >= 70
+                            ? 'var(--status-critical, #FF3B5C)'
+                            : activeThreat.score >= 40
+                            ? 'var(--status-warning, #FFB300)'
+                            : 'var(--status-safe, #00E676)',
                         lineHeight: 1,
                       }}
                     >
                       {activeThreat.score}
                     </span>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>Heuristic score</div>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--text-secondary)' }}>Score</div>
                   </div>
                 </div>
 
@@ -292,7 +412,7 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                     <div
                       style={{
                         fontWeight: 700,
-                        color: activeThreat.hasGeofenceBreach ? 'var(--color-crit)' : 'var(--color-ok)',
+                        color: activeThreat.hasGeofenceBreach ? 'var(--status-critical, #FF3B5C)' : 'var(--status-safe, #00E676)',
                       }}
                     >
                       {activeThreat.hasGeofenceBreach ? 'BREACHED' : 'CLEAR'}
@@ -352,7 +472,12 @@ export const SkyWatchModule: React.FC<SkyWatchModuleProps> = ({
                         fontSize: '1.15rem',
                         fontFamily: 'var(--font-numerals)',
                         fontWeight: 800,
-                        color: threat.score > 80 ? 'var(--color-crit)' : 'var(--text-primary)',
+                        color:
+                          threat.score >= 70
+                            ? 'var(--status-critical, #FF3B5C)'
+                            : threat.score >= 40
+                            ? 'var(--status-warning, #FFB300)'
+                            : 'var(--status-safe, #00E676)',
                       }}
                     >
                       {threat.score}

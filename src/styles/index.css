@@ -162,23 +162,24 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-primary,
 .btn-neu-primary {
-  background: var(--accent);
-  color: #FFFFFF !important;
-  border-color: var(--accent);
+  background: var(--accent-primary, #00E676);
+  color: #060A09 !important;
+  font-weight: 700;
+  border-color: var(--accent-primary, #00E676);
 }
 
 .btn-primary:hover,
 .btn-neu-primary:hover {
-  background: #D04E09;
-  border-color: #D04E09;
-  color: #FFFFFF !important;
+  background: #00C853;
+  border-color: #00C853;
+  color: #060A09 !important;
 }
 
 .btn-critical,
 .btn-neu-critical {
   background: transparent;
-  color: var(--critical) !important;
-  border-color: var(--critical);
+  color: var(--status-critical, #FF3B5C) !important;
+  border-color: var(--status-critical, #FF3B5C);
 }
 
 .btn-critical:hover,
@@ -870,4 +871,225 @@ html, body, #root, .app-shell {
     max-height: 55vh;
   }
 }
+
+/* ==========================================================================
+   SENTINEL Tactical Color Tokens & Tailwind Classes
+   Deep Pine Grey & Cyber Emerald Tactical Color Scheme
+   ========================================================================== */
+
+/* 1. Surface Hierarchy & Backgrounds */
+.bg-\[\#060A09\],
+.bg-canvas {
+  background-color: var(--bg-canvas, #060A09) !important;
+}
+
+.bg-\[\#0D1412\],
+.bg-shell {
+  background-color: var(--bg-shell, #0D1412) !important;
+}
+
+.bg-\[\#131E1B\],
+.bg-card {
+  background-color: var(--bg-card, #131E1B) !important;
+}
+
+.bg-\[\#1A2925\],
+.bg-elevated {
+  background-color: var(--bg-elevated, #1A2925) !important;
+}
+
+.bg-\[\#172622\],
+.bg-control {
+  background-color: var(--bg-control, #172622) !important;
+}
+
+.bg-\[\#223832\],
+.bg-hover {
+  background-color: var(--bg-hover, #223832) !important;
+}
+
+.hover\:bg-\[\#223832\]:hover,
+.hover\:bg-hover:hover {
+  background-color: var(--bg-hover, #223832) !important;
+}
+
+/* 2. Typography & Text Colors */
+.text-\[\#F0FDF4\],
+.text-primary {
+  color: var(--text-primary, #F0FDF4) !important;
+}
+
+.text-\[\#869E96\],
+.text-secondary {
+  color: var(--text-secondary, #869E96) !important;
+}
+
+.text-\[\#546E66\],
+.text-muted {
+  color: var(--text-muted, #546E66) !important;
+}
+
+/* 3. Borders & Grid Lines */
+.border-\[\#14221E\],
+.border-grid {
+  border-color: var(--border-grid, #14221E) !important;
+}
+
+.border-\[\#263D37\],
+.border-card {
+  border-color: var(--border-card, #263D37) !important;
+}
+
+.border-\[\#35544C\],
+.border-strong {
+  border-color: var(--border-strong, #35544C) !important;
+}
+
+/* 4. Brand & Tactical Accents */
+.text-\[\#00E676\],
+.text-accent-primary,
+.text-accent {
+  color: var(--accent-primary, #00E676) !important;
+}
+
+.bg-\[\#00E676\],
+.bg-accent-primary,
+.bg-accent {
+  background-color: var(--accent-primary, #00E676) !important;
+}
+
+.border-\[\#00E676\],
+.border-accent-primary,
+.border-accent {
+  border-color: var(--accent-primary, #00E676) !important;
+}
+
+.text-\[\#2DD4BF\],
+.text-accent-secondary {
+  color: var(--accent-secondary, #2DD4BF) !important;
+}
+
+.bg-\[\#2DD4BF\],
+.bg-accent-secondary {
+  background-color: var(--accent-secondary, #2DD4BF) !important;
+}
+
+.border-\[\#2DD4BF\],
+.border-accent-secondary {
+  border-color: var(--accent-secondary, #2DD4BF) !important;
+}
+
+/* 5. Semantic Status Colors (Strictly Reserved for Meaning) */
+/* Safe / Friendly: #00E676 (Cyber Emerald for Link Active, Field Hospital, Verified steps) */
+.status-safe,
+.text-status-safe {
+  color: var(--status-safe, #00E676) !important;
+}
+.bg-status-safe {
+  background-color: var(--status-safe, #00E676) !important;
+}
+.border-status-safe {
+  border-color: var(--status-safe, #00E676) !important;
+}
+.badge-status-safe {
+  background-color: rgba(0, 230, 118, 0.15) !important;
+  color: #00E676 !important;
+  border: 1px solid rgba(0, 230, 118, 0.4) !important;
+}
+
+/* Info / Telemetry: #38BDF8 (Sky Blue for Neutral commercial tracks) */
+.status-info,
+.text-\[\#38BDF8\],
+.text-status-info {
+  color: var(--status-info, #38BDF8) !important;
+}
+.bg-\[\#38BDF8\],
+.bg-status-info {
+  background-color: var(--status-info, #38BDF8) !important;
+}
+.border-\[\#38BDF8\],
+.border-status-info {
+  border-color: var(--status-info, #38BDF8) !important;
+}
+.badge-status-info {
+  background-color: rgba(56, 189, 248, 0.15) !important;
+  color: #38BDF8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+}
+
+/* Warning / Suspect: #FFB300 (Vivid Amber for training mode badge, medium threat scores 40-69) */
+.status-warning,
+.text-\[\#FFB300\],
+.text-status-warning {
+  color: var(--status-warning, #FFB300) !important;
+}
+.bg-\[\#FFB300\],
+.bg-status-warning {
+  background-color: var(--status-warning, #FFB300) !important;
+}
+.border-\[\#FFB300\],
+.border-status-warning {
+  border-color: var(--status-warning, #FFB300) !important;
+}
+.badge-status-warning {
+  background-color: rgba(255, 179, 0, 0.15) !important;
+  color: #FFB300 !important;
+  border: 1px solid rgba(255, 179, 0, 0.4) !important;
+}
+
+/* Critical / Hostile: #FF3B5C (Crimson Red for Open Alerts KPI, Critical Incident banner, high threats 70+) */
+.status-critical,
+.text-\[\#FF3B5C\],
+.text-status-critical {
+  color: var(--status-critical, #FF3B5C) !important;
+}
+.bg-\[\#FF3B5C\],
+.bg-status-critical {
+  background-color: var(--status-critical, #FF3B5C) !important;
+}
+.border-\[\#FF3B5C\],
+.border-status-critical {
+  border-color: var(--status-critical, #FF3B5C) !important;
+}
+.badge-status-critical {
+  background-color: rgba(255, 59, 92, 0.18) !important;
+  color: #FF3B5C !important;
+  border: 1px solid rgba(255, 59, 92, 0.45) !important;
+}
+
+/* Tactical HUD Glassmorphism & Custom Thin Scrollbar */
+.tactical-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.tactical-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.tactical-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tactical-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+.tactical-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary, #00E676);
+}
+
+.ghost-fieldlink-btn:hover {
+  background: rgba(255, 59, 92, 0.18) !important;
+  border-color: #FF3B5C !important;
+  color: #FFFFFF !important;
+}
+
+.threat-list-item:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.mission-step-item:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+
 

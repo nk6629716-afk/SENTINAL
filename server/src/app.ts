@@ -12,6 +12,7 @@ import { alertRouter } from './routes/alertRoutes';
 import { geoIntelRouter } from './routes/geoIntelRoutes';
 import { mediRouteRouter } from './routes/mediRouteRoutes';
 import { demoRouter } from './routes/demoRoutes';
+import { authRouter, vitalWatchRouter } from './routes/vitalWatchRoutes';
 import { sseManager } from './realtime/sseHandler';
 import { ValidationError } from './validation/validators';
 import { ERROR_CODES } from '../../shared/contracts';
@@ -43,6 +44,8 @@ export function createApp(): express.Application {
   app.use('/api/geointel', geoIntelRouter);
   app.use('/api', mediRouteRouter);
   app.use('/api/demo', demoRouter);
+  app.use('/api/auth', authRouter);
+  app.use('/api/vitalwatch', vitalWatchRouter);
 
   // 404 Handler for undefined API routes
   app.use('/api/*', (req: Request, res: Response) => {

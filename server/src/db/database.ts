@@ -10,6 +10,11 @@ import {
   RoadGraphNode,
   RoadGraphEdge,
   SyncItemResult,
+  UserProfile,
+  PersonnelProfile,
+  VitalSignRecord,
+  VitalWatchSummary,
+  PersonnelLocationPoint,
 } from '../../../shared/types';
 import {
   INITIAL_INCIDENTS,
@@ -20,6 +25,9 @@ import {
   INITIAL_HAZARDS,
   ROAD_GRAPH_NODES,
   ROAD_GRAPH_EDGES,
+  INITIAL_USERS,
+  INITIAL_PERSONNEL,
+  INITIAL_VITALS,
 } from '../../../shared/fixtures';
 import { config } from '../config';
 
@@ -33,6 +41,9 @@ export interface DatabaseState {
   hazards: Record<string, HazardEdge>;
   graphNodes: RoadGraphNode[];
   graphEdges: RoadGraphEdge[];
+  users: Record<string, UserProfile>;
+  personnel: Record<string, PersonnelProfile>;
+  vitals: Record<string, VitalSignRecord>;
   metadata: {
     lastResetAt: string;
     version: string;
@@ -101,6 +112,21 @@ export class Database {
       hazards[haz.id] = { ...haz };
     });
 
+    const users: Record<string, UserProfile> = {};
+    INITIAL_USERS.forEach((u) => {
+      users[u.id] = { ...u };
+    });
+
+    const personnel: Record<string, PersonnelProfile> = {};
+    INITIAL_PERSONNEL.forEach((p) => {
+      personnel[p.id] = { ...p };
+    });
+
+    const vitals: Record<string, VitalSignRecord> = {};
+    INITIAL_VITALS.forEach((v) => {
+      vitals[v.id] = { ...v };
+    });
+
     return {
       incidents,
       syncRegistry,
@@ -111,6 +137,9 @@ export class Database {
       hazards,
       graphNodes: [...ROAD_GRAPH_NODES],
       graphEdges: [...ROAD_GRAPH_EDGES],
+      users,
+      personnel,
+      vitals,
       metadata: {
         lastResetAt: new Date().toISOString(),
         version: '1.0.0',
@@ -148,6 +177,28 @@ export class Database {
             parsed.alerts = deduplicated;
             this.persist(parsed);
           }
+        }
+
+        // Ensure users, personnel, vitals structures exist
+        let needsSave = false;
+        if (!parsed.users || Object.keys(parsed.users).length === 0) {
+          parsed.users = {};
+          INITIAL_USERS.forEach((u) => { parsed.users[u.id] = { ...u }; });
+          needsSave = true;
+        }
+        if (!parsed.personnel || Object.keys(parsed.personnel).length === 0) {
+          parsed.personnel = {};
+          INITIAL_PERSONNEL.forEach((p) => { parsed.personnel[p.id] = { ...p }; });
+          needsSave = true;
+        }
+        if (!parsed.vitals || Object.keys(parsed.vitals).length === 0) {
+          parsed.vitals = {};
+          INITIAL_VITALS.forEach((v) => { parsed.vitals[v.id] = { ...v }; });
+          needsSave = true;
+        }
+
+        if (needsSave) {
+          this.persist(parsed);
         }
 
         return parsed;
@@ -424,6 +475,114 @@ export class Database {
     return {
       nodes: this.state.graphNodes,
       edges: this.state.graphEdges,
+    };
+  }
+
+  // --------------------------------------------------------------------------
+  // VitalWatch & User Authentication Methods
+  // --------------------------------------------------------------------------
+  public getUsers(): UserProfile[] {
+    return Object.values(this.state.users);
+  }
+
+  public getUserById(id: string): UserProfile | null {
+    return this.state.users[id] || null;
+  }
+
+  public getUserByEmail(email: string): UserProfile | null {
+    const target = email.toLowerCase().trim();
+    return Object.values(this.state.users).find((u) => u.email.toLowerCase().trim() === target) || null;
+  }
+
+  public saveUser(user: UserProfile): UserProfile {
+    this.state.users[user.id] = { ...user };
+    this.persist();
+    return this.state.users[user.id];
+  }
+
+  public approveUser(userId: string, approvedBy: string, status: 'approved' | 'rejected'): UserProfile | null {
+    const user = this.state.users[userId];
+    if (!user) return null;
+    user.status = status;
+    user.approvedAt = new Date().toISOString();
+    user.approvedBy = approvedBy;
+    this.persist();
+    return user;
+  }
+
+  public getPersonnel(): PersonnelProfile[] {
+    const now = Date.now();
+    return Object.values(this.state.personnel).map((p) => {
+      const isStale = !p.lastSeenAt || (now - new Date(p.lastSeenAt).getTime()) > (15 * 60 * 1000);
+      return { ...p, isStale };
+    });
+  }
+
+  public getPersonnelById(id: string): PersonnelProfile | null {
+    const p = this.state.personnel[id];
+    if (!p) return null;
+    const now = Date.now();
+    const isStale = !p.lastSeenAt || (now - new Date(p.lastSeenAt).getTime()) > (15 * 60 * 1000);
+    return { ...p, isStale };
+  }
+
+  public savePersonnel(personnel: PersonnelProfile): PersonnelProfile {
+    this.state.personnel[personnel.id] = { ...personnel };
+    this.persist();
+    return this.state.personnel[personnel.id];
+  }
+
+  public updatePersonnelLocation(
+    id: string,
+    location: { lat: number; lng: number; accuracyMeters?: number; source?: 'browser_gps' | 'manual' }
+  ): PersonnelProfile | null {
+    const p = this.state.personnel[id];
+    if (!p) return null;
+    const point: PersonnelLocationPoint = {
+      lat: location.lat,
+      lng: location.lng,
+      accuracyMeters: location.accuracyMeters,
+      timestamp: new Date().toISOString(),
+      source: location.source || 'browser_gps',
+    };
+    p.currentLocation = point;
+    p.lastSeenAt = point.timestamp;
+    p.isStale = false;
+    if (!p.locationHistory) {
+      p.locationHistory = [];
+    }
+    p.locationHistory.push(point);
+    this.persist();
+    return p;
+  }
+
+  public getVitals(personnelId?: string): VitalSignRecord[] {
+    let list = Object.values(this.state.vitals).sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    if (personnelId) {
+      list = list.filter((v) => v.personnelId === personnelId);
+    }
+    return list;
+  }
+
+  public saveVital(record: VitalSignRecord): VitalSignRecord {
+    this.state.vitals[record.id] = { ...record };
+    this.persist();
+    return this.state.vitals[record.id];
+  }
+
+  public getVitalWatchSummary(): VitalWatchSummary {
+    const personnelList = this.getPersonnel();
+    const users = this.getUsers();
+    const vitals = this.getVitals();
+    return {
+      totalPersonnel: personnelList.length,
+      approvedUsers: users.filter((u) => u.status === 'approved').length,
+      pendingUsers: users.filter((u) => u.status === 'pending').length,
+      activeLocationsCount: personnelList.filter((p) => p.currentLocation && !p.isStale).length,
+      staleLocationsCount: personnelList.filter((p) => p.isStale).length,
+      recentVitalsCount: vitals.length,
     };
   }
 }

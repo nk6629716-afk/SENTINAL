@@ -51,7 +51,7 @@ export type IncidentType =
   | 'recon'
   | 'general';
 
-export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'pending_sync' | 'failed_sync' | 'archived' | 'open' | 'triaged';
+export type IncidentStatus = 'active' | 'in_progress' | 'resolved' | 'pending_sync' | 'archived' | 'open' | 'triaged';
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
 export interface IncidentReport {
@@ -207,7 +207,7 @@ export interface TelemetryTrack {
   timestamp: string;
   status: TrackStatus;
   flightHistory: Waypoint[];
-  anomalyFlags?: string[];
+  anomalyFlags?: AnomalyRuleName[];
   isSimulated: true;
   // Phase 1 & 3: Threat scoring and trajectory predictions
   threatScore?: number;
@@ -686,4 +686,68 @@ export interface SimulationMeasurableMetrics {
   routeRecalculations: number;
   changeDetectionsConfirmed: number;
 }
+
+// -------------------------------------------------------------
+// MODULE 5: VITALWATCH (Personnel Health & Tactical Telemetry)
+// -------------------------------------------------------------
+export type UserRole = 'medic' | 'admin' | 'commander' | 'operator';
+export type UserApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  status: UserApprovalStatus;
+  callsign?: string;
+  teamId?: string;
+  teamName?: string;
+  missionId?: string;
+  missionName?: string;
+  createdAt: string;
+  approvedAt?: string;
+  approvedBy?: string;
+}
+
+export interface VitalSignRecord {
+  id: string;
+  personnelId: string;
+  personnelName: string;
+  heartRate: number; // bpm
+  spo2: number; // %
+  systolicBp: number; // mmHg
+  diastolicBp: number; // mmHg
+  temperature: number; // °C
+  respiratoryRate: number; // breaths/min
+  timestamp: string; // ISO
+  recordedBy: string; // recorder identity
+  recorderRole: string; // 'medic' | 'admin'
+  notes?: string;
+  isManual: true; // Explicitly labeled manual
+}
+
+export interface PersonnelLocationPoint {
+  lat: number;
+  lng: number;
+  accuracyMeters?: number;
+  timestamp: string;
+  source: 'browser_gps' | 'manual';
+}
+
+export interface PersonnelProfile extends UserProfile {
+  currentLocation?: PersonnelLocationPoint;
+  locationHistory: PersonnelLocationPoint[];
+  lastSeenAt?: string;
+  isStale?: boolean; // true if > 15m or unknown
+}
+
+export interface VitalWatchSummary {
+  totalPersonnel: number;
+  approvedUsers: number;
+  pendingUsers: number;
+  activeLocationsCount: number;
+  staleLocationsCount: number;
+  recentVitalsCount: number;
+}
+
 

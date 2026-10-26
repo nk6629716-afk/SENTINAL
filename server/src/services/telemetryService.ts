@@ -6,6 +6,29 @@ import {
 } from '../../../shared/types';
 import { eventBus } from '../realtime/eventBus';
 
+const VALID_ANOMALY_RULES: readonly AnomalyRuleName[] = [
+  'NO_FLY_ZONE_INCURSION',
+  'ZONE_INCURSION',
+  'RAPID_ACCELERATION_SPIKE',
+  'SUDDEN_ACCELERATION',
+  'UNUSUAL_ALTITUDE_DROP',
+  'FLIGHT_PATH_DEVIATION',
+  'ROUTE_DEVIATION',
+  'STALE_TELEMETRY_SIGNAL',
+  'STALE_TELEMETRY',
+  'speed_anomaly',
+  'route_deviation',
+  'restricted_zone_entry',
+  'stale_telemetry',
+] as const;
+
+function isAnomalyRuleName(rule: string): rule is AnomalyRuleName {
+  for (let i = 0; i < VALID_ANOMALY_RULES.length; i++) {
+    if (VALID_ANOMALY_RULES[i] === rule) return true;
+  }
+  return false;
+}
+
 export class TelemetryService {
   // Configured fictional restricted zone for demo
   private restrictedZone = {
@@ -101,7 +124,8 @@ export class TelemetryService {
       this.previousSpeeds.set(track.id, speedKts);
 
       // Current active anomaly flags set for this track
-      const currentFlags = new Set<AnomalyRuleName>(track.anomalyFlags || []);
+      const validFlags = (track.anomalyFlags || []).filter(isAnomalyRuleName);
+      const currentFlags = new Set<AnomalyRuleName>(validFlags);
 
       // Check Anomaly Rules
       // 1. Zone incursion

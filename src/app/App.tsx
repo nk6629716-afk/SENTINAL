@@ -30,13 +30,15 @@ import { FieldLinkModule } from '../modules/fieldlink/FieldLinkModule';
 import { SkyWatchModule } from '../modules/skywatch/SkyWatchModule';
 import { GeoIntelModule } from '../modules/geointel/GeoIntelModule';
 import { MediRouteModule } from '../modules/mediroute/MediRouteModule';
+import { VitalWatchModule } from '../modules/vitalwatch/VitalWatchModule';
 import { realtimeService, RealtimeState } from '../services/api/realtimeService';
+import { syncManager } from '../services/sync/syncManager';
 import { selectPendingOutbox, selectOpenAlerts } from '../selectors';
-import { Layers, Radio, Crosshair, Compass, HeartPulse } from 'lucide-react';
+import { Layers, Radio, Crosshair, Compass, HeartPulse, Activity } from 'lucide-react';
 
-export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute';
+export type ModuleId = 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute' | 'vitalwatch';
 
-export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute'] as const;
+export const VALID_MODULES: readonly ModuleId[] = ['dashboard', 'fieldlink', 'skywatch', 'geointel', 'mediroute', 'vitalwatch'] as const;
 
 export const DEFAULT_INITIAL_SUMMARY: DashboardSummary = {
   systemStatus: 'nominal',
@@ -379,11 +381,10 @@ export const App: React.FC = () => {
     if (isOfflineMode) return;
     setIsSyncing(true);
     try {
-      await Promise.all([api.syncPendingQueue(), api.syncPendingGeoObservations()]);
+      await syncManager.triggerSync();
       await refreshAllData();
     } catch (err: any) {
       console.warn('Sync issue:', err);
-      alert(`Sync failed: ${err.message}`);
     } finally {
       setIsSyncing(false);
     }
@@ -631,6 +632,10 @@ export const App: React.FC = () => {
             isSimPaused={isSimPaused}
           />
         )}
+
+        {activeModule === 'vitalwatch' && (
+          <VitalWatchModule />
+        )}
       </main>
 
       {/* Mobile Bottom Dock (< 768px) */}
@@ -706,6 +711,15 @@ export const App: React.FC = () => {
         >
           <HeartPulse size={18} />
           <span>MediRoute</span>
+        </button>
+
+        <button
+          type="button"
+          className={`mobile-dock-item ${activeModule === 'vitalwatch' ? 'active' : ''}`}
+          onClick={() => handleNavigate('vitalwatch')}
+        >
+          <Activity size={18} />
+          <span>VitalWatch</span>
         </button>
       </nav>
     </div>
