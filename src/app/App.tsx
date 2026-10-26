@@ -650,6 +650,7 @@ export const App: React.FC = () => {
             hazards={hazards}
             nodes={EVACUATION_NODES}
             onNavigate={handleNavigate}
+            onNavigateMediRouteSubTab={handleNavigateMediRouteSubTab}
             onResetDemo={handleResetDemo}
             isOfflineMode={isOfflineMode}
             realtimeStatus={isOfflineMode ? 'disconnected' : realtimeState.status}

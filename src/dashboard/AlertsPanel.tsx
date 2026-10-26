@@ -122,7 +122,7 @@ export const CriticalIncidentCard = React.memo<CriticalIncidentCardProps>(
             transition: 'all 0.2s ease',
           }}
         >
-          <span>Open in FieldLink</span>
+          <span>{incident.type === 'medical' ? 'Open in MediRoute Triage' : 'Open in FieldLink'}</span>
           <ExternalLink size={12} />
         </button>
       </div>
@@ -650,8 +650,12 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
     );
 
     const handleNavigateFieldLink = useCallback(() => {
-      onNavigate('fieldlink');
-    }, [onNavigate]);
+      if (criticalIncident?.type === 'medical') {
+        onNavigate('mediroute');
+      } else {
+        onNavigate('fieldlink');
+      }
+    }, [onNavigate, criticalIncident]);
 
     // Synthetic activity feed from state
     const activities = useMemo(() => {
@@ -915,7 +919,7 @@ export const AlertsPanel = React.memo<AlertsPanelProps>(
                         textTransform: 'uppercase',
                       }}
                     >
-                      Threat Queue ({rankedThreats.length})
+                      Triage & Priority Queue ({rankedThreats.length})
                     </div>
                     <span
                       className="text-zinc-500 font-mono"

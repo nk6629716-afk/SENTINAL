@@ -18,15 +18,10 @@ import {
 } from 'lucide-react';
 import { TacticalMap } from '../components/TacticalMap';
 import { TacticalBentoGrid } from './TacticalBentoGrid';
-import {
-  selectOpenAlerts,
-  selectPendingOutbox,
-  selectSyncedIncidents,
-  selectRankedThreatQueue,
-} from '../selectors';
-import { formatIST } from '../utils/time';
-import { AlertsPanel } from './AlertsPanel';
+import { AlertsPanel, ThreatItemData } from './AlertsPanel';
 import { SimulationReplayFooter } from './SimulationReplayFooter';
+import { MediRouteSubTab } from '../modules/mediroute/medirouteTypes';
+import { INITIAL_EXTENDED_CASUALTIES } from '../modules/mediroute/medirouteData';
 
 interface DashboardProps {
   summary: DashboardSummary;
@@ -39,6 +34,7 @@ interface DashboardProps {
   hazards: RoadHazardEdge[];
   nodes: EvacuationNode[];
   onNavigate: (module: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute') => void;
+  onNavigateMediRouteSubTab?: (subTab: MediRouteSubTab) => void;
   onResetDemo: () => Promise<void>;
   isOfflineMode: boolean;
   realtimeStatus?: 'connected' | 'reconnecting' | 'disconnected' | 'stale';
@@ -68,6 +64,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   hazards,
   nodes,
   onNavigate,
+  onNavigateMediRouteSubTab,
   onResetDemo,
   isOfflineMode,
   realtimeStatus = 'disconnected',
@@ -78,7 +75,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   isSimPaused = false,
 }) => {
   const [dashboardView, setDashboardView] = useState<'bento' | 'map'>('bento');
-  const [crossModuleStep, setCrossModuleStep] = useState<number>(3);
+  const [crossModuleStep, setCrossModuleStep] = useState<number>(2);
   const [selectedEntity, setSelectedEntity] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'alerts' | 'reports' | 'activity'>('alerts');
 
@@ -113,46 +110,179 @@ export const Dashboard: React.FC<DashboardProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   }, [rightPaneWidth]);
 
-  // Single source of truth selectors - memoized to isolate re-evaluations
-  const pendingIncidents = useMemo(() => selectPendingOutbox(incidents), [incidents]);
-  const openAlerts = useMemo(() => selectOpenAlerts(alerts), [alerts]);
-  const syncedIncidents = useMemo(() => selectSyncedIncidents(incidents), [incidents]);
-  const rankedThreats = useMemo(() => selectRankedThreatQueue(tracks, zones, alerts), [tracks, zones, alerts]);
+  // Derived MediRoute metrics
+  const activeCasualties = casualties.length > 0 ? casualties : INITIAL_EXTENDED_CASUALTIES;
+  const immediateCount = activeCasualties.filter((c: any) => c.triageCategory === 'immediate').length || 2;
+  const blockedHazardsCount = hazards.filter((h) => h.blocked).length;
 
-  const criticalIncident = useMemo(
-    () => incidents.find((i) => i.priority === 'critical') || incidents[0] || null,
-    [incidents]
-  );
+  // Dedicated MediRoute Critical Trauma Record
+  const criticalMedicalIncident = useMemo<IncidentReport>(() => {
+    const medInc = incidents.find((i) => i.priority === 'critical' || i.type === 'medical');
+    if (medInc) return medInc;
+    return {
+      id: 'CAS-CRIT-01',
+      sourceModule: 'fieldlink',
+      type: 'medical',
+      priority: 'critical',
+      title: 'CAS-0419: Severe Abdominal Penetrating Trauma',
+      notes: 'Hemodynamic compromise (BP: 82/50, HR: 128 bpm). Rule 4 START Immediate. Priority Evac to Field Hospital Alpha.',
+      location: { name: 'Forward Aid Station Bravo', lat: 34.065, lng: -118.238 },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: 'active',
+      isSimulated: true,
+    };
+  }, [incidents]);
 
+  // Dedicated MediRoute Triage & Evacuation Alerts
+  const medicalAlerts = useMemo<AirspaceAlert[]>(() => {
+    return [
+      {
+        id: 'MED-ALT-1',
+        trackId: 'CAS-0419',
+        trackCallsign: 'CAS-0419 (Immediate)',
+        ruleName: 'speed_anomaly',
+        severity: 'critical',
+        observedValue: 'HR: 128 bpm',
+        threshold: 'HR > 100 bpm',
+        explanation: 'START Triage Immediate: Hemodynamic shock detected. Priority medevac via AMB-02.',
+        timestamp: new Date().toISOString(),
+        acknowledged: false,
+        isSimulated: true,
+      },
+      {
+        id: 'MED-ALT-2',
+        trackId: 'FAC-IP-3',
+        trackCallsign: 'Intake Point Charlie',
+        ruleName: 'route_deviation',
+        severity: 'warning',
+        observedValue: '25/25 Beds Occupied',
+        threshold: 'Capacity >= 95%',
+        explanation: 'Interstate Intake Point Charlie reached 100% capacity. Diverting inbound to Hospital Alpha.',
+        timestamp: new Date().toISOString(),
+        acknowledged: false,
+        isSimulated: true,
+      },
+      {
+        id: 'MED-ALT-3',
+        trackId: 'EDGE-1',
+        trackCallsign: 'Bridge Alpha Span',
+        ruleName: 'restricted_zone_entry',
+        severity: 'critical',
+        observedValue: 'Road Inaccessible',
+        threshold: 'Corridor Integrity Check',
+        explanation: 'Bridge Alpha Span structural collapse detected. Highway 9 bypass active.',
+        timestamp: new Date().toISOString(),
+        acknowledged: false,
+        isSimulated: true,
+      },
+    ];
+  }, []);
+
+  // Medical Triage & Evacuation Priority Queue
+  const medicalTriageQueue = useMemo<ThreatItemData[]>(() => {
+    const baseTrack: TelemetryTrack = {
+      id: 'CAS-0419',
+      callsign: 'CAS-0419 (Immediate - Shock)',
+      lat: 34.065,
+      lng: -118.238,
+      altitude: 0,
+      speed: 0,
+      heading: 0,
+      timestamp: new Date().toISOString(),
+      status: 'suspicious',
+      flightHistory: [],
+      isSimulated: true,
+      threatScore: 95,
+    };
+
+    return [
+      {
+        id: 'CAS-0419',
+        callsign: 'CAS-0419 (Immediate - Shock)',
+        reason: 'Hemodynamic compromise (BP 82/50, HR 128). ALS Evac to Hospital Alpha.',
+        score: 95,
+        severity: 'critical',
+        track: {
+          ...baseTrack,
+          id: 'CAS-0419',
+          callsign: 'CAS-0419 (Sgt Vance)',
+          threatScore: 95,
+        },
+      },
+      {
+        id: 'CAS-0420',
+        callsign: 'CAS-0420 (Immediate - Chest)',
+        reason: 'Tension pneumothorax (SpO2 91%, RR 28). Immediate needle decompression needed.',
+        score: 88,
+        severity: 'critical',
+        track: {
+          ...baseTrack,
+          id: 'CAS-0420',
+          callsign: 'CAS-0420 (Cpl Chen)',
+          threatScore: 88,
+        },
+      },
+      {
+        id: 'EDGE-1',
+        callsign: 'HAZARD: Bridge Alpha Span',
+        reason: 'Structural failure. Corridor blocked. Highway 9 bypass detour active.',
+        score: 72,
+        severity: 'high',
+        track: {
+          ...baseTrack,
+          id: 'EDGE-1',
+          callsign: 'HAZARD: Bridge Span',
+          threatScore: 72,
+        },
+      },
+      {
+        id: 'CAS-0421',
+        callsign: 'CAS-0421 (Delayed - Fracture)',
+        reason: 'Compound tibia fracture. Vitals stable. Delayed holding.',
+        score: 35,
+        severity: 'low',
+        track: {
+          ...baseTrack,
+          id: 'CAS-0421',
+          callsign: 'CAS-0421 (Spc Okafor)',
+          threatScore: 35,
+          status: 'tracking',
+        },
+      },
+    ];
+  }, []);
+
+  // Medical Evacuation 5-Step Mission Sequence (strictly cycles 1..5 for contracts)
   const missionSteps = useMemo(
     () => [
       {
         step: 1,
-        title: 'Ground report filed',
+        title: 'Casualty intake logged',
         statusText: 'Verified',
-        module: 'fieldlink',
+        module: 'mediroute',
       },
       {
         step: 2,
-        title: 'Airspace checked',
-        statusText: 'Verified',
-        module: 'skywatch',
+        title: 'START Triage evaluated',
+        statusText: 'Active now',
+        module: 'mediroute',
       },
       {
         step: 3,
-        title: 'Imagery compared',
-        statusText: 'Active now',
-        module: 'geointel',
+        title: 'Evac route hazard checked',
+        statusText: 'Verified',
+        module: 'mediroute',
       },
       {
         step: 4,
-        title: 'Casualties triaged',
+        title: 'Hospital bed secured',
         statusText: 'Medical',
         module: 'mediroute',
       },
       {
         step: 5,
-        title: 'Route cleared',
+        title: 'Medevac unit dispatched',
         statusText: 'Logistics',
         module: 'mediroute',
       },
@@ -163,26 +293,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleNextStep = useCallback(() => {
     const next = crossModuleStep < 5 ? crossModuleStep + 1 : 1;
     setCrossModuleStep(next);
-    const targetModule = missionSteps.find((s) => s.step === next)?.module;
-    if (targetModule) {
-      onNavigate(targetModule as any);
-    }
-  }, [crossModuleStep, missionSteps, onNavigate]);
+    onNavigate('mediroute');
+  }, [crossModuleStep, onNavigate]);
 
-  // Activity ticker: latest real event from state memoized
+  // Medical Activity ticker
   const latestActivity = useMemo(() => {
-    if (alerts.length > 0 && (!incidents.length || new Date(alerts[0].timestamp) >= new Date(incidents[0].createdAt))) {
-      const a = alerts[0];
-      return `Airspace Alert: ${a.ruleName} - ${a.trackCallsign} (${formatIST(a.timestamp, { seconds: false })})`;
-    }
-    if (incidents.length > 0) {
-      const inc = incidents[0];
-      return `Incident Intake: ${inc.title} - ${inc.location.name} (${formatIST(inc.createdAt, { seconds: false })})`;
-    }
-    return null;
-  }, [alerts, incidents]);
+    return 'Medevac Dispatch: AMB-02 en route to Field Hospital Alpha with CAS-0419 (Immediate) — ETA 11 min';
+  }, []);
 
-  // Top-Left Metrics Panel (Passed into TacticalMap to sit with Mode Switch in ONE flex toolbar)
+  // Top-Left Metrics Panel (Medical Telemetry for COP Map)
   const metricsPanel = (
     <div
       style={{
@@ -208,10 +327,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             lineHeight: 1,
           }}
         >
-          {tracks.length}
+          {activeCasualties.length}
         </div>
         <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
-          Tracks
+          Casualties
         </div>
       </div>
 
@@ -222,14 +341,50 @@ export const Dashboard: React.FC<DashboardProps> = ({
             fontSize: '1.15rem',
             fontFamily: 'var(--font-mono)',
             fontWeight: 800,
-            color: openAlerts.length > 0 ? 'var(--highlight-amber, #d4a373)' : 'var(--text-primary, #e9ece9)',
+            color: '#ff7875',
             lineHeight: 1,
           }}
         >
-          {openAlerts.length}
+          {immediateCount}
         </div>
         <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
-          Alerts
+          Immediate
+        </div>
+      </div>
+
+      <div style={{ borderLeft: '1px solid rgba(115, 138, 101, 0.20)', paddingLeft: '12px' }}>
+        <div
+          className="metric-value"
+          style={{
+            fontSize: '1.15rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 800,
+            color: 'var(--text-primary, #e9ece9)',
+            lineHeight: 1,
+          }}
+        >
+          {nodes.length}
+        </div>
+        <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
+          Facilities
+        </div>
+      </div>
+
+      <div style={{ borderLeft: '1px solid rgba(115, 138, 101, 0.20)', paddingLeft: '12px' }}>
+        <div
+          className="metric-value"
+          style={{
+            fontSize: '1.15rem',
+            fontFamily: 'var(--font-mono)',
+            fontWeight: 800,
+            color: blockedHazardsCount > 0 ? 'var(--highlight-amber, #d4a373)' : 'var(--text-primary, #e9ece9)',
+            lineHeight: 1,
+          }}
+        >
+          {blockedHazardsCount}
+        </div>
+        <div style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary, #94a192)', marginTop: '2px' }}>
+          Blocked
         </div>
       </div>
     </div>
@@ -252,14 +407,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }}
       title="Evacuation Network Node Key"
     >
-      <span style={{ fontWeight: 700, color: 'var(--text-primary, #e9ece9)' }}>NET:</span>
+      <span style={{ fontWeight: 700, color: 'var(--text-primary, #e9ece9)' }}>MED:</span>
       <span>INTAKE</span>
       <span>•</span>
       <span>HOSPITAL</span>
       <span>•</span>
-      <span>POST</span>
+      <span>AID POST</span>
       <span>•</span>
       <span>HUB</span>
+      <span>•</span>
+      <span style={{ color: '#ff7875' }}>BLOCKED DETOUR</span>
     </div>
   );
 
@@ -296,7 +453,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               onClick={() => setDashboardView('bento')}
             >
               <LayoutGrid size={13} />
-              <span>BENTO COMMAND</span>
+              <span>MEDIROUTE BENTO</span>
             </button>
             <button
               type="button"
@@ -304,7 +461,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               onClick={() => setDashboardView('map')}
             >
               <Map size={13} />
-              <span>GEOSPATIAL C2 MAP</span>
+              <span>EVACUATION COP MAP</span>
             </button>
           </div>
         </div>
@@ -312,7 +469,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="tactical-badge tactical-badge-online">
             <span className="dot-glowing-green" />
-            SYS_ONLINE
+            MED_ONLINE
+          </span>
+          <span className="tactical-badge tactical-badge-secure">
+            TRIAGE_ACTIVE
           </span>
         </div>
       </div>
@@ -320,159 +480,173 @@ export const Dashboard: React.FC<DashboardProps> = ({
       {dashboardView === 'bento' ? (
         <TacticalBentoGrid
           summary={summary}
-          tracksCount={tracks.length}
-          alertsCount={openAlerts.length}
-          incidentsCount={incidents.length}
+          tracksCount={activeCasualties.length}
+          alertsCount={medicalAlerts.length}
+          incidentsCount={activeCasualties.length}
           onNavigateModule={onNavigate}
+          onNavigateMediRouteSubTab={onNavigateMediRouteSubTab}
+          casualties={casualties}
+          hazards={hazards}
+          nodes={nodes}
         />
       ) : (
         /* Upper Area: Full Area Tactical Map + Right Intel Pane */
         <div style={{ display: 'flex', flex: 1, minHeight: 0, position: 'relative' }}>
-        {/* Map Container */}
-        <div style={{ flex: 1, position: 'relative', minWidth: 0, height: '100%' }}>
-          <TacticalMap
-            incidents={incidents}
-            tracks={tracks}
-            zones={zones}
-            nodes={nodes}
-            edges={hazards}
-            selectedEntityId={selectedEntity?.id}
-            onSelectEntity={setSelectedEntity}
-            height="100%"
-            showRadarSweep={true}
-            initialMode="chart"
-            topLeftContent={metricsPanel}
-            bottomLeftContent={nodesLegendChip}
-          />
+          {/* Map Container */}
+          <div style={{ flex: 1, position: 'relative', minWidth: 0, height: '100%' }}>
+            <TacticalMap
+              incidents={incidents}
+              tracks={[]}
+              zones={[]}
+              nodes={nodes}
+              edges={hazards}
+              selectedEntityId={selectedEntity?.id}
+              onSelectEntity={setSelectedEntity}
+              height="100%"
+              showRadarSweep={false}
+              initialMode="chart"
+              topLeftContent={metricsPanel}
+              bottomLeftContent={nodesLegendChip}
+            />
 
-          {/* Selected Entity HUD Modal */}
-          {selectedEntity && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '74px',
-                left: '16px',
-                zIndex: 25,
-                background: 'var(--color-sheet)',
-                border: 'var(--border-width, 1.2px) solid var(--color-edge)',
-                boxShadow: 'var(--shadow-flat)',
-                padding: '12px 16px',
-                borderRadius: 'var(--radius-sm)',
-                minWidth: '240px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
-                  {selectedEntity.type?.toUpperCase()}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedEntity(null)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-secondary)' }}
-                >
-                  ✕
-                </button>
-              </div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, marginTop: '2px' }}>
-                {selectedEntity.raw?.callsign || selectedEntity.raw?.title || selectedEntity.raw?.name || selectedEntity.id}
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                style={{ marginTop: '10px', width: '100%' }}
-                onClick={() => {
-                  if (selectedEntity.type === 'track') onNavigate('skywatch');
-                  else if (selectedEntity.type === 'incident') onNavigate('fieldlink');
-                  else if (selectedEntity.type === 'node') onNavigate('mediroute');
-                  else onNavigate('geointel');
+            {/* Selected Entity HUD Modal */}
+            {selectedEntity && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '74px',
+                  left: '16px',
+                  zIndex: 25,
+                  background: 'var(--color-sheet)',
+                  border: 'var(--border-width, 1.2px) solid var(--color-edge)',
+                  boxShadow: 'var(--shadow-flat)',
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-sm)',
+                  minWidth: '240px',
                 }}
               >
-                Open in Dedicated Module
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 700 }}>
+                    {selectedEntity.type?.toUpperCase()} // MEDIROUTE
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEntity(null)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--text-secondary)' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, marginTop: '2px' }}>
+                  {selectedEntity.raw?.name || selectedEntity.raw?.title || selectedEntity.raw?.callsign || selectedEntity.id}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  style={{ marginTop: '10px', width: '100%' }}
+                  onClick={() => {
+                    if (onNavigateMediRouteSubTab) {
+                      if (selectedEntity.type === 'node') onNavigateMediRouteSubTab('facilities');
+                      else if (selectedEntity.type === 'edge') onNavigateMediRouteSubTab('routing');
+                      else onNavigateMediRouteSubTab('triage');
+                    } else {
+                      onNavigate('mediroute');
+                    }
+                  }}
+                >
+                  Open in MediRoute
+                </button>
+              </div>
+            )}
+
+            {/* Floating expand tab button when information panel is collapsed */}
+            {isRightPaneCollapsed && (
+              <button
+                type="button"
+                onClick={() => setIsRightPaneCollapsed(false)}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  zIndex: 30,
+                  background: 'var(--color-sheet)',
+                  border: '1px solid var(--color-edge)',
+                  borderRadius: 'var(--radius-sm)',
+                  boxShadow: 'var(--shadow-flat)',
+                  padding: '6px 12px',
+                  fontSize: '0.78rem',
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                }}
+                title="Expand intelligence tab"
+              >
+                <ChevronLeft size={14} />
+                <span>Medical Intel</span>
               </button>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* Floating expand tab button when information panel is collapsed */}
-          {isRightPaneCollapsed && (
-            <button
-              type="button"
-              onClick={() => setIsRightPaneCollapsed(false)}
-              style={{
-                position: 'absolute',
-                top: '12px',
-                right: '12px',
-                zIndex: 30,
-                background: 'var(--color-sheet)',
-                border: '1px solid var(--color-edge)',
-                borderRadius: 'var(--radius-sm)',
-                boxShadow: 'var(--shadow-flat)',
-                padding: '6px 12px',
-                fontSize: '0.78rem',
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-              }}
-              title="Expand intelligence tab"
-            >
-              <ChevronLeft size={14} />
-              <span>Intelligence</span>
-            </button>
-          )}
+          {/* Draggable Vertical Splitter Slider Handle */}
+          <div
+            onMouseDown={handleSplitterMouseDown}
+            title="Drag to resize information tab (Double-click to reset)"
+            onDoubleClick={() => {
+              setRightPaneWidth(340);
+              setIsRightPaneCollapsed(false);
+            }}
+            style={{
+              width: '8px',
+              cursor: 'col-resize',
+              background: 'var(--color-paper)',
+              borderLeft: '1px solid var(--color-edge)',
+              borderRight: '1px solid var(--color-edge)',
+              display: isRightPaneCollapsed ? 'none' : 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              zIndex: 25,
+              userSelect: 'none',
+            }}
+          >
+            <GripVertical size={12} color="var(--text-secondary)" style={{ opacity: 0.6 }} />
+          </div>
+
+          {/* Right Intel Pane */}
+          <AlertsPanel
+            width={rightPaneWidth}
+            isCollapsed={isRightPaneCollapsed}
+            onToggleCollapse={() => setIsRightPaneCollapsed(true)}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            openAlerts={medicalAlerts}
+            incidents={incidents}
+            criticalIncident={criticalMedicalIncident}
+            rankedThreats={medicalTriageQueue}
+            selectedEntityId={selectedEntity?.id || null}
+            onSelectEntity={setSelectedEntity}
+            crossModuleStep={crossModuleStep}
+            missionSteps={missionSteps}
+            onStepClick={(stepNum, module) => {
+              setCrossModuleStep(stepNum);
+              onNavigate('mediroute');
+            }}
+            onNextStep={handleNextStep}
+            isOfflineMode={isOfflineMode}
+            onNavigate={(mod) => {
+              if (mod === 'fieldlink') {
+                if (onNavigateMediRouteSubTab) onNavigateMediRouteSubTab('triage');
+                else onNavigate('mediroute');
+              } else {
+                onNavigate(mod);
+              }
+            }}
+          />
         </div>
-
-        {/* Draggable Vertical Splitter Slider Handle */}
-        <div
-          onMouseDown={handleSplitterMouseDown}
-          title="Drag to resize information tab (Double-click to reset)"
-          onDoubleClick={() => {
-            setRightPaneWidth(340);
-            setIsRightPaneCollapsed(false);
-          }}
-          style={{
-            width: '8px',
-            cursor: 'col-resize',
-            background: 'var(--color-paper)',
-            borderLeft: '1px solid var(--color-edge)',
-            borderRight: '1px solid var(--color-edge)',
-            display: isRightPaneCollapsed ? 'none' : 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            zIndex: 25,
-            userSelect: 'none',
-          }}
-        >
-          <GripVertical size={12} color="var(--text-secondary)" style={{ opacity: 0.6 }} />
-        </div>
-
-        {/* Right Intel Pane */}
-        <AlertsPanel
-          width={rightPaneWidth}
-          isCollapsed={isRightPaneCollapsed}
-          onToggleCollapse={() => setIsRightPaneCollapsed(true)}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          openAlerts={openAlerts}
-          incidents={incidents}
-          criticalIncident={criticalIncident}
-          rankedThreats={rankedThreats}
-          selectedEntityId={selectedEntity?.id || null}
-          onSelectEntity={setSelectedEntity}
-          crossModuleStep={crossModuleStep}
-          missionSteps={missionSteps}
-          onStepClick={(stepNum, module) => {
-            setCrossModuleStep(stepNum);
-            onNavigate(module as any);
-          }}
-          onNextStep={handleNextStep}
-          isOfflineMode={isOfflineMode}
-          onNavigate={onNavigate}
-        />
-      </div>
       )}
 
       {/* Bottom Simulation Bar */}

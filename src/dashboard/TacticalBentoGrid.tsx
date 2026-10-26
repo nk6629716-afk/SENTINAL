@@ -1,23 +1,35 @@
 import React, { useState } from 'react';
 import {
   Activity,
+  HeartPulse,
   Shield,
-  Radio,
-  Crosshair,
-  Terminal,
+  ClipboardList,
+  Route as RouteIcon,
+  Building2,
+  Ambulance,
+  AlertCircle,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  Users,
   ChevronRight,
+  Stethoscope,
+  Terminal,
+  Crosshair,
   TrendingUp,
   Star,
-  Box,
-  Sliders,
-  CheckCircle2,
-  AlertCircle,
-  Cpu,
-  Layers,
-  Download,
-  Lock,
+  MapPin,
+  ExternalLink,
+  ShieldAlert,
 } from 'lucide-react';
-import { DashboardSummary } from '@shared/types';
+import { DashboardSummary, CasualtyRecord, RoadHazardEdge, EvacuationNode } from '@shared/types';
+import { MediRouteSubTab } from '../modules/mediroute/medirouteTypes';
+import {
+  INITIAL_FACILITIES,
+  INITIAL_TRANSPORT_UNITS,
+  INITIAL_EXTENDED_CASUALTIES,
+  INITIAL_EVACUATION_TASKS,
+} from '../modules/mediroute/medirouteData';
 import { createWavefrontRipple } from '../utils/motion';
 
 interface TacticalBentoGridProps {
@@ -26,6 +38,10 @@ interface TacticalBentoGridProps {
   alertsCount: number;
   incidentsCount: number;
   onNavigateModule: (module: 'dashboard' | 'fieldlink' | 'skywatch' | 'geointel' | 'mediroute') => void;
+  onNavigateMediRouteSubTab?: (subTab: MediRouteSubTab) => void;
+  casualties?: CasualtyRecord[];
+  hazards?: RoadHazardEdge[];
+  nodes?: EvacuationNode[];
 }
 
 interface DirectiveTask {
@@ -42,50 +58,70 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
   alertsCount,
   incidentsCount,
   onNavigateModule,
+  onNavigateMediRouteSubTab,
+  casualties: casualtyProps = [],
+  hazards: hazardProps = [],
+  nodes: nodeProps = [],
 }) => {
   // Interactive Modal State
   const [modalNotice, setModalNotice] = useState<string | null>(null);
 
-  // Tactical Mobile Comms / Comms Phone State
-  const [commsPhone, setCommsPhone] = useState<string>('+1 (555) 019-2834');
-  const [isTypingFlash, setIsTypingFlash] = useState<boolean>(false);
+  // Use props or fallback to fixtures for rich medical telemetry
+  const activeCasualties = casualtyProps.length > 0 ? casualtyProps : INITIAL_EXTENDED_CASUALTIES;
+  const activeHazards = hazardProps.length > 0 ? hazardProps : [
+    {
+      id: 'EDGE-1',
+      edgeId: 'E-INT-BRG',
+      fromNodeId: 'INT-01',
+      toNodeId: 'BRG-01',
+      name: 'Bridge Highway Alpha Span',
+      blocked: true,
+      hazardType: 'structural_damage',
+      reportedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isSimulated: true,
+    },
+  ];
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCommsPhone(e.target.value);
-    setIsTypingFlash(true);
-    setTimeout(() => setIsTypingFlash(false), 220);
-  };
+  // Derived MediRoute metrics
+  const totalCasualtiesCount = activeCasualties.length;
+  const immediateCasualties = activeCasualties.filter((c: any) => c.triageCategory === 'immediate');
+  const delayedCasualties = activeCasualties.filter((c: any) => c.triageCategory === 'delayed');
+  const minimalCasualties = activeCasualties.filter((c: any) => c.triageCategory === 'minimal');
+  const expectantCasualties = activeCasualties.filter((c: any) => c.triageCategory === 'expectant');
 
-  const handlePhoneAuthSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setModalNotice(
-      `TACTICAL COMMS LINK INITIALIZED: Terminal frequency [${commsPhone}] authenticated over secure satellite uplink with zero packet leakage.`
-    );
-  };
+  const immediateCount = immediateCasualties.length || 2;
+  const delayedCount = delayedCasualties.length || 1;
+  const minimalCount = minimalCasualties.length || 0;
+  const expectantCount = expectantCasualties.length || 0;
 
-  // Interactive Directives State
+  const totalBeds = INITIAL_FACILITIES.reduce((sum, f) => sum + f.totalBeds, 0); // 93
+  const availableBeds = INITIAL_FACILITIES.reduce((sum, f) => sum + f.availableBeds, 0); // 23
+  const bedOccupancyPercent = Math.round(((totalBeds - availableBeds) / totalBeds) * 100); // 75%
+
+  const blockedHazardsCount = activeHazards.filter((h) => h.blocked).length;
+
+  // Interactive Directives State (Medical Operations Protocols)
   const [tasks, setTasks] = useState<DirectiveTask[]>([
-    { id: 't1', title: 'INITIALIZE PROFILE & CRYPTO-KEY', completed: true, code: 'AUTH-01', sector: 'FIELD-HQ' },
-    { id: 't2', title: 'Establish Orbital Uplink', completed: false, code: 'LINK-01', sector: 'ORBITAL-7' },
-    { id: 't3', title: 'Calibrate Gravimetric Array', completed: false, code: 'GRAV-4B', sector: 'OMEGA-Z' },
-    { id: 't4', title: 'Sync Unit Biometrics', completed: false, code: 'BIO-99', sector: 'FIELD-HQ' },
+    { id: 'm1', title: 'Verify Immediate Triage on CAS-0419 (Hemodynamic Shock)', completed: true, code: 'TRI-01', sector: 'TRAUMA-ALPHA' },
+    { id: 'm2', title: 'Route AMB-02 via Highway 9 Bypass around Bridge Span', completed: false, code: 'ROU-02', sector: 'CORRIDOR-9' },
+    { id: 'm3', title: 'Stage Surgical Suite #1 at Sector Field Hospital Alpha', completed: false, code: 'SUR-03', sector: 'HOSP-ALPHA' },
+    { id: 'm4', title: 'Dispatch Air Medevac for Casualty CAS-0420 (Pneumothorax)', completed: false, code: 'EVAC-04', sector: 'AIR-MED' },
   ]);
 
-  // Hover state for Bar Chart
+  // Hover state for Corridor Transit Times Bar Chart
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
 
-  // Bar chart telemetry data (JUL 06 - JUL 24)
-  const anomalyData = [
-    { label: 'Jul 06', val: 0.40, code: '0.40%' },
-    { label: 'Jul 08', val: 0.45, code: '0.45%' },
-    { label: 'Jul 10', val: 0.50, code: '0.50%' },
-    { label: 'Jul 12', val: 0.65, code: '0.65%' },
-    { label: 'Jul 14', val: 0.85, code: '0.85%' },
-    { label: 'Jul 16', val: 0.95, code: '0.95%' },
-    { label: 'Jul 18', val: 0.70, code: '0.70%' },
-    { label: 'Jul 20', val: 0.55, code: '0.55%' },
-    { label: 'Jul 22', val: 0.50, code: '0.50%' },
-    { label: 'Jul 24', val: 0.75, code: '0.75%' },
+  // Evacuation Corridors transit and status telemetry
+  const corridorData = [
+    { label: 'Hwy 9 Bypass', val: 0.35, eta: '11 min', dist: '6.8 km', status: 'CLEAR', speed: '48 km/h' },
+    { label: 'I-101 Corridor', val: 0.55, eta: '18 min', dist: '12.2 km', status: 'DEGRADED', speed: '32 km/h' },
+    { label: 'Bridge Alpha', val: 0.95, eta: '32 min', dist: '4.1 km', status: 'BLOCKED', speed: '0 km/h' },
+    { label: 'River Rd Link', val: 0.28, eta: '8 min', dist: '4.5 km', status: 'CLEAR', speed: '55 km/h' },
+    { label: 'Ridgeline Post', val: 0.44, eta: '14 min', dist: '8.9 km', status: 'CLEAR', speed: '42 km/h' },
+    { label: 'North Evac Ax', val: 0.38, eta: '12 min', dist: '7.4 km', status: 'CLEAR', speed: '50 km/h' },
+    { label: 'Hub Bravo Conn', val: 0.48, eta: '15 min', dist: '9.6 km', status: 'CLEAR', speed: '44 km/h' },
+    { label: 'Intake Charlie', val: 0.62, eta: '20 min', dist: '14.0 km', status: 'HEAVY TRAF', speed: '28 km/h' },
   ];
 
   const handleToggleTask = (id: string) => {
@@ -95,8 +131,8 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
           const nextState = !t.completed;
           setModalNotice(
             nextState
-              ? `Directive [${t.code}] "${t.title}" verified and marked COMPLETE.`
-              : `Directive [${t.code}] "${t.title}" status reset to PENDING calibration.`
+              ? `Medical Protocol Directive [${t.code}] "${t.title}" verified and executed.`
+              : `Medical Protocol Directive [${t.code}] "${t.title}" status reset to pending verification.`
           );
           return { ...t, completed: nextState };
         }
@@ -105,15 +141,20 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
     );
   };
 
-  const handleRunDiagnostics = () => {
-    setModalNotice(
-      `SYS_DIAGNOSTICS NOMINAL: Telemetry stream online. ${tracksCount} active radar tracks, ${alertsCount} geofence alerts, ${incidentsCount} field outbox reports. All tactical modules operating under authentic defense parameters.`
-    );
+  const handleNavigateSubTab = (subTab: MediRouteSubTab) => {
+    if (onNavigateMediRouteSubTab) {
+      onNavigateMediRouteSubTab(subTab);
+    } else {
+      onNavigateModule('mediroute');
+      if (typeof window !== 'undefined') {
+        window.location.hash = `#mediroute/${subTab}`;
+      }
+    }
   };
 
-  const handleDeployPod = () => {
+  const handleRunMedicalTriageDiagnostics = () => {
     setModalNotice(
-      'AUTONOMOUS POD MODULE v2.4 INITIALIZED: Autonomous supply pod allocated to Operational Sector OMEGA-ZETA. Uplink telemetry verified at 100% signal strength.'
+      `MEDIROUTE COP TELEMETRY NOMINAL: ${totalCasualtiesCount} Monitored Casualties (${immediateCount} Immediate, ${delayedCount} Delayed). Hospital bed occupancy: ${bedOccupancyPercent}%. ${blockedHazardsCount} Blocked Evacuation Corridors. Ambulances MEDIC-ONE & MEDIC-TWO online.`
     );
   };
 
@@ -162,7 +203,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               color: 'var(--accent-sage, #738a65)',
             }}
           >
-            <Crosshair size={18} className="dot-glowing-green" style={{ background: 'transparent' }} />
+            <HeartPulse size={18} className="dot-glowing-green" style={{ background: 'transparent' }} />
           </div>
 
           <div>
@@ -176,24 +217,24 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   color: 'var(--text-primary, #e9ece9)',
                 }}
               >
-                SENTINEL // OP-DASH_04
+                MEDIROUTE // MEDICAL OPERATIONS COP
               </span>
               <span className="tactical-badge tactical-badge-online">
                 <span className="dot-glowing-green" />
-                SYS_ONLINE
+                TRIAGE_ACTIVE
               </span>
-              <span className="tactical-badge tactical-badge-secure">SECURE LINK</span>
+              <span className="tactical-badge tactical-badge-secure">EVAC_NETWORK_SECURE</span>
             </div>
             <div
               className="meta-coord"
               style={{ fontSize: '0.66rem', marginTop: '3px', color: 'var(--text-secondary, #94a192)' }}
             >
-              SECTOR: OMEGA-ZETA // 28.6139° N, 77.2090° E
+              REGIONAL TRAUMA SECTOR // EVACUATION COORDINATION NODE // 34.0522° N, 118.2437° W
             </div>
           </div>
         </div>
 
-        {/* Right Header Quick Stats & Diagnostics Action */}
+        {/* Right Header Quick Stats & Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <div
             style={{
@@ -208,7 +249,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
           >
             <span className="dot-glowing-green" />
             <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-              SYSTEM SYNC:
+              TRAUMA STATUS:
             </span>
             <span
               style={{
@@ -218,7 +259,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 color: 'var(--accent-sage, #738a65)',
               }}
             >
-              100% NOMINAL
+              {immediateCount} IMMEDIATE / {delayedCount} DELAYED
             </span>
           </div>
 
@@ -227,15 +268,13 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             className="btn-tactical btn-tactical-primary"
             onClick={(e) => {
               createWavefrontRipple(e);
-              setModalNotice(
-                'TACTICAL AUTHENTICATION VERIFIED: Biometric cryptographic token valid. Clearance level: TOP SECRET // COMMAND OMEGA-ZETA authority granted.'
-              );
+              handleNavigateSubTab('dispatch');
             }}
             style={{ padding: '6px 14px' }}
-            title="Authenticate tactical command credentials"
+            title="Open Transport Dispatch"
           >
-            <Shield size={13} />
-            <span>AUTHENTICATE</span>
+            <Ambulance size={13} />
+            <span>DISPATCH MEDEVAC</span>
             <span className="tactical-arrow">→</span>
           </button>
 
@@ -244,71 +283,83 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             className="btn-tactical btn-tactical-olive"
             onClick={(e) => {
               createWavefrontRipple(e);
-              handleRunDiagnostics();
+              handleRunMedicalTriageDiagnostics();
             }}
             style={{ padding: '6px 14px' }}
           >
             <Terminal size={13} />
-            <span>DIAGNOSTICS</span>
+            <span>COP TELEMETRY</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Tactical Uplink Status & Authenticated Comms Phone Pill Field (Exact 1:1 footprint) */}
-      <div className="tactical-uplink-bar">
-        {/* Left: Uplink Status Readout */}
+      {/* 2. Medical Telemetry Status Bar */}
+      <div className="tactical-uplink-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
         <div className="tactical-uplink-status">
           <span className="dot-glowing-green" />
-          <span style={{ color: '#8a9685', fontFamily: 'var(--font-mono)' }}>
-            [ORBITAL_STREAM_ACTIVE // ENCRYPTED_CHANNEL // AES-256-GCM]
+          <span style={{ color: '#8a9685', fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+            [MEDEVAC_CORRIDOR_ACTIVE // LIVE_TRIAGE_STREAM // PROTOCOL_START_v4 // AES-256-GCM]
           </span>
         </div>
 
-        {/* Right: Tactical Mobile / Comms Phone Pill Input Field */}
-        <form className="tactical-phone-pill-field" onSubmit={handlePhoneAuthSubmit}>
-          {/* Country Flag Box Placeholder */}
-          <div className="tactical-country-box">
-            <span style={{ fontSize: '0.82rem' }}>🌐</span>
-            <span>+01</span>
-          </div>
-
-          {/* Lock Icon */}
-          <div className="tactical-lock-icon">
-            <Lock size={13} color="#738a65" />
-          </div>
-
-          {/* Input field with floating focus and keypress telemetry */}
-          <input
-            type="tel"
-            className="tactical-phone-input"
-            value={commsPhone}
-            onChange={handlePhoneChange}
-            placeholder="COMMS // PHONE PROTOCOL (+1-555-...)"
-            aria-label="Tactical Comms Phone Input"
-          />
-
-          {/* Keypress Telemetry Helper Counter */}
-          <div className={`tactical-helper-counter ${isTypingFlash ? 'keypress-telemetry-flash' : ''}`}>
-            <span>{commsPhone.length}/14</span>
-            <span className="counter-tag">FREQ_OK</span>
-          </div>
-
-          {/* Authenticate / Link Button with Arrow & Wavefront Ripple */}
-          <button
-            type="submit"
-            className="btn-tactical btn-tactical-olive tactical-auth-btn"
-            onClick={createWavefrontRipple}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.70rem',
+              fontFamily: 'var(--font-mono)',
+              background: 'rgba(255, 77, 79, 0.12)',
+              border: '1px solid rgba(255, 77, 79, 0.30)',
+              color: '#ff7875',
+              padding: '4px 10px',
+              borderRadius: '6px',
+            }}
           >
-            <span>LINK</span>
+            <AlertCircle size={13} />
+            <span>CRITICAL: {immediateCount} IMMEDIATE EVAC</span>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.70rem',
+              fontFamily: 'var(--font-mono)',
+              background: 'rgba(212, 163, 115, 0.12)',
+              border: '1px solid rgba(212, 163, 115, 0.30)',
+              color: 'var(--highlight-amber, #d4a373)',
+              padding: '4px 10px',
+              borderRadius: '6px',
+            }}
+          >
+            <AlertTriangle size={13} />
+            <span>CORRIDORS: {blockedHazardsCount} HAZARD DETOUR</span>
+          </div>
+
+          <button
+            type="button"
+            className="btn-tactical btn-tactical-ghost"
+            onClick={() => handleNavigateSubTab('triage')}
+            style={{ padding: '4px 10px', fontSize: '0.70rem' }}
+          >
+            <span>Triage Board</span>
             <span className="tactical-arrow">→</span>
           </button>
-        </form>
+        </div>
       </div>
 
       {/* 3. Bento Grid Layout */}
       <div className="bento-grid">
-        {/* CARD 1: Total Telemetry / Yield (Span 4) */}
-        <div className="bento-card bento-col-4 bento-card-stagger" style={{ '--index': 1 } as React.CSSProperties}>
+        {/* CARD 1: Monitored Casualties & START Triage (Span 4) */}
+        <div
+          className="bento-card bento-col-4 bento-card-stagger"
+          style={{ '--index': 1, cursor: 'pointer' } as React.CSSProperties}
+          onClick={() => handleNavigateSubTab('triage')}
+          title="Click to open Triage Board"
+        >
           <span className="corner-accent-tr" />
           <span className="corner-accent-bl" />
           <div>
@@ -327,7 +378,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--accent-sage, #738a65)',
                   }}
                 >
-                  <TrendingUp size={15} />
+                  <Users size={15} />
                 </div>
                 <span
                   style={{
@@ -338,10 +389,10 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--text-secondary, #94a192)',
                   }}
                 >
-                  Telemetry Throughput
+                  Casualty Triage Telemetry
                 </span>
               </div>
-              <span className="tactical-badge tactical-badge-online">ACTIVE</span>
+              <span className="tactical-badge tactical-badge-online">ACTIVE TRIAGE</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', margin: '8px 0 14px 0' }}>
@@ -355,7 +406,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   lineHeight: 1,
                 }}
               >
-                15,984
+                {totalCasualtiesCount}
               </span>
               <span
                 style={{
@@ -365,31 +416,53 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   fontWeight: 600,
                 }}
               >
-                PKTS/S
+                PATIENTS ASSESSED
               </span>
             </div>
 
+            {/* START Triage Distribution Bar */}
+            <div style={{ width: '100%', marginBottom: '12px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  height: '8px',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  gap: '2px',
+                }}
+              >
+                <div style={{ width: '66%', background: '#ff4d4f' }} title="Immediate: 2" />
+                <div style={{ width: '34%', background: '#d4a373' }} title="Delayed: 1" />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', fontFamily: 'var(--font-mono)', marginTop: '4px', color: 'var(--text-secondary)' }}>
+                <span style={{ color: '#ff7875' }}>● IMMEDIATE: {immediateCount}</span>
+                <span style={{ color: '#d4a373' }}>● DELAYED: {delayedCount}</span>
+                <span style={{ color: '#588157' }}>● MINIMAL: {minimalCount}</span>
+              </div>
+            </div>
+
             {/* Sparkline Visual SVG */}
-            <div style={{ width: '100%', height: '42px', margin: '4px 0 10px 0' }}>
-              <svg viewBox="0 0 280 42" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+            <div style={{ width: '100%', height: '36px', margin: '4px 0 10px 0' }}>
+              <svg viewBox="0 0 280 36" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
                 <defs>
-                  <linearGradient id="sparkline-grad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="med-sparkline-grad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#738a65" stopOpacity="0.35" />
                     <stop offset="100%" stopColor="#181d1a" stopOpacity="0.0" />
                   </linearGradient>
                 </defs>
                 <path
-                  d="M 0,34 Q 35,28 70,30 T 140,16 T 210,18 T 280,6 L 280,42 L 0,42 Z"
-                  fill="url(#sparkline-grad)"
+                  d="M 0,28 Q 35,22 70,24 T 140,12 T 210,14 T 280,4 L 280,36 L 0,36 Z"
+                  fill="url(#med-sparkline-grad)"
                 />
                 <path
-                  d="M 0,34 Q 35,28 70,30 T 140,16 T 210,18 T 280,6"
+                  d="M 0,28 Q 35,22 70,24 T 140,12 T 210,14 T 280,4"
                   fill="none"
                   stroke="#738a65"
                   strokeWidth="2"
                   strokeLinecap="round"
                 />
-                <circle cx="280" cy="6" r="3.5" fill="#d4a373" stroke="#121614" strokeWidth="1.5" />
+                <circle cx="280" cy="4" r="3.5" fill="#ff4d4f" stroke="#121614" strokeWidth="1.5" />
               </svg>
             </div>
           </div>
@@ -406,32 +479,32 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
                 <p style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                  UPTIME
+                  HEMODYNAMIC
                 </p>
                 <p
                   style={{
                     fontSize: '1.05rem',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
-                    color: 'var(--text-primary)',
+                    color: '#ff7875',
                   }}
                 >
-                  99.98%
+                  2 CRITICAL
                 </p>
               </div>
               <div>
                 <p style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                  SENSORS
+                  RESPIRATORY
                 </p>
                 <p
                   style={{
                     fontSize: '1.05rem',
                     fontFamily: 'var(--font-mono)',
                     fontWeight: 700,
-                    color: 'var(--text-primary)',
+                    color: 'var(--highlight-amber, #d4a373)',
                   }}
                 >
-                  8 ONLINE
+                  1 DISTRESS
                 </p>
               </div>
             </div>
@@ -451,14 +524,19 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 gap: '4px',
               }}
             >
-              <TrendingUp size={12} />
-              <span>+12% 7D</span>
+              <span>BOARD</span>
+              <span className="tactical-arrow">→</span>
             </div>
           </div>
         </div>
 
-        {/* CARD 2: Resource Allocation & Circular Telemetry Dials (Span 4) */}
-        <div className="bento-card bento-col-4 bento-card-stagger" style={{ '--index': 2 } as React.CSSProperties}>
+        {/* CARD 2: Medical Facilities & Bed Capacity (Span 4) */}
+        <div
+          className="bento-card bento-col-4 bento-card-stagger"
+          style={{ '--index': 2, cursor: 'pointer' } as React.CSSProperties}
+          onClick={() => handleNavigateSubTab('facilities')}
+          title="Click to view Medical Facilities"
+        >
           <span className="corner-accent-tr" />
           <span className="corner-accent-bl" />
           <div>
@@ -477,7 +555,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--accent-sage, #738a65)',
                   }}
                 >
-                  <Sliders size={15} />
+                  <Building2 size={15} />
                 </div>
                 <span
                   style={{
@@ -488,10 +566,10 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--text-secondary, #94a192)',
                   }}
                 >
-                  Resource Distribution
+                  Facility Bed Inventory
                 </span>
               </div>
-              <span className="tactical-badge tactical-badge-secure">TELEMETRY</span>
+              <span className="tactical-badge tactical-badge-secure">{INITIAL_FACILITIES.length} NODES</span>
             </div>
 
             {/* Circular Telemetry Dial Visual */}
@@ -504,7 +582,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 margin: '12px 0 16px 0',
               }}
             >
-              {/* Primary Node 62% */}
+              {/* Field Hospital Alpha */}
               <div
                 style={{
                   width: '64px',
@@ -517,9 +595,8 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'column',
-                  position: 'relative',
                 }}
-                title="Primary Deployment: 62%"
+                title="Field Hospital Alpha: 12 Available Beds / 40 Total"
               >
                 <span
                   style={{
@@ -530,14 +607,14 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     lineHeight: 1,
                   }}
                 >
-                  62%
+                  12
                 </span>
                 <span style={{ fontSize: '0.52rem', fontFamily: 'var(--font-mono)', color: '#d4a373' }}>
-                  PRI
+                  ALPHA
                 </span>
               </div>
 
-              {/* Secondary Node 24% */}
+              {/* Casualty Hub Bravo */}
               <div
                 style={{
                   width: '46px',
@@ -550,7 +627,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   justifyContent: 'center',
                   flexDirection: 'column',
                 }}
-                title="Secondary Staging: 24%"
+                title="Casualty Hub Bravo: 4 Available Beds / 18 Total"
               >
                 <span
                   style={{
@@ -561,41 +638,41 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     lineHeight: 1,
                   }}
                 >
-                  24%
+                  4
                 </span>
                 <span style={{ fontSize: '0.48rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                  SEC
+                  BRAVO
                 </span>
               </div>
 
-              {/* Auxiliary Node 14% */}
+              {/* Intake Charlie */}
               <div
                 style={{
                   width: '36px',
                   height: '36px',
                   borderRadius: '50%',
                   background: '#121614',
-                  border: '1px solid rgba(115, 138, 101, 0.25)',
+                  border: '1px solid rgba(255, 77, 79, 0.45)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'column',
                 }}
-                title="Auxiliary Recon: 14%"
+                title="Intake Point Charlie: 0 Available Beds (FULL)"
               >
                 <span
                   style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: '0.66rem',
                     fontWeight: 700,
-                    color: 'var(--text-muted)',
+                    color: '#ff7875',
                     lineHeight: 1,
                   }}
                 >
-                  14%
+                  0
                 </span>
-                <span style={{ fontSize: '0.45rem', fontFamily: 'var(--font-mono)', color: '#687766' }}>
-                  AUX
+                <span style={{ fontSize: '0.45rem', fontFamily: 'var(--font-mono)', color: '#ff7875' }}>
+                  FULL
                 </span>
               </div>
             </div>
@@ -616,30 +693,30 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#738a65' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>Primary Deployment</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Hospital Alpha (Surg: 1)</span>
               </div>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>62% · Sector Alpha</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>12 Beds Avail</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'rgba(115, 138, 101, 0.50)' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>Secondary Staging</span>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#d4a373' }} />
+                <span style={{ color: 'var(--text-secondary)' }}>Hub Bravo (Limited)</span>
               </div>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>24% · Sector Bravo</span>
+              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>4 Beds Avail</span>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#44543b' }} />
-                <span style={{ color: 'var(--text-secondary)' }}>Auxiliary Recon</span>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff4d4f' }} />
+                <span style={{ color: 'var(--text-secondary)' }}>Intake Charlie (At Cap)</span>
               </div>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>14% · Sector Charlie</span>
+              <span style={{ fontWeight: 700, color: '#ff7875' }}>0 Beds Avail</span>
             </div>
           </div>
         </div>
 
-        {/* CARD 3: Tactical Setup Protocol & Directive Tasks (Span 4) */}
+        {/* CARD 3: Tactical Medical Action Directives (Span 4) */}
         <div className="bento-card bento-card-olive bento-col-4 bento-card-stagger" style={{ '--index': 3 } as React.CSSProperties}>
           <span className="corner-accent-tr" />
           <span className="corner-accent-bl" />
@@ -659,7 +736,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: '#e9ece9',
                   }}
                 >
-                  <Activity size={15} />
+                  <ClipboardList size={15} />
                 </div>
                 <span
                   style={{
@@ -670,7 +747,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'rgba(233, 236, 233, 0.90)',
                   }}
                 >
-                  Tactical Setup Protocol
+                  Medical Action Directives
                 </span>
               </div>
               <span
@@ -684,21 +761,21 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   color: '#e9ece9',
                 }}
               >
-                {completedCount}/4 COMPLETE
+                {completedCount}/4 EXECUTED
               </span>
             </div>
 
             <h2
               style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: '1.25rem',
+                fontSize: '1.20rem',
                 fontWeight: 700,
                 color: '#ffffff',
                 letterSpacing: '-0.01em',
                 marginBottom: '4px',
               }}
             >
-              4 Active Directives
+              4 Clinical Directives
             </h2>
             <p
               style={{
@@ -708,7 +785,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 marginBottom: '14px',
               }}
             >
-              Calibrate and verify all defense parameters for optimal command response.
+              Execute verified trauma triage protocols and evacuation corridors.
             </p>
           </div>
 
@@ -770,18 +847,23 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             onClick={(e) => {
               createWavefrontRipple(e);
               setModalNotice(
-                'TACTICAL PROFILE INITIALIZED: Operator profile cryptographically verified for Sector OMEGA-ZETA. All directives synchronized with Defense HQ.'
+                'MEDICAL PROTOCOLS COMMITTED: Triage priority queue locked for Sector Trauma Network. Evacuation task alerts dispatched to mobile units.'
               );
             }}
             style={{ width: '100%', marginTop: '14px', padding: '7px 12px' }}
           >
-            <span>INITIALIZE PROFILE</span>
+            <span>COMMIT PROTOCOLS</span>
             <span className="tactical-arrow">→</span>
           </button>
         </div>
 
-        {/* CARD 4: Signal Anomaly & Cancellations Bar Chart (Span 8) */}
-        <div className="bento-card bento-col-8 bento-card-stagger" style={{ '--index': 4 } as React.CSSProperties}>
+        {/* CARD 4: Evacuation Corridors & Road Hazards Bar Chart (Span 8) */}
+        <div
+          className="bento-card bento-col-8 bento-card-stagger"
+          style={{ '--index': 4, cursor: 'pointer' } as React.CSSProperties}
+          onClick={() => handleNavigateSubTab('routing')}
+          title="Click to open Evacuation Routing"
+        >
           <span className="corner-accent-tr" />
           <span className="corner-accent-bl" />
           <div>
@@ -800,7 +882,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--highlight-amber, #d4a373)',
                   }}
                 >
-                  <AlertCircle size={15} />
+                  <RouteIcon size={15} />
                 </div>
                 <div>
                   <span
@@ -813,10 +895,10 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                       color: 'var(--text-primary, #e9ece9)',
                     }}
                   >
-                    Signal Integrity / Anomalies
+                    Evacuation Corridor Transit Times & Hazards
                   </span>
                   <p style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                    SECTOR SAMPLING // 10 CHANNELS
+                    GROUND EVACUATION NETWORK // 8 MONITORED ARTERIAL ROUTES
                   </p>
                 </div>
               </div>
@@ -832,20 +914,20 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     borderRadius: '4px',
                   }}
                 >
-                  Rate: <strong style={{ color: '#e9ece9' }}>0.84%</strong>
+                  Avg Evac Time: <strong style={{ color: '#e9ece9' }}>12.4 min</strong>
                 </div>
                 <div
                   className="meta-coord"
                   style={{
                     fontSize: '0.68rem',
-                    background: 'rgba(212, 163, 115, 0.12)',
-                    border: '1px solid rgba(212, 163, 115, 0.35)',
+                    background: 'rgba(255, 77, 79, 0.12)',
+                    border: '1px solid rgba(255, 77, 79, 0.35)',
                     padding: '3px 8px',
                     borderRadius: '4px',
-                    color: 'var(--highlight-amber, #d4a373)',
+                    color: '#ff7875',
                   }}
                 >
-                  Packet Loss: &lt;0.1%
+                  Hazards: {blockedHazardsCount} Blocked (Detour Active)
                 </div>
               </div>
             </div>
@@ -860,19 +942,19 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 <line x1="40" y1="130" x2="580" y2="130" stroke="rgba(115, 138, 101, 0.20)" />
 
                 {/* Y-axis labels */}
-                <text x="32" y="24" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">1.0%</text>
-                <text x="32" y="64" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">0.6%</text>
-                <text x="32" y="104" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">0.3%</text>
-                <text x="32" y="133" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">0.0%</text>
+                <text x="32" y="24" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">35m</text>
+                <text x="32" y="64" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">20m</text>
+                <text x="32" y="104" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">10m</text>
+                <text x="32" y="133" fill="#94a192" fontSize="9" fontFamily="var(--font-mono)" textAnchor="end">0m</text>
 
                 {/* Bars */}
-                {anomalyData.map((d, i) => {
-                  const barWidth = 32;
-                  const x = 55 + i * 53;
+                {corridorData.map((d, i) => {
+                  const barWidth = 36;
+                  const x = 50 + i * 66;
                   const maxH = 100;
                   const h = d.val * maxH;
                   const y = 130 - h;
-                  const isPeak = i === 4 || i === 5;
+                  const isBlocked = d.status === 'BLOCKED';
                   const isHovered = hoveredBarIndex === i;
 
                   return (
@@ -889,8 +971,8 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                         width={barWidth}
                         height={h}
                         rx="4"
-                        fill={isPeak ? '#5b7050' : isHovered ? '#738a65' : '#273428'}
-                        stroke={isPeak || isHovered ? '#738a65' : 'rgba(115, 138, 101, 0.35)'}
+                        fill={isBlocked ? '#ff4d4f' : isHovered ? '#738a65' : '#273428'}
+                        stroke={isBlocked ? '#ff7875' : isHovered ? '#738a65' : 'rgba(115, 138, 101, 0.35)'}
                         strokeWidth="1"
                         style={{ transition: 'all 0.15s ease' }}
                       />
@@ -900,7 +982,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                         x={x + barWidth / 2}
                         y="144"
                         fill={isHovered ? '#e9ece9' : '#94a192'}
-                        fontSize="9"
+                        fontSize="8.5"
                         fontFamily="var(--font-mono)"
                         textAnchor="middle"
                         fontWeight={isHovered ? 700 : 500}
@@ -909,17 +991,17 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                       </text>
 
                       {/* Hover / Peak value readout */}
-                      {(isHovered || isPeak) && (
+                      {(isHovered || isBlocked) && (
                         <text
                           x={x + barWidth / 2}
                           y={y - 5}
-                          fill={isPeak ? '#d4a373' : '#e9ece9'}
+                          fill={isBlocked ? '#ff7875' : '#e9ece9'}
                           fontSize="9.5"
                           fontFamily="var(--font-mono)"
                           fontWeight="700"
                           textAnchor="middle"
                         >
-                          {d.code}
+                          {d.eta}
                         </text>
                       )}
                     </g>
@@ -941,24 +1023,30 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               color: 'var(--text-secondary)',
             }}
           >
-            <span>Telemetry baseline: Normal distribution across all radar geofences</span>
+            <span>Hazard Alert: Bridge Alpha Span structural collapse · Active Detour: Route Alpha (Highway 9)</span>
             <button
               type="button"
               className="btn-tactical btn-tactical-ghost"
               onClick={(e) => {
+                e.stopPropagation();
                 createWavefrontRipple(e);
-                setModalNotice('Anomaly audit telemetry export completed: log hash #ANOM-8849-ZETA generated.');
+                handleNavigateSubTab('routing');
               }}
               style={{ padding: '3px 8px', fontSize: '0.65rem' }}
             >
-              <span>Export Anomaly Audit</span>
+              <span>Inspect Routing & Detours</span>
               <span className="tactical-arrow">→</span>
             </button>
           </div>
         </div>
 
-        {/* CARD 5: Autonomous Supply Pod Module (Span 4) */}
-        <div className="bento-card bento-col-4 bento-card-stagger" style={{ '--index': 5 } as React.CSSProperties}>
+        {/* CARD 5: Active Transport Fleet (Ground Ambulance & Air Medevac) (Span 4) */}
+        <div
+          className="bento-card bento-col-4 bento-card-stagger"
+          style={{ '--index': 5, cursor: 'pointer' } as React.CSSProperties}
+          onClick={() => handleNavigateSubTab('dispatch')}
+          title="Click to view Transport Dispatch"
+        >
           <span className="corner-accent-tr" />
           <span className="corner-accent-bl" />
           <div>
@@ -977,7 +1065,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--accent-sage, #738a65)',
                   }}
                 >
-                  <Box size={15} />
+                  <Ambulance size={15} />
                 </div>
                 <span
                   style={{
@@ -988,10 +1076,10 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     color: 'var(--text-secondary, #94a192)',
                   }}
                 >
-                  Autonomous Supply Pod
+                  Medevac Transport Fleet
                 </span>
               </div>
-              <span className="tactical-badge tactical-badge-online">v2.4</span>
+              <span className="tactical-badge tactical-badge-online">3 UNITS ONLINE</span>
             </div>
 
             <h3
@@ -1004,7 +1092,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 marginBottom: '4px',
               }}
             >
-              Autonomous Supply Pod
+              AMB-02 Dispatched En Route
             </h3>
             <p
               style={{
@@ -1014,10 +1102,10 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 marginBottom: '14px',
               }}
             >
-              Tactical field resupply unit with encrypted telemetry relay.
+              Assigned to CAS-0419 (Immediate) · Destination: Field Hospital Alpha · ETA 11m
             </p>
 
-            {/* Tactical Pod Graphical Representation Container */}
+            {/* Transport Unit Tactical HUD Box */}
             <div
               style={{
                 background: '#121614',
@@ -1044,24 +1132,24 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   flexShrink: 0,
                 }}
               >
-                <Cpu size={22} />
+                <Stethoscope size={22} />
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                    BATTERY / FIELD CAP
+                    ALS TRAUMA READINESS
                   </span>
                   <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: '#d4a373', fontWeight: 700 }}>
-                    86%
+                    92%
                   </span>
                 </div>
                 <div className="tactical-progress-track">
-                  <div className="tactical-progress-fill" style={{ width: '86%' }} />
+                  <div className="tactical-progress-fill" style={{ width: '92%' }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
                   <span style={{ fontSize: '0.58rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
-                    PROPULSION: IONIC
+                    AIR-EVAC-1: STANDBY
                   </span>
                   <span style={{ fontSize: '0.58rem', fontFamily: 'var(--font-mono)', color: '#588157' }}>
                     READY
@@ -1076,19 +1164,23 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
             <button
               type="button"
               className="btn-tactical btn-tactical-olive"
-              onClick={handleDeployPod}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNavigateSubTab('dispatch');
+              }}
               style={{ flex: 1, padding: '7px 10px' }}
             >
-              DEPLOY MODULE
+              DISPATCH UNIT
             </button>
             <button
               type="button"
               className="btn-tactical btn-tactical-ghost"
-              onClick={() =>
+              onClick={(e) => {
+                e.stopPropagation();
                 setModalNotice(
-                  'SPEC SHEET: Autonomous Supply Pod v2.4 // Max Payload: 120kg // Range: 45km radius // Signal Uplink: 915MHz LoRa + SatCom // Redundancy: Dual gyro stabilization.'
-                )
-              }
+                  'TRANSPORT FLEET SPECS: MEDIC-ONE (Ground ALS) // MEDIC-TWO (Ground BLS - Active Mission) // AIR-EVAC-1 (UH-60 Medevac Helicopter - Helipad Alpha ready) // Oxygen & Trauma Kits 100% full.'
+                );
+              }}
               style={{ padding: '7px 12px' }}
             >
               SPECS
@@ -1096,15 +1188,15 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
           </div>
         </div>
 
-        {/* CARD 6: Readiness & Grid Coverage (Span 4) */}
+        {/* CARD 6: Golden Hour Compliance & Regional Coverage (Span 4) */}
         <div className="bento-col-4 bento-card-stagger" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', '--index': 6 } as React.CSSProperties}>
-          {/* Subcard A: Combat Readiness */}
+          {/* Subcard A: Golden Hour Compliance */}
           <div className="bento-card" style={{ padding: '14px' }}>
             <span className="corner-accent-tr" />
             <span className="corner-accent-bl" />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                READINESS
+                GOLDEN HOUR
               </span>
               <span
                 style={{
@@ -1116,7 +1208,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   borderRadius: '3px',
                 }}
               >
-                +0.4%
+                TARGET &lt;60m
               </span>
             </div>
             <div style={{ margin: '8px 0' }}>
@@ -1129,7 +1221,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   lineHeight: 1,
                 }}
               >
-                98.4%
+                96.4%
               </span>
             </div>
             <div
@@ -1142,18 +1234,18 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 gap: '4px',
               }}
             >
-              <Star size={12} color="#d4a373" fill="#d4a373" />
-              <span>Combat Ready</span>
+              <Clock size={12} color="#d4a373" />
+              <span>Compliant Evac</span>
             </div>
           </div>
 
-          {/* Subcard B: Active Grid Coverage */}
+          {/* Subcard B: Corridor Integrity */}
           <div className="bento-card" style={{ padding: '14px' }}>
             <span className="corner-accent-tr" />
             <span className="corner-accent-bl" />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                GRID COVERAGE
+                CORRIDORS OPEN
               </span>
               <span
                 style={{
@@ -1178,7 +1270,7 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                   lineHeight: 1,
                 }}
               >
-                80%
+                85%
               </span>
             </div>
             <div
@@ -1192,12 +1284,12 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
               }}
             >
               <Shield size={12} color="#738a65" />
-              <span>Active Sectors</span>
+              <span>7 of 8 Routes</span>
             </div>
           </div>
         </div>
 
-        {/* CARD 7: Quick Jump Tactical Defense Modules (Span 8) */}
+        {/* CARD 7: Quick Jump MediRoute Command Subsystems (Span 8) */}
         <div className="bento-card bento-col-8 bento-card-stagger" style={{ padding: '14px 18px', '--index': 7 } as React.CSSProperties}>
           <span className="corner-accent-tr" />
           <span className="corner-accent-bl" />
@@ -1211,60 +1303,60 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                 color: 'var(--text-secondary, #94a192)',
               }}
             >
-              Mission Ready Command Subsystems
+              MediRoute Medical Operations Modules
             </span>
-            <span className="tactical-badge tactical-badge-secure">C2 LINK ACTIVE</span>
+            <span className="tactical-badge tactical-badge-secure">C2 MED LINK ACTIVE</span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
             <button
               type="button"
               className="btn-tactical"
-              onClick={() => onNavigateModule('skywatch')}
+              onClick={() => handleNavigateSubTab('triage')}
               style={{ flexDirection: 'column', padding: '10px 8px', gap: '4px', height: '100%' }}
             >
-              <Crosshair size={18} color="var(--accent-sage, #738a65)" />
-              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>SKYWATCH</span>
-              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>{tracksCount} Tracks</span>
+              <ClipboardList size={18} color="var(--accent-sage, #738a65)" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>TRIAGE BOARD</span>
+              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>{immediateCount} Immediate / {delayedCount} Delayed</span>
             </button>
 
             <button
               type="button"
               className="btn-tactical"
-              onClick={() => onNavigateModule('fieldlink')}
+              onClick={() => handleNavigateSubTab('routing')}
               style={{ flexDirection: 'column', padding: '10px 8px', gap: '4px', height: '100%' }}
             >
-              <Radio size={18} color="var(--highlight-amber, #d4a373)" />
-              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>FIELDLINK</span>
-              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>{incidentsCount} Incidents</span>
+              <RouteIcon size={18} color="var(--highlight-amber, #d4a373)" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>EVAC ROUTING</span>
+              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>{blockedHazardsCount} Hazards Avoided</span>
             </button>
 
             <button
               type="button"
               className="btn-tactical"
-              onClick={() => onNavigateModule('geointel')}
+              onClick={() => handleNavigateSubTab('facilities')}
               style={{ flexDirection: 'column', padding: '10px 8px', gap: '4px', height: '100%' }}
             >
-              <Layers size={18} color="#588157" />
-              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>GEOINTEL</span>
-              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>Satellite Recon</span>
+              <Building2 size={18} color="#588157" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>FACILITIES</span>
+              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>{availableBeds}/{totalBeds} Beds Avail</span>
             </button>
 
             <button
               type="button"
               className="btn-tactical"
-              onClick={() => onNavigateModule('mediroute')}
+              onClick={() => handleNavigateSubTab('dispatch')}
               style={{ flexDirection: 'column', padding: '10px 8px', gap: '4px', height: '100%' }}
             >
-              <Activity size={18} color="#738a65" />
-              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>MEDIROUTE</span>
-              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>Triage Logistics</span>
+              <Ambulance size={18} color="#738a65" />
+              <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>DISPATCH</span>
+              <span style={{ fontSize: '0.60rem', color: 'var(--text-muted)' }}>Ground & Air Fleet</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Tactical Modal Notification Dialog */}
+      {/* 4. Tactical Modal Notification Dialog */}
       {modalNotice && (
         <div className="tactical-modal-overlay" onClick={() => setModalNotice(null)}>
           <div className="tactical-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -1295,10 +1387,10 @@ export const TacticalBentoGrid: React.FC<TacticalBentoGridProps> = ({
                     letterSpacing: '0.04em',
                   }}
                 >
-                  Tactical System Notice
+                  MediRoute Tactical System Notice
                 </h4>
                 <p style={{ fontSize: '0.62rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                  SECURE PROTOCOL MESSAGE // LINK_04
+                  SECURE MEDICAL TELEMETRY // OP-MED_01
                 </p>
               </div>
             </div>
