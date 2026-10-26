@@ -22,6 +22,8 @@ import type {
 } from '../../shared/types.ts';
 import { SeededRNG } from './seededRNG.ts';
 import { sanitizeTrack, clampThreatScore } from '../utils/numericSafety.ts';
+import { leaderElection } from '../services/coordination/leaderElection.ts';
+import { meshBus } from '../services/coordination/meshBus.ts';
 
 export const RESTRICTED_AIRSPACE_ZONES: RestrictedAirspaceZone[] = [
   {
@@ -670,6 +672,17 @@ export class SimulationEngine {
       }
     }
 
+    // 5. BROADCAST SNAPSHOT TO FOLLOWER TABS IF LEADER (FIX-10)
+    if (leaderElection.isLeader()) {
+      leaderElection.broadcastTickSnapshot({
+        tick: this.tick,
+        simulatedTime: currentState.simulatedTime,
+        tracks: [...this.tracks],
+        alerts: [...this.alerts],
+        timestamp: nowIso,
+      });
+    }
+
     return currentState;
   }
 
@@ -1241,6 +1254,53 @@ export class SimulationEngine {
    */
   public stopUpdatingTrack(trackId: string): void {
     this.stoppedTracks.add(trackId);
+  }
+
+  /**
+   * Applies tick snapshot received from the leader tab (FIX-10)
+   */
+  public applySnapshot(snapshot: {
+    tick: number;
+    simulatedTime?: string;
+    tracks: TelemetryTrack[];
+    alerts: AirspaceAlert[];
+  }): void {
+    this.tick = snapshot.tick;
+    this.tracks = [...snapshot.tracks];
+    this.alerts = [...snapshot.alerts];
+
+    const currentState = this.getState();
+    for (const listener of this.listeners) {
+      try {
+        listener(currentState);
+      } catch (err) {
+        console.error('Simulation listener error on snapshot:', err);
+      }
+    }
+  }
+
+  /**
+   * Subscribes simulation engine to multi-tab coordination & snapshots
+   */
+  public initMultiTabCoordination(): () => void {
+    const unsubSnapshots = meshBus.subscribe('TICK_SNAPSHOT', (envelope) => {
+      if (!leaderElection.isLeader() && envelope.payload) {
+        this.applySnapshot(envelope.payload);
+      }
+    });
+
+    const unsubLeader = leaderElection.onLeaderChange((isLeader) => {
+      if (isLeader) {
+        this.start();
+      } else {
+        this.stop();
+      }
+    });
+
+    return () => {
+      unsubSnapshots();
+      unsubLeader();
+    };
   }
 
   /**
